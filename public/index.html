@@ -72,17 +72,6 @@
   </div>
 </div>
 
-<!-- Seating confirmation modal (shown before dealer selection) -->
-<div id="seatConfirmModal" class="full-modal" style="display:none;">
-  <div class="full-modal-inner ng-save-inner">
-    <div class="ng-save-title">👥 Confirm Seating</div>
-    <div style="font-size:0.85em;opacity:0.65;margin-bottom:14px;">Verify players and order before dealing.<br>Use Seats ▼ in Dealer Controls to make changes first.</div>
-    <div id="seatConfirmList" style="margin-bottom:18px;"></div>
-    <button id="seatConfirmBtn">✓ Seating is Correct — Start New Game</button>
-    <button id="seatConfirmBack" class="secondary ng-cancel-btn" style="margin-top:8px;">← Back to Adjust Seats</button>
-  </div>
-</div>
-
 <!-- Game Results overlay (shown to all when End Game is pressed) -->
 <div id="gameResultsOverlay" class="full-modal" style="display:none;">
   <div class="full-modal-inner">
@@ -135,9 +124,13 @@
 
 <!-- Shuffle overlay -->
 <div id="shuffleOverlay">
-  <div class="shuffle-title">Dealer is shuffling…</div>
+  <div class="shuffle-title">🃏 Dealer is shuffling…</div>
+  <div class="shuffle-row">
+    <div class="smcard"></div><div class="smcard"></div><div class="smcard"></div>
+    <div class="smcard"></div><div class="smcard"></div>
+  </div>
   <div id="shuffleInfo"></div>
-  <div id="shuffleCardStage"></div>
+  <div class="shuffle-subtitle">Cards will be dealt shortly</div>
 </div>
 
 <!-- New Game modal (dealer selection animation) -->
@@ -359,40 +352,52 @@ function showTurnNotif(){
 function showStreetOverlay(data) {
   const overlay=document.getElementById('streetOverlay');
   const ph1=document.getElementById('soPh1'),ph2=document.getElementById('soPh2');
+  const lbl=document.getElementById('soLabel');
   const streetName=document.getElementById('soStreetName');
   const row=document.getElementById('soCardsRow');
-  const boardEl=document.getElementById('boardCards');
 
-  // Skip text-only Phase 1 — show street name + cards together immediately
-  streetName.textContent=data.street==='flop'?'The Flop':data.street==='turn'?'The Turn':'The River';
-  ph1.style.display='none'; ph2.style.display='flex';
+  lbl.textContent=data.label;
+  ph1.style.display='flex'; ph2.style.display='none';
   overlay.classList.add('active');
-  if(boardEl) boardEl.style.visibility='hidden';
 
-  const FIRST_FLIP=1400, STAGGER=320, FLIP_DUR=600, VIEW=2200;
+  // Item 8: hide the game-board community cards while the overlay is showing
+  const boardEl = document.getElementById('boardCards');
+  if (boardEl) boardEl.style.visibility = 'hidden';
+
+  const ANNOUNCE=1400, FIRST_FLIP=1400, STAGGER=320, FLIP_DUR=600;
+  const VIEW=data.runout?4000:2200;
   const n=data.cards.length;
 
-  const solo=n===1;
-  row.className='so-cards-row'+(solo?' so-solo':'');
-  row.innerHTML='';
-  const flippers=data.cards.map(c=>{
-    const wrap=document.createElement('div'); wrap.className='flip-wrap';
-    const flipper=document.createElement('div'); flipper.className='flipper';
-    const front=document.createElement('div'); front.className='flip-face flip-front'; front.appendChild(makeCardBack());
-    const rear=document.createElement('div'); rear.className='flip-face flip-rear'; rear.appendChild(makeCard(c));
-    flipper.appendChild(front); flipper.appendChild(rear);
-    wrap.appendChild(flipper); row.appendChild(wrap);
-    return flipper;
-  });
-  flippers.forEach((f,i)=>setTimeout(()=>f.classList.add('flipped'), FIRST_FLIP+i*STAGGER));
+  setTimeout(()=>{
+    const solo=n===1;
+    row.className='so-cards-row'+(solo?' so-solo':'');
+    streetName.textContent=data.street==='flop'?'The Flop':data.street==='turn'?'The Turn':'The River';
+    row.innerHTML='';
+    const flippers=data.cards.map(c=>{
+      const wrap=document.createElement('div'); wrap.className='flip-wrap';
+      const flipper=document.createElement('div'); flipper.className='flipper';
+      const front=document.createElement('div'); front.className='flip-face flip-front'; front.appendChild(makeCardBack());
+      const rear=document.createElement('div'); rear.className='flip-face flip-rear'; rear.appendChild(makeCard(c));
+      flipper.appendChild(front); flipper.appendChild(rear);
+      wrap.appendChild(flipper); row.appendChild(wrap);
+      return flipper;
+    });
+    ph1.style.display='none'; ph2.style.display='flex';
+    flippers.forEach((f,i)=>setTimeout(()=>f.classList.add('flipped'), FIRST_FLIP+i*STAGGER));
+
+    if(data.runout){
+      const allFlippedAt=FIRST_FLIP+(n-1)*STAGGER+FLIP_DUR;
+      setTimeout(()=>buildRunoutSection(data.runout, ph2), allFlippedAt);
+    }
+  }, ANNOUNCE);
 
   setTimeout(()=>{
     overlay.classList.remove('active');
     const rs=document.getElementById('soRunout');
     if(rs) rs.remove();
-    if(boardEl) boardEl.style.visibility='';
+    if (boardEl) boardEl.style.visibility = '';
     window.scrollTo({top:0,behavior:'instant'});
-  }, FIRST_FLIP+(n-1)*STAGGER+FLIP_DUR+VIEW);
+  }, ANNOUNCE+FIRST_FLIP+(n-1)*STAGGER+FLIP_DUR+VIEW);
 }
 
 function buildRunoutSection(runout, container){
@@ -481,10 +486,11 @@ function aioRemaining(board, players) {
 }
 
 function buildDrawLine(p, board, remaining, cardsLeft, claimedCards) {
+  // Returns {handLine, drawLine} strings (innerHTML)
   const handLine = compactDesc(p.desc || '');
   const allCards = [...(p.cards||[]), ...board];
 
-  // ── LEADER: show current hand + best improvement card ──
+  // ── LEADER ──
   if (p.isLeader) {
     if (cardsLeft === 0) return { handLine, drawLine: 'Leading' };
     const curEval = allCards.length >= 5 ? evaluateBest(allCards) : null;
@@ -499,16 +505,88 @@ function buildDrawLine(p, board, remaining, cardsLeft, claimedCards) {
         }
       });
     }
-    return { handLine, drawLine: bestCard ? `Leading: ${cBadge(bestCard)} for ${bestDesc}` : 'Leading' };
+    const drawLine = bestCard
+      ? `Leading: ${cBadge(bestCard)} for ${bestDesc}`
+      : 'Leading';
+    return { handLine, drawLine };
   }
 
   // ── DRAWING DEAD ──
   if (!p.outs || p.outs === 0) return { handLine, drawLine: 'Drawing dead' };
 
-  // ── ALL OTHERS: just the percentage ──
   const pct = p.totalRemaining ? Math.round(p.outs / p.totalRemaining * 100) : 0;
-  if (p.isMonteCarlo) return { handLine, drawLine: `~${pct}% equity` };
-  return { handLine, drawLine: `${pct}% to win` };
+
+  // ── MONTE CARLO (preflop, 5 cards to come) ──
+  if (p.isMonteCarlo) {
+    return { handLine, drawLine: `~${pct}% equity` };
+  }
+
+  // ── 1 CARD TO COME (river) ──
+  if (cardsLeft === 1) {
+    const winCards = (p.winningCards||[]).filter(c=>!claimedCards.has(c.r+''+c.s));
+    if (winCards.length === 0) return { handLine, drawLine: 'Drawing dead' };
+    // Group winning cards by target hand
+    const groups = {};
+    winCards.forEach(c => {
+      const ev = evaluateBest([...allCards, c]);
+      const desc = shortDesc(describeEval(ev));
+      if (!groups[desc]) groups[desc] = [];
+      groups[desc].push(c);
+    });
+    // Pick the group with the most cards (or best hand if tie)
+    const [targetHand, cards] = Object.entries(groups).sort((a,b)=>b[1].length-a[1].length)[0];
+    const cardStr = cards.map(c=>cBadge(c)).join(' or ');
+    const drawLine = `${pct}% — Needs: ${cardStr} for ${targetHand}`;
+    return { handLine, drawLine };
+  }
+
+  // ── 2 CARDS TO COME (turn+river) ──
+  // Priority 1: Trips/set draw — player has a pair (hole+board), needs 1 of 2 remaining cards
+  // This only needs 1 card on EITHER street, so same format as a direct out
+  const rankCounts = {};
+  allCards.forEach(c => rankCounts[c.r] = (rankCounts[c.r]||0)+1);
+  for (const [rankStr, cnt] of Object.entries(rankCounts)) {
+    const rank = parseInt(rankStr);
+    if (cnt === 2) { // exactly a pair
+      const tripCards = remaining.filter(c => c.r === rank);
+      if (tripCards.length > 0) {
+        const winCards = p.winningCards || [];
+        const tripsInWin = tripCards.filter(c => winCards.some(wc=>wc.r===c.r&&wc.s===c.s));
+        if (tripsInWin.length > 0) {
+          const exclusive = tripsInWin.filter(c => !claimedCards.has(c.r+''+c.s));
+          if (exclusive.length > 0) {
+            const testEv = evaluateBest([...allCards, exclusive[0]]);
+            const targetDesc = shortDesc(describeEval(testEv));
+            const cardStr = exclusive.map(c=>cBadge(c)).join(' or ');
+            return { handLine, drawLine: `${pct}% — Needs: ${cardStr} for ${targetDesc}` };
+          }
+        }
+      }
+    }
+  }
+  const suits = ['S','H','D','C'];
+  for (const suit of suits) {
+    const count = allCards.filter(c=>c.s===suit).length;
+    if (count === 3) {
+      const winCards = p.winningCards || [];
+      const allRemSuit = remaining.filter(c=>c.s===suit);
+      const usable = winCards.filter(c=>c.s===suit);
+      const excluded = allRemSuit.filter(c=>!usable.some(wc=>wc.r===c.r&&wc.s===c.s));
+      let drawLine = `${pct}% — Needs: Any 2 ${sBadge(suit)}s`;
+      if (excluded.length > 0) drawLine += ` except ${excluded.map(c=>cBadge(c)).join(' ')}`;
+      drawLine += ' for a Flush';
+      return { handLine, drawLine };
+    }
+  }
+
+  // ── OTHER 2-CARD SCENARIO ──
+  const winCards = (p.winningCards||[]).filter(c=>!claimedCards.has(c.r+''+c.s));
+  const cardStr = winCards.slice(0,8).map(c=>cBadge(c)).join(' ');
+  const more = winCards.length > 8 ? ` +${winCards.length-8} more` : '';
+  const drawLine = winCards.length > 0
+    ? `${pct}% — Needs runner-runner: ${cardStr}${more}`
+    : `${pct}% — Needs runner-runner help`;
+  return { handLine, drawLine };
 }
 
 function showAllInOverlay(data) {
@@ -710,84 +788,6 @@ socket.on('blindsReminder', data => {
   }, 3000);
 });
 
-// ── Shuffle card animation (Variant 2: riffle → lift/tilt → deal) ────
-function startShuffleAnim(stage) {
-  stage.innerHTML = '';
-  const N = 7; // cards per half
-  const sw = stage.offsetWidth || 280;
-  const cx = sw / 2 - 26;
-  const cy = 30;
-  const L = [], R = [];
-
-  for (let i = 0; i < N; i++) {
-    const c = document.createElement('div'); c.className = 'sh-card';
-    c.style.cssText = `left:${cx-35}px;top:${cy}px;transform:translateY(${-i*2}px) rotate(-9deg);z-index:${i}`;
-    stage.appendChild(c); L.push(c);
-  }
-  for (let i = 0; i < N; i++) {
-    const c = document.createElement('div'); c.className = 'sh-card';
-    c.style.cssText = `left:${cx+35}px;top:${cy}px;transform:translateY(${-i*2}px) rotate(9deg);z-index:${i}`;
-    stage.appendChild(c); R.push(c);
-  }
-
-  // Spread apart
-  setTimeout(() => {
-    L.forEach((c,i) => { c.style.transition='transform 0.35s ease-out';
-      c.style.transform=`translateX(-28px) translateY(${-i*2}px) rotate(-9deg)`; });
-    R.forEach((c,i) => { c.style.transition='transform 0.35s ease-out';
-      c.style.transform=`translateX(28px) translateY(${-i*2}px) rotate(9deg)`; });
-  }, 100);
-
-  // Riffle interleave
-  const merged = [];
-  for (let i = 0; i < N; i++) { merged.push(L[i]); merged.push(R[i]); }
-  merged.forEach((c, mi) => {
-    setTimeout(() => {
-      c.style.transition = 'all 0.15s ease-out';
-      c.style.left = cx + 'px';
-      c.style.transform = `translateY(${-mi*1.2}px) rotate(${(Math.random()-0.5)*2}deg)`;
-      c.style.zIndex = mi;
-    }, 500 + mi * 45);
-  });
-
-  // Square up
-  const sqT = 500 + merged.length * 45 + 100;
-  setTimeout(() => {
-    merged.forEach((c, mi) => {
-      c.style.transition = 'all 0.25s ease-out';
-      c.style.left = cx + 'px';
-      c.style.transform = `translateY(${-mi*1.2}px) rotate(0deg)`;
-    });
-  }, sqT);
-
-  // Lift and tilt (Variant 2) — reduced scale to avoid overlapping info text above
-  setTimeout(() => {
-    merged.forEach((c, mi) => {
-      c.style.transition = 'all 0.4s cubic-bezier(0.34,1.3,0.64,1)';
-      c.style.left = (cx - 4) + 'px';
-      c.style.top = '28px';
-      c.style.transform = `translateY(${-mi*1.4}px) rotate(-7deg) scale(1.3)`;
-      c.style.boxShadow = '0 14px 36px rgba(0,0,0,0.75)';
-      c.style.zIndex = mi;
-    });
-  }, sqT + 380);
-
-  // Deal 5 cards out
-  const dealT = sqT + 1150;
-  const dealX = [sw*0.05, sw*0.24, sw*0.45, sw*0.66, sw*0.87];
-  for (let d = 0; d < 5; d++) {
-    const card = merged[merged.length - 1 - d];
-    setTimeout(() => {
-      card.style.transition = 'all 0.35s cubic-bezier(0.215,0.61,0.355,1)';
-      card.style.left = (dealX[d] - 26) + 'px';
-      card.style.top = '18px';
-      card.style.transform = 'scale(1) rotate(0deg)';
-      card.style.zIndex = 60 + d;
-      card.style.boxShadow = '0 6px 16px rgba(0,0,0,0.6)';
-    }, dealT + d * 260);
-  }
-}
-
 // ── Shuffle overlay ───────────────────────────────────────────────────
 function doShowShuffle(data) {
   shuffleActive = true;
@@ -805,8 +805,6 @@ function doShowShuffle(data) {
       });
   }
   document.getElementById('shuffleOverlay').classList.add('active');
-  // Start the card shuffle animation
-  setTimeout(() => startShuffleAnim(document.getElementById('shuffleCardStage')), 50);
   setTimeout(() => {
     document.getElementById('shuffleOverlay').classList.remove('active');
     shuffleActive = false;
@@ -853,100 +851,46 @@ socket.on('winnerAnnounce',data=>{
   },4000);
 });
 
-// Parse hand rank from description string as sort fallback
-function handRankFromDesc(desc) {
-  if (!desc || desc === 'Folded') return 0;
-  const map = {'Royal Flush':9,'Straight Flush':8,'Four of a Kind':7,'Full House':6,
-    'Flush':5,'Straight':4,'Three of a Kind':3,'Two Pair':2,'Pair':1,'High Card':0};
-  for (const [k,v] of Object.entries(map)) { if (desc.startsWith(k)) return v; }
-  return 0;
-}
-function sortPlayers(a, b) {
-  if (a.winner && !b.winner) return -1;
-  if (!a.winner && b.winner) return 1;
-  if (a.folded && !b.folded) return 1;
-  if (!a.folded && b.folded) return -1;
-  if (!a.folded && !b.folded) {
-    // Primary: compare evals
-    if (a._eval && b._eval) {
-      const cmp = compareEval(b._eval, a._eval);
-      if (cmp !== 0) return cmp;
-    }
-    // Fallback: compare by hand type parsed from description
-    return handRankFromDesc(b.handDesc) - handRankFromDesc(a.handDesc);
-  }
-  return 0;
-}
+function buildHandResults() {
   if (!lastState || !lastState.lastHandResult) return null;
   const lr = lastState.lastHandResult;
   if (!lr.results || lr.results.length === 0) return null;
-  const board = lr.board || [];
   return {
     players: lr.results
       .filter(r => !r.sittingOut && !r.eliminated)
-      .map(r => {
-        // Re-evaluate client-side — avoids JSON serialization issues with _eval objects
-        const all = [...(r.cards||[]), ...board];
-        const ev = (!r.folded && all.length >= 5) ? evaluateBest(all) : null;
-        return {
-          name: r.name,
-          cards: r.folded ? [] : (r.cards || []),
-          handDesc: r.folded ? 'Folded' : (r.handDesc || r.handName || ''),
-          winner: r.winner,
-          folded: r.folded,
-          _eval: ev
-        };
-      })
-      .sort(sortPlayers),
-    board
+      .sort((a,b) => (b.winner?1:0)-(a.winner?1:0))
+      .map(r => ({
+        name: r.name,
+        cards: r.folded ? [] : (r.cards || []),
+        handDesc: r.folded ? 'Folded' : (r.handDesc || r.handName || ''),
+        winner: r.winner,
+        folded: r.folded
+      })),
+    board: lr.board || []
   };
 }
 
 function showRunoutResults(runout) {
   const ov = document.getElementById('allInOverlay');
+  // Switch to Results mode
   const titleEl = ov.querySelector('.aio-title');
   if (titleEl) titleEl.textContent = '🃏 Results';
   document.getElementById('aioProceedBtn').style.display = 'none';
   let closeBtn = document.getElementById('aioCloseBtn');
   if (closeBtn) closeBtn.style.display = 'block';
 
+  // Community cards (full board, all 5)
   const comm = document.getElementById('aioCommunity');
   comm.innerHTML = '';
   for (let i = 0; i < 5; i++) {
     comm.appendChild((runout.board||[])[i] ? makeCard(runout.board[i]) : makeEmpty());
   }
 
-  // Sort: winners → non-folded by hand strength → folded
+  // Player hands: winner first, then others by hand strength
   const pl = document.getElementById('aioPlayers');
   pl.innerHTML = '';
-  const sorted = [...(runout.players||[])].sort(sortPlayers);
-
-  // Assign placements with tie detection
-  function handsEqual(p1, p2) {
-    if (p1._eval && p2._eval) return compareEval(p1._eval, p2._eval) === 0;
-    return p1.handDesc === p2.handDesc && !p1.folded && !p2.folded;
-  }
-  function ordStr(n) {
-    const s=['th','st','nd','rd']; const v=n%100;
-    return n+(s[(v-20)%10]||s[v]||s[0]);
-  }
-  const labels = [];
-  let placeCounter = 2;
-  let gi = 0;
-  while (gi < sorted.length) {
-    const p = sorted[gi];
-    if (p.winner) { labels.push('🏆 Winner'); gi++; continue; }
-    if (p.folded) { labels.push('Folded'); gi++; continue; }
-    let gj = gi;
-    while (gj < sorted.length && !sorted[gj].winner && !sorted[gj].folded && handsEqual(sorted[gj], sorted[gi])) gj++;
-    const groupSize = gj - gi;
-    const label = groupSize > 1 ? '🤝 Tied' : ordStr(placeCounter);
-    for (let k = gi; k < gj; k++) labels.push(label);
-    placeCounter += groupSize;
-    gi = gj;
-  }
-
-  sorted.forEach((p, idx) => {
+  const sorted = [...(runout.players||[])].sort((a,b) => (b.winner?1:0)-(a.winner?1:0));
+  sorted.forEach((p, i) => {
     const row = document.createElement('div');
     row.className = 'aio-player' + (p.winner ? ' aio-leader' : '');
     const top = document.createElement('div'); top.className = 'aio-player-top';
@@ -959,7 +903,9 @@ function showRunoutResults(runout) {
     const handEl = document.createElement('div'); handEl.className = 'aio-hand';
     handEl.textContent = p.handDesc||''; info.appendChild(handEl);
     const status = document.createElement('div'); status.className = 'aio-odds';
-    status.textContent = labels[idx]; info.appendChild(status);
+    const places = ['','1st','2nd','3rd','4th','5th','6th','7th','8th'];
+    status.textContent = p.winner ? '🏆 Winner' : `${places[i+1]||i+1+' place'}`;
+    info.appendChild(status);
     top.appendChild(info); row.appendChild(top); pl.appendChild(row);
   });
 
@@ -1162,70 +1108,6 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
-  {
-    v:'3.8', date:'July 2025',
-    changes:[
-      'Consolidated release packaging v3.7.x fixes',
-    ]
-  },
-  {
-    v:'3.7', date:'July 2025',
-    changes:[
-      'Pre-flop betting rules: Check disabled until BB's turn; BB gets free Check if no one raised; Call disabled post-flop until someone bets',
-      'When all others are all-in, lone player no longer shows NEXT TO ACT — game auto-proceeds to runout',
-      'Results screen after every hand: sorted by hand strength, folded players below non-folded, tied hands show 🤝',
-      'All-in overlay simplified to show just win percentage ("26% to win") — card lists removed in favour of accuracy',
-      'New riffle shuffle animation — two halves interleave, deck lifts and tilts, 5 cards deal out',
-      'Street reveal (Flop/Turn/River) — text-only announce phase removed; street name appears large alongside card backs immediately',
-      'Shuffle overlay: icon removed, larger title font (matching street animation), D/SB/BB names and badges ~60% larger',
-      'Various outs calculation and results screen ranking fixes',
-    ]
-  },
-  {
-        v:'3.6', date:'July 2025',
-    changes:[
-      'All-in overlay redesigned: leader shows improvement card (e.g. "Leading: [8♦] for Four of a Kind"), trailing players show targeted draw description',
-      'Trips/set draw detection: "Needs: [7♦] or [7♠] for Three of a Kind"',
-      'Flush draw detection: "Needs: Any 2 [♥]s except [J♥] for a Flush"',
-      'Straight draw detection: "Needs: any Q for Straight — A High"',
-      'Drawing dead shown clearly when player has 0% chance',
-      'Results screen shown after every hand (not just all-in runouts)',
-      'Service worker cache versioned to avoid stale deployments',
-    ]
-  },
-  {
-    v:'3.5', date:'July 2025',
-    changes:[
-      'All-in animation reverted to manual flow — host presses ▶ after each card flip animation, no more auto-advance timing issues',
-      'Results screen shows after every hand: winner highlighted, all hands shown with placements',
-      'Results screen uses same design as the all-in overlay: community cards at top, each player\'s hole cards and hand description',
-    ]
-  },
-  {
-    v:'3.4', date:'July 2025',
-    changes:[
-      'Fixed winner announcement in all-in runout after river card — dual fallback mechanism ensures revealWinner fires correctly',
-      'End Game button always shows host a path to start the next game, even when no bust-outs were recorded',
-    ]
-  },
-  {
-    v:'3.3', date:'July 2025',
-    changes:[
-      'End Game button replaces New Game — shows Game Results overlay to all players simultaneously',
-      'Game Results screen shows final standings; host sees tournament save prompt (Yes/No)',
-      'All-in runout: after river flip animation, winner is announced automatically',
-      'After winner announcement in a runout, "Results" screen shows all final hands',
-      'newGameStarting overlay auto-closes the Game Results screen for all players when host starts new game',
-    ]
-  },
-  {
-    v:'3.2', date:'July 2025',
-    changes:[
-      'Dealer selection animation now plays on first Deal press after End Game (not immediately on End Game)',
-      'Shuffle overlay correctly queues behind dealer animation when both fire together',
-      'Zip file now named with version number (poker-app-v3.2.zip)',
-    ]
-  },
   {
     v:'3.1', date:'July 2025',
     changes:[
@@ -1445,19 +1327,11 @@ document.getElementById('versionInfo').onclick=()=>{
 // ── Host controls ─────────────────────────────────────────────────────
 function renderHostControls(state){
   hostPlayers=state.players;
-  const _scroll=window.scrollY;
+  const _scroll=window.scrollY; // save before DOM changes
+  // Update F/C/R/A/X/Undo button states (no banner, no player action list)
   const idle=state.stage==='idle';
-  const noActor=!state.nextActorName;
-  ['F','R','A'].forEach(a=>document.getElementById('hbtn'+a).disabled=idle||noActor);
-  // BB special case: pre-flop, no raise yet → BB checks for free, can't call (already paid)
-  const bbCheck=!idle&&!noActor&&state.bbCanCheck&&state.nextActorIsBB;
-  if(bbCheck){
-    document.getElementById('hbtnC').disabled=true;
-    document.getElementById('hbtnX').disabled=false;
-  }else{
-    document.getElementById('hbtnC').disabled=idle||noActor||!state.hasRaiseThisStreet;
-    document.getElementById('hbtnX').disabled=idle||noActor||state.hasRaiseThisStreet;
-  }
+  ['F','C','R','A'].forEach(a=>{document.getElementById('hbtn'+a).disabled=idle||!state.nextActorName;});
+  document.getElementById('hbtnX').disabled=idle||!state.nextActorName||state.hasRaiseThisStreet;
   document.getElementById('hbtnUndo').disabled=!state.canUndo;
 
   // Seating + bust-out + rename
@@ -1563,7 +1437,7 @@ function renderTournamentTable(data) {
   const games = data.games || [];
   const wrap = document.getElementById('tournTableWrap');
   if (games.length === 0) {
-    wrap.innerHTML = '<div class="tourn-empty">No games saved yet.<br>Press <em>End Game</em> and choose <em>Yes — Save</em> after each session.</div>';
+    wrap.innerHTML = '<div class="tourn-empty">No games saved yet.<br>Press New Game and choose <em>Yes — Save</em> after each session.</div>';
     return;
   }
   // Collect all players and their points per session
@@ -1649,44 +1523,22 @@ function showGameResults(data) {
 // Also handle server broadcast for all other players
 socket.on('gameResults', data => showGameResults(data));
 
-// ── Seating confirmation (shown before dealer selection) ─────────────
-function showSeatingConfirmation() {
-  if (!lastState) { socket.emit('startNewGame'); return; }
-  const players = lastState.players || [];
-  const list = document.getElementById('seatConfirmList');
-  list.innerHTML = '';
-  players.forEach((p, i) => {
-    const div = document.createElement('div');
-    div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);';
-    div.innerHTML = `<span style="width:22px;text-align:center;opacity:0.45;font-size:0.85em;">${i+1}</span><span style="font-weight:700;">${p.name}</span>`;
-    list.appendChild(div);
-  });
-  document.getElementById('seatConfirmModal').style.display = 'flex';
-}
-document.getElementById('seatConfirmBtn').onclick = () => {
-  document.getElementById('seatConfirmModal').style.display = 'none';
-  socket.emit('startNewGame');
-};
-document.getElementById('seatConfirmBack').onclick = () => {
-  document.getElementById('seatConfirmModal').style.display = 'none';
-};
-
 document.getElementById('grClose').onclick = () => {
   document.getElementById('gameResultsOverlay').style.display = 'none';
 };
 document.getElementById('grSaveYes').onclick = () => {
   document.getElementById('gameResultsOverlay').style.display = 'none';
   socket.emit('saveTournamentGame', result => {
-    ngSaveConfirmFlash(result.success ? '✓ Saved to tournament!' : '— Save failed.', showSeatingConfirmation);
+    ngSaveConfirmFlash(result.success ? '✓ Saved to tournament!' : '— Save failed.', () => socket.emit('startNewGame'));
   });
 };
 document.getElementById('grSaveNo').onclick = () => {
   document.getElementById('gameResultsOverlay').style.display = 'none';
-  ngSaveConfirmFlash('— Not saved to tournament.', showSeatingConfirmation);
+  ngSaveConfirmFlash('— Not saved to tournament.', () => socket.emit('startNewGame'));
 };
 document.getElementById('grStartOnly').onclick = () => {
   document.getElementById('gameResultsOverlay').style.display = 'none';
-  showSeatingConfirmation();
+  socket.emit('startNewGame');
 };
 
 
