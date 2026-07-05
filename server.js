@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.6';
+const VERSION = '3.8';
 const LAST_UPDATED = 'July 2025';
 
 const fs = require('fs');
@@ -67,6 +67,7 @@ let deck=[], board=[], holeCards={};
 let stage='idle', dealerIdx=-1;
 let actionLog=[], lastHandResult=null;
 let actingQueue=[], hasRaiseThisStreet=false, undoState=null;
+let bbCanCheck=false; // true pre-flop when no one has raised — gives BB the option to Check
 let cardBackStyle='roatan';
 let skipDealerAdvance=false;
 let pendingRunoutStage=null;
@@ -299,6 +300,7 @@ function publicState(){
     nextActorIdx:nextActor,
     nextActorName:nextActor>=0&&players[nextActor]?players[nextActor].name:null,
     hasRaiseThisStreet, canUndo:undoState!==null,
+    bbCanCheck, nextActorIsBB:stage==='preflop'&&actingQueue.length>0&&actingQueue[0]===getBB(),
     revealedHoleCards,
     players:players.map((p,i)=>({
       name:p.name, connected:p.connected, folded:p.folded,
@@ -507,6 +509,8 @@ io.on('connection',socket=>{
     }
     players.forEach(p=>sendCards(p.id));
     actingQueue=buildQueue(getBB()); // UTG first, BB last
+    hasRaiseThisStreet=true;  // pre-flop: blinds already out = there's a bet to call
+    bbCanCheck=true;           // BB gets free check option if no one raises
     addLog('--- New hand. Dealer: '+players[dealerIdx].name+' ---');
     const sbIdx=getSB(), bbIdx=getBB();
     const currentDealerName=players[dealerIdx]?players[dealerIdx].name:null;
@@ -533,7 +537,10 @@ io.on('connection',socket=>{
     const playerIdx=actingQueue[0];
     const p=players[playerIdx];
     if(!p) return;
-    if(action==='X'&&hasRaiseThisStreet) return;
+    // Block check if there's been a raise — UNLESS it's the BB's free check option pre-flop
+    const nextActor=actingQueue.length>0?actingQueue[0]:-1;
+    const isBBCheck=bbCanCheck&&stage==='preflop'&&nextActor===getBB();
+    if(action==='X'&&hasRaiseThisStreet&&!isBBCheck) return;
     const labels={F:'Fold',C:'Call',R:'Raise',A:'All In',X:'Check'};
     const logEntry=p.name+': '+(labels[action]||action);
     saveUndo(logEntry);
@@ -541,6 +548,7 @@ io.on('connection',socket=>{
     if(action==='F') p.folded=true;
     if(action==='A') p.allIn=true;
     if(action==='R'||action==='A'){
+      bbCanCheck=false; // someone raised — BB loses free check option
       hasRaiseThisStreet=true;
       // All-in clears C, X and previous R (it's a re-raise); regular raise only clears C and X
       const toClear=action==='A'?['C','X','R']:['C','X'];
@@ -601,19 +609,28 @@ io.on('connection',socket=>{
     if(fromStage==='preflop'){
       deck.pop(); board.push(deck.pop(),deck.pop(),deck.pop()); stage='flop';
       players.filter(p=>!p.folded&&!p.allIn&&!p.sittingOut).forEach(p=>p.action=null);
-      actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; undoState=null;
+      actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; bbCanCheck=false; undoState=null;
+      // If ≤1 player still has chips (others all-in), no betting needed — clear queue for runout
+      {const wc=active().filter(p=>!p.allIn&&!p.sittingOut&&!p.eliminated).length;
+       if(wc<=1&&active().filter(p=>!p.sittingOut&&!p.eliminated).some(p=>p.allIn)) actingQueue=[];}
       addLog('Flop: '+board.slice(0,3).map(c=>cardLabel(c)).join(' '));
       io.emit('streetReveal',{street:'flop',label:'The Flop!',cards:board.slice(0,3)});
     } else if(fromStage==='flop'){
       deck.pop(); board.push(deck.pop()); stage='turn';
       players.filter(p=>!p.folded&&!p.allIn&&!p.sittingOut).forEach(p=>p.action=null);
-      actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; undoState=null;
+      actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; bbCanCheck=false; undoState=null;
+      // If ≤1 player still has chips (others all-in), no betting needed — clear queue for runout
+      {const wc=active().filter(p=>!p.allIn&&!p.sittingOut&&!p.eliminated).length;
+       if(wc<=1&&active().filter(p=>!p.sittingOut&&!p.eliminated).some(p=>p.allIn)) actingQueue=[];}
       addLog('Turn: '+cardLabel(board[3]));
       io.emit('streetReveal',{street:'turn',label:'The Turn',cards:[board[3]]});
     } else if(fromStage==='turn'){
       deck.pop(); board.push(deck.pop()); stage='river';
       players.filter(p=>!p.folded&&!p.allIn&&!p.sittingOut).forEach(p=>p.action=null);
-      actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; undoState=null;
+      actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; bbCanCheck=false; undoState=null;
+      // If ≤1 player still has chips (others all-in), no betting needed — clear queue for runout
+      {const wc=active().filter(p=>!p.allIn&&!p.sittingOut&&!p.eliminated).length;
+       if(wc<=1&&active().filter(p=>!p.sittingOut&&!p.eliminated).some(p=>p.allIn)) actingQueue=[];}
       addLog('River: '+cardLabel(board[4]));
       io.emit('streetReveal',{street:'river',label:'The River',cards:[board[4]]});
     }
