@@ -194,8 +194,9 @@ button.gold { background:#d4af37; color:#111; }
 }
 #shuffleOverlay.active { display:flex; }
 .shuffle-title {
-  font-size:2.1em; font-weight:900;
+  font-size:1.3em; font-weight:700;
   color:#d4af37; text-align:center;
+  animation:pulse 0.6s ease-in-out infinite alternate;
 }
 .shuffle-subtitle { font-size:0.85em; opacity:0.55; text-align:center; }
 .shuffle-row { display:flex; gap:8px; perspective:300px; }
@@ -269,9 +270,9 @@ button.gold { background:#d4af37; color:#111; }
 }
 
 .so-street-name {
-  font-size:2.1em; font-weight:900; color:#d4af37;
-  text-align:center; line-height:1.25;
-  animation:soSlide 0.55s cubic-bezier(0.2,0.8,0.3,1);
+  font-size:1em; font-weight:700; color:#d4af37;
+  opacity:0.65; text-transform:uppercase; letter-spacing:2px;
+  text-align:center; margin-bottom:4px;
 }
 
 .so-cards-wrap {
@@ -559,10 +560,8 @@ button.gold { background:#d4af37; color:#111; }
 .dp-roatan { background:#0a7a9a url('/img/card-roatan.jpg') center/cover no-repeat; }
 
 /* ═══ SHUFFLE OVERLAY: DEALER/SB/BB INFO ═══ */
-#shuffleInfo { display:flex; flex-direction:column; gap:12px; align-items:center; margin-top:4px; }
-.sh-role { display:flex; align-items:center; gap:12px; font-size:1.65em; font-weight:700; }
-/* Larger badges specifically inside the shuffle overlay */
-#shuffleInfo .badge { width:40px; height:40px; font-size:0.65em; }
+#shuffleInfo { display:flex; flex-direction:column; gap:8px; align-items:center; margin-top:8px; }
+.sh-role { display:flex; align-items:center; gap:8px; font-size:1.05em; font-weight:700; }
 
 /* ═══ ALL-IN RUNOUT: HAND DISPLAY SECTION ═══ */
 .runout-wrap { width:100%; max-width:420px; }
@@ -763,17 +762,3 @@ button.gold { background:#d4af37; color:#111; }
 }
 .tourn-table tbody td.tc-name { background:#111827; }
 .tr-leader td.tc-name { background:#1e2d1e; }
-
-/* ═══ SHUFFLE ANIMATION ═══ */
-#shuffleCardStage {
-  width: 100%; max-width: 320px; height: 155px;
-  position: relative; margin: 8px auto 4px;
-}
-.sh-card {
-  width: 52px; height: 76px; border-radius: 8px; position: absolute;
-  background: #0a7a9a url('/img/card-roatan.jpg') center/cover no-repeat;
-  border: 2px solid rgba(255,255,255,0.3);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-  transform-origin: center center;
-  will-change: transform;
-}
