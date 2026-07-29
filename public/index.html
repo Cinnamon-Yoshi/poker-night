@@ -1133,10 +1133,9 @@ function updateNButton(state){
     btn.innerHTML='<span class="bl">&#127942;</span><span class="bs">WIN</span>';
     btn.disabled=false;
     btn.style.background='#d4af37'; btn.style.color='#111';
-    btn.onclick=()=>socket.emit('declareFoldWinner');
     return;
   }
-  btn.onclick=null; // reset for normal flow
+  btn.onclick = state.foldWinner ? ()=>socket.emit('declareFoldWinner') : doNext;
   // During runout preview: N is blocked — host uses Proceed button instead
   if(state.pendingRunout){
     btn.innerHTML='<span class="bl">&#9646;&#9646;</span><span class="bs">WAIT</span>';
