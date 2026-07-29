@@ -883,6 +883,7 @@ function sortPlayers(a, b) {
   }
   return 0;
 }
+function buildResultsData() {
   if (!lastState || !lastState.lastHandResult) return null;
   const lr = lastState.lastHandResult;
   if (!lr.results || lr.results.length === 0) return null;
@@ -1184,17 +1185,19 @@ function renderPlayerActionBar(state){
 
   const canCheck = !state.hasRaiseThisStreet || (state.bbCanCheck && state.nextActorIsBB);
   if (canCheck) {
-    btns.innerHTML =
-      '<button class="pab-btn fold"  onclick="playerAct(\'fold\')">Fold</button>' +
-      '<button class="pab-btn check" onclick="playerAct(\'check\')">Check</button>' +
-      '<button class="pab-btn raise" onclick="playerAct(\'raise\')">Raise</button>' +
-      '<button class="pab-btn allin" onclick="playerAct(\'allin\')">All In</button>';
+    btns.innerHTML = [
+      `<button class="pab-btn fold"  onclick="playerAct('fold')">Fold</button>`,
+      `<button class="pab-btn check" onclick="playerAct('check')">Check</button>`,
+      `<button class="pab-btn raise" onclick="playerAct('raise')">Raise</button>`,
+      `<button class="pab-btn allin" onclick="playerAct('allin')">All In</button>`
+    ].join('');
   } else {
-    btns.innerHTML =
-      '<button class="pab-btn fold"  onclick="playerAct(\'fold\')">Fold</button>' +
-      '<button class="pab-btn call"  onclick="playerAct(\'call\')">Call</button>' +
-      '<button class="pab-btn raise" onclick="playerAct(\'raise\')">Raise</button>' +
-      '<button class="pab-btn allin" onclick="playerAct(\'allin\')">All In</button>';
+    btns.innerHTML = [
+      `<button class="pab-btn fold"  onclick="playerAct('fold')">Fold</button>`,
+      `<button class="pab-btn call"  onclick="playerAct('call')">Call</button>`,
+      `<button class="pab-btn raise" onclick="playerAct('raise')">Raise</button>`,
+      `<button class="pab-btn allin" onclick="playerAct('allin')">All In</button>`
+    ].join('');
   }
   bar.classList.remove('player-action-hidden');
 }
@@ -1224,7 +1227,7 @@ const CHANGELOG = [
   {
     v:'3.7', date:'July 2025',
     changes:[
-      'Pre-flop betting rules: Check disabled until BB's turn; BB gets free Check if no one raised; Call disabled post-flop until someone bets',
+      'Pre-flop betting rules: Check disabled until BBs turn; BB gets free Check if no one raised; Call disabled post-flop until someone bets',
       'When all others are all-in, lone player no longer shows NEXT TO ACT — game auto-proceeds to runout',
       'Results screen after every hand: sorted by hand strength, folded players below non-folded, tied hands show 🤝',
       'All-in overlay simplified to show just win percentage ("26% to win") — card lists removed in favour of accuracy',
