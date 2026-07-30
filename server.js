@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.18';
+const VERSION = '3.18.1';
 const LAST_UPDATED = 'July 2025';
 
 const fs = require('fs');
@@ -73,7 +73,7 @@ let skipDealerAdvance=false;
 let pendingRunoutStage=null;
 let pendingDealerAnimation=false;
 let isRunoutSession=false; // true while an all-in runout is in progress; used for Results screen
-let allInLogIdx={};        // player name -> actionLog index of their "All In" line, for this hand
+let lastActionLogIdx={};   // player name -> actionLog index of their most recent action line, for this hand
 let allInCardsRevealed=false; // true once this hand's all-in cards have been logged
 let lastLeaderNames=[];    // leader(s) as of the last logged runout update, for this hand
 // Blind reminder tracking
@@ -138,27 +138,58 @@ function currentHandLog(){
   return [...actionLog];
 }
 
-function describeLeaderChange(preview, previousLeaderNames){
+// Matches the client's compactDesc() — "Fives & Threes" -> "5s & 3s", etc. —
+// so the log reads the same notation as the Hands Revealed / Results screens.
+function compactDesc(str){
+  if(!str) return '';
+  const map={
+    'Aces':'As','Kings':'Ks','Queens':'Qs','Jacks':'Js','Tens':'10s',
+    'Nines':'9s','Eights':'8s','Sevens':'7s','Sixes':'6s','Fives':'5s',
+    'Fours':'4s','Threes':'3s','Twos':'2s',
+    'Ace':'A','King':'K','Queen':'Q','Jack':'J','Ten':'10',
+    'Nine':'9','Eight':'8','Seven':'7','Six':'6','Five':'5',
+    'Four':'4','Three':'3','Two':'2'
+  };
+  let r=str;
+  Object.entries(map).forEach(([k,v])=>{ r=r.replace(new RegExp('\\b'+k+'\\b','g'), v); });
+  return r.trim();
+}
+
+// Builds one log line covering who leads (and whether that changed since the
+// last street) plus every other player's current hand, all in the same
+// compact notation shown on screen.
+function describeRunoutUpdate(preview, previousLeaderNames){
   const leaders=preview.leaderNames||[];
   if(leaders.length===0) return null;
-  const descOf=name=>{
-    const pd=(preview.players||[]).find(p=>p.name===name);
-    return pd&&pd.desc?pd.desc:'';
-  };
+  const byName={};
+  (preview.players||[]).forEach(pd=>{ byName[pd.name]=pd; });
+  const descOf=name=>compactDesc((byName[name]&&byName[name].desc)||'');
+
+  let leadPhrase;
   if(leaders.length>1){
     const desc=descOf(leaders[0]);
-    return leaders.join(' and ')+' are tied for the lead'+(desc?' with '+desc:'');
+    leadPhrase=leaders.join(' and ')+' are tied for the lead'+(desc?' with '+desc:'');
+  } else {
+    const name=leaders[0];
+    const desc=descOf(name);
+    const sameAsBefore=previousLeaderNames.length===1&&previousLeaderNames[0]===name;
+    if(previousLeaderNames.length===0) leadPhrase=name+' leads'+(desc?' with '+desc:'');
+    else if(sameAsBefore) leadPhrase=name+' still leads'+(desc?' with '+desc:'');
+    else leadPhrase=name+' took over the lead'+(desc?' with '+desc:'');
   }
-  const name=leaders[0];
-  const desc=descOf(name);
-  const sameAsBefore=previousLeaderNames.length===1&&previousLeaderNames[0]===name;
-  if(previousLeaderNames.length===0){
-    return name+' leads'+(desc?' with '+desc:'');
-  }
-  if(sameAsBefore){
-    return name+' still leads'+(desc?' with '+desc:'');
-  }
-  return name+' took over the lead'+(desc?' with '+desc:'');
+
+  const others=(preview.players||[]).filter(pd=>!leaders.includes(pd.name));
+  const otherParts=others.map(pd=>{
+    const desc=compactDesc(pd.desc||'');
+    let pctStr='';
+    if(pd.totalRemaining){
+      const pct=Math.round((pd.outs||0)/pd.totalRemaining*100);
+      pctStr=' ('+pct+'%'+(pd.isMonteCarlo?' equity':' to win')+')';
+    }
+    return pd.name+': '+desc+pctStr;
+  });
+
+  return leadPhrase+'.'+(otherParts.length?' '+otherParts.join('; ')+'.':'');
 }
 
 function computeRunoutData(board){
@@ -522,7 +553,7 @@ io.on('connection',socket=>{
     const eligible=players.filter(p=>!p.sittingOut);
     if(stage!=='idle'||eligible.length<2) return;
     deck=freshDeck(); board=[]; holeCards={}; lastHandResult=null;
-    allInLogIdx={}; allInCardsRevealed=false; lastLeaderNames=[];
+    lastActionLogIdx={}; allInCardsRevealed=false; lastLeaderNames=[];
 
     // Reset non-sitting-out players; sitting-out treated as pre-folded
     players.forEach(p=>{
@@ -609,7 +640,7 @@ io.on('connection',socket=>{
       actingQueue.shift();
     }
     addLog(logEntry);
-    if(action==='A') allInLogIdx[p.name]=actionLog.length-1;
+    lastActionLogIdx[p.name]=actionLog.length-1;
     broadcast();
   });
 
@@ -631,6 +662,7 @@ io.on('connection',socket=>{
   });
 
   socket.on('revealNext',()=>{
+    if(pendingRunoutStage!==null) return; // already showing a preview, waiting on Proceed
     if(!canRevealNext()) return;
     // Guard: if only 1 player remains (fold-win), don't reveal — host should tap WIN instead
     if(active().filter(p=>!p.eliminated).length<=1) return;
@@ -639,21 +671,23 @@ io.on('connection',socket=>{
       const preview=computeRunoutData(board);
 
       // First time this hand's cards are revealed: fill in each player's
-      // earlier "All In" log line with their hole cards, now that everyone
-      // can see them on the Hands Revealed screen anyway
+      // most recent action line (Call/Check/All In) with their hole cards,
+      // now that everyone can see them on the Hands Revealed screen anyway
       if(!allInCardsRevealed){
         allInCardsRevealed=true;
         preview.players.forEach(pd=>{
-          const idx=allInLogIdx[pd.name];
-          if(idx!==undefined&&actionLog[idx]!==undefined){
-            actionLog[idx]=pd.name+': All In ('+pd.cards.map(c=>cardLabel(c)).join(' ')+')';
+          const idx=lastActionLogIdx[pd.name];
+          const m=idx!==undefined&&actionLog[idx]!==undefined?actionLog[idx].match(/^(.*): (Fold|Call|Raise|All In|Check)$/):null;
+          if(m){
+            actionLog[idx]=pd.name+': '+m[2]+' ('+pd.cards.map(c=>cardLabel(c)).join(' ')+')';
           }
         });
       }
 
-      // Log who is leading heading into this street
-      const leaderMsg=describeLeaderChange(preview,lastLeaderNames);
-      if(leaderMsg) addLog(leaderMsg);
+      // Log who is leading heading into this street, plus every other
+      // player's current hand
+      const updateMsg=describeRunoutUpdate(preview,lastLeaderNames);
+      if(updateMsg) addLog(updateMsg);
       lastLeaderNames=preview.leaderNames||[];
 
       pendingRunoutStage=stage;
