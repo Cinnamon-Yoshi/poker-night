@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.13';
+const VERSION = '3.13.1';
 const LAST_UPDATED = 'July 2025';
 
 const fs = require('fs');
@@ -274,7 +274,14 @@ function canRevealWinner(){
   if(stage==='idle') return false;
   const act=active();
   if(act.length<=1) return true;
-  if(stage==='river'){pruneQueue();return actingQueue.length===0&&act.every(p=>p.action!==null);}
+  if(stage==='river'){
+    pruneQueue();
+    if(actingQueue.length!==0) return false;
+    // All-in runout on river: Phone's action is null but everyone else is all-in — still reveal
+    const withChips=act.filter(p=>!p.allIn&&!p.sittingOut&&!p.eliminated).length;
+    if(withChips<=1&&act.some(p=>p.allIn)) return true;
+    return act.every(p=>p.action!==null);
+  }
   return false;
 }
 
