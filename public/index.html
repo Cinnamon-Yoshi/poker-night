@@ -1173,16 +1173,25 @@ function renderPlayerActionBar(state){
   const me = state.players.find(p => p.name === myName);
 
   // Show proceed button for host when all players have acted and it's time to advance
-  if (isHost && state.stage !== 'idle' && !state.foldWinner && !state.pendingRunout) {
-    const noOneActing = !state.nextActorName;
-    if (noOneActing && (state.canRevealNext || state.canRevealWinner)) {
-      const label = state.stage === 'preflop' ? 'Deal the Flop →'
-                  : state.stage === 'flop'    ? 'Deal the Turn →'
-                  : state.stage === 'turn'    ? 'Deal the River →'
-                  : 'Reveal Winner →';
-      btns.innerHTML = `<button class="pab-btn" onclick="doNext()" style="background:#d4af37;color:#111;font-size:1.05em;">${label}</button>`;
+  if (isHost && !state.foldWinner) {
+    // After hand ends — prompt to deal next hand
+    if (state.stage === 'idle' && state.playerCount >= 2) {
+      btns.innerHTML = `<button class="pab-btn" onclick="doNext()" style="background:#d4af37;color:#111;font-size:1.05em;">Deal Next Hand →</button>`;
       bar.classList.remove('player-action-hidden');
       return;
+    }
+    // Mid-hand — prompt to advance street when all players have acted
+    if (state.stage !== 'idle' && !state.pendingRunout) {
+      const noOneActing = !state.nextActorName;
+      if (noOneActing && (state.canRevealNext || state.canRevealWinner)) {
+        const label = state.stage === 'preflop' ? 'Deal the Flop →'
+                    : state.stage === 'flop'    ? 'Deal the Turn →'
+                    : state.stage === 'turn'    ? 'Deal the River →'
+                    : 'Reveal Winner →';
+        btns.innerHTML = `<button class="pab-btn" onclick="doNext()" style="background:#d4af37;color:#111;font-size:1.05em;">${label}</button>`;
+        bar.classList.remove('player-action-hidden');
+        return;
+      }
     }
   }
 
