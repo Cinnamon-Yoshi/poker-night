@@ -589,6 +589,8 @@ io.on('connection',socket=>{
 
   socket.on('revealNext',()=>{
     if(!canRevealNext()) return;
+    // Guard: if only 1 player remains (fold-win), don't reveal — host should tap WIN instead
+    if(active().filter(p=>!p.eliminated).length<=1) return;
     // If all players are all-in, show preview BEFORE dealing cards
     if(isAllInRunout()){
       const preview=computeRunoutData(board);
