@@ -817,27 +817,4 @@ button.gold { background:#d4af37; color:#111; }
   padding: 0 6px;
 }
 
-/* ═══ HOST PROCEED OVERLAY ═══ */
-#proceedOverlay {
-  position:fixed; inset:0;
-  background:rgba(15,60,35,0.96);
-  display:none; flex-direction:column;
-  align-items:center; justify-content:center;
-  gap:24px; z-index:1009; cursor:pointer;
-}
-#proceedOverlay .po-label {
-  font-size:0.9em; font-weight:700; color:rgba(255,255,255,0.5);
-  text-transform:uppercase; letter-spacing:2px;
-}
-#proceedOverlay .po-btn {
-  background:#d4af37; color:#111;
-  font-size:1.6em; font-weight:900;
-  padding:20px 40px; border-radius:16px;
-  box-shadow:0 8px 32px rgba(0,0,0,0.5);
-}
-.po-dismiss {
-  font-size:0.85em; color:rgba(255,255,255,0.45);
-  cursor:pointer; padding:8px 16px; border-radius:8px;
-  border:1px solid rgba(255,255,255,0.2);
-}
-.po-dismiss:hover { color:rgba(255,255,255,0.7); border-color:rgba(255,255,255,0.4); }
+
