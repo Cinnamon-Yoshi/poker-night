@@ -1283,6 +1283,15 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.18.1', date:'July 2026',
+    changes:[
+      'Fixed duplicate leader lines in the action log — revealNext could fire twice before Proceed was clicked, logging the same street update twice',
+      'All-in hole cards now get attached to whatever the players actual last action was (Call or Check as well as All In), not just literal All In lines',
+      'Runout log lines now use the same compact card notation as the on-screen hand descriptions (5s and 3s, not Fives and Threes)',
+      'Runout log lines now also record every other players current hand and odds, not just the leader',
+    ]
+  },
+  {
     v:'3.18', date:'July 2026',
     changes:[
       'All-in action log lines now include hole cards once cards are actually revealed on the table — not the instant someone goes all-in, so nothing leaks early',
