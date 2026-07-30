@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.17.1';
+const VERSION = '3.18';
 const LAST_UPDATED = 'July 2025';
 
 const fs = require('fs');
@@ -73,6 +73,9 @@ let skipDealerAdvance=false;
 let pendingRunoutStage=null;
 let pendingDealerAnimation=false;
 let isRunoutSession=false; // true while an all-in runout is in progress; used for Results screen
+let allInLogIdx={};        // player name -> actionLog index of their "All In" line, for this hand
+let allInCardsRevealed=false; // true once this hand's all-in cards have been logged
+let lastLeaderNames=[];    // leader(s) as of the last logged runout update, for this hand
 // Blind reminder tracking
 let initialDealerName=null;
 let firstHandDealt=false;
@@ -126,6 +129,36 @@ function isAllInRunout(){
   // 2. At most 1 player still has chips — if 2+ have chips they can still side-pot
   const withChips=act.filter(p=>!p.allIn).length;
   return actingQueue.length===0 && withChips<=1 && act.some(p=>p.allIn);
+}
+
+function currentHandLog(){
+  for(let i=actionLog.length-1;i>=0;i--){
+    if(actionLog[i].startsWith('--- New hand')) return actionLog.slice(i);
+  }
+  return [...actionLog];
+}
+
+function describeLeaderChange(preview, previousLeaderNames){
+  const leaders=preview.leaderNames||[];
+  if(leaders.length===0) return null;
+  const descOf=name=>{
+    const pd=(preview.players||[]).find(p=>p.name===name);
+    return pd&&pd.desc?pd.desc:'';
+  };
+  if(leaders.length>1){
+    const desc=descOf(leaders[0]);
+    return leaders.join(' and ')+' are tied for the lead'+(desc?' with '+desc:'');
+  }
+  const name=leaders[0];
+  const desc=descOf(name);
+  const sameAsBefore=previousLeaderNames.length===1&&previousLeaderNames[0]===name;
+  if(previousLeaderNames.length===0){
+    return name+' leads'+(desc?' with '+desc:'');
+  }
+  if(sameAsBefore){
+    return name+' still leads'+(desc?' with '+desc:'');
+  }
+  return name+' took over the lead'+(desc?' with '+desc:'');
 }
 
 function computeRunoutData(board){
@@ -489,6 +522,7 @@ io.on('connection',socket=>{
     const eligible=players.filter(p=>!p.sittingOut);
     if(stage!=='idle'||eligible.length<2) return;
     deck=freshDeck(); board=[]; holeCards={}; lastHandResult=null;
+    allInLogIdx={}; allInCardsRevealed=false; lastLeaderNames=[];
 
     // Reset non-sitting-out players; sitting-out treated as pre-folded
     players.forEach(p=>{
@@ -575,6 +609,7 @@ io.on('connection',socket=>{
       actingQueue.shift();
     }
     addLog(logEntry);
+    if(action==='A') allInLogIdx[p.name]=actionLog.length-1;
     broadcast();
   });
 
@@ -602,8 +637,27 @@ io.on('connection',socket=>{
     // If all players are all-in, show preview BEFORE dealing cards
     if(isAllInRunout()){
       const preview=computeRunoutData(board);
+
+      // First time this hand's cards are revealed: fill in each player's
+      // earlier "All In" log line with their hole cards, now that everyone
+      // can see them on the Hands Revealed screen anyway
+      if(!allInCardsRevealed){
+        allInCardsRevealed=true;
+        preview.players.forEach(pd=>{
+          const idx=allInLogIdx[pd.name];
+          if(idx!==undefined&&actionLog[idx]!==undefined){
+            actionLog[idx]=pd.name+': All In ('+pd.cards.map(c=>cardLabel(c)).join(' ')+')';
+          }
+        });
+      }
+
+      // Log who is leading heading into this street
+      const leaderMsg=describeLeaderChange(preview,lastLeaderNames);
+      if(leaderMsg) addLog(leaderMsg);
+      lastLeaderNames=preview.leaderNames||[];
+
       pendingRunoutStage=stage;
-      io.emit('allInRunoutPreview',{board:[...board],preview,nextStreet:stage==='preflop'?'flop':stage==='flop'?'turn':'river'});
+      io.emit('allInRunoutPreview',{board:[...board],preview,handLog:currentHandLog(),nextStreet:stage==='preflop'?'flop':stage==='flop'?'turn':'river'});
       return; // wait for proceedRunout
     }
     doRevealNext(stage);
