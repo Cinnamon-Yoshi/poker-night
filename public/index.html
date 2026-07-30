@@ -235,7 +235,7 @@
 
     <!-- Player self-action bar (shows between Your Cards and At the Table when it's your turn) -->
     <div id="playerActionBar" class="player-action-bar player-action-hidden">
-      <div class="player-action-label">Your Turn</div>
+      <div class="player-action-label" id="playerActionLabel">Your Turn</div>
       <div class="player-action-btns" id="playerActionBtns"></div>
     </div>
 
@@ -297,7 +297,7 @@
           <button class="secondary" id="newGameBtn">&#128683; End Game</button>
           <button class="secondary" id="toggleSeatsBtn">&#129489; Seats &#9660;</button>
         </div>
-        <div id="seatSection" style="margin-top:14px;">
+        <div id="seatSection" style="margin-top:14px;display:none;">
           <div class="label">Seating Order</div>
           <div id="hostSeatList"></div>
         </div>
@@ -345,8 +345,16 @@ let viewingCards=false;
 // ── Turn notification ────────────────────────────────────────────────
 function showTurnNotif(){
   const el=document.getElementById('turnNotif');
+  // Build content: card back image + text
+  const card=makeCardBack();
+  card.style.cssText='width:90px;height:130px;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,0.45);flex-shrink:0;';
+  el.innerHTML='';
+  el.appendChild(card);
+  const txt=document.createElement('div');
+  txt.textContent='Your turn!';
+  el.appendChild(txt);
   el.classList.remove('active');
-  void el.offsetWidth; // restart animation
+  void el.offsetWidth;
   el.classList.add('active');
   clearTimeout(window._tnTimer);
   window._tnTimer=setTimeout(()=>el.classList.remove('active'),2500);
@@ -363,6 +371,7 @@ function showStreetOverlay(data) {
   const boardEl=document.getElementById('boardCards');
 
   // Skip text-only Phase 1 — show street name + cards together immediately
+  streetAnimActive = true;
   streetName.textContent=data.street==='flop'?'The Flop':data.street==='turn'?'The Turn':'The River';
   ph1.style.display='none'; ph2.style.display='flex';
   overlay.classList.add('active');
@@ -391,6 +400,8 @@ function showStreetOverlay(data) {
     if(rs) rs.remove();
     if(boardEl) boardEl.style.visibility='';
     window.scrollTo({top:0,behavior:'instant'});
+    streetAnimActive = false;
+    if(pendingMyTurn){ showTurnNotif(); pendingMyTurn=false; }
   }, FIRST_FLIP+(n-1)*STAGGER+FLIP_DUR+VIEW);
 }
 
@@ -1012,6 +1023,7 @@ socket.on('yourCards',cards=>{
 let wasMyCurrent=false;
 let shuffleActive=false;
 let pendingMyTurn=false;
+let streetAnimActive=false;
 let currentCardBack='blue-diamond';
 
 // ── Card back / deck management ──────────────────────────────────────
@@ -1060,7 +1072,7 @@ socket.on('state',state=>{
   const meInState=state.players.find(p=>p.name===myName);
   const isMeCurrent=!!(meInState&&meInState.isCurrent);
   if(isMeCurrent&&!wasMyCurrent){
-    if(shuffleActive) pendingMyTurn=true;
+    if(shuffleActive||streetAnimActive) pendingMyTurn=true;
     else showTurnNotif();
   }
   wasMyCurrent=isMeCurrent;
@@ -1175,6 +1187,7 @@ function renderPlayerActionBar(state){
   // Host proceed button — shown inline in action bar
   if (isHost && !state.foldWinner) {
     if (state.stage === 'idle' && state.playerCount >= 2) {
+      document.getElementById('playerActionLabel').style.display = 'none';
       btns.innerHTML = `<button class="pab-btn" onclick="doNext()" style="background:#d4af37;color:#111;font-size:1.05em;width:100%;">Deal Next Hand →</button>`;
       bar.classList.remove('player-action-hidden');
       return;
@@ -1186,6 +1199,7 @@ function renderPlayerActionBar(state){
                     : state.stage === 'flop'    ? 'Deal the Turn →'
                     : state.stage === 'turn'    ? 'Deal the River →'
                     : 'Reveal Winner →';
+        document.getElementById('playerActionLabel').style.display = 'none';
         btns.innerHTML = `<button class="pab-btn" onclick="doNext()" style="background:#d4af37;color:#111;font-size:1.05em;width:100%;">${label}</button>`;
         bar.classList.remove('player-action-hidden');
         return;
@@ -1196,6 +1210,7 @@ function renderPlayerActionBar(state){
   // Show action bar when it's this player's turn
   const show = me && me.isCurrent && state.stage !== 'idle' && !state.foldWinner;
   if (!show) { bar.classList.add('player-action-hidden'); return; }
+  document.getElementById('playerActionLabel').style.display = '';
 
   const canCheck = !state.hasRaiseThisStreet || (state.bbCanCheck && state.nextActorIsBB);
   if (canCheck) {
@@ -1225,6 +1240,17 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.12', date:'July 2026',
+    changes:[
+      'Seats section in dealer controls now collapsed by default — tap Seats to expand',
+      'Shuffle overlay D/SB/BB names now left-aligned with margin instead of centered',
+      'Your Turn label hidden when showing Deal/Proceed button in action bar',
+      'Your Turn notification now correctly appears after Flop/Turn/River animations complete',
+      'Your Turn notification now shows the currently selected card back image instead of the darts emoji',
+      'Proceed overlay removed — host sees inline Deal/Proceed buttons in action bar like all other players',
+    ]
+  },
   {
     v:'3.11', date:'July 2026',
     changes:[
@@ -1626,6 +1652,7 @@ function showRenameInput(row, nameEl, currentName){
 }
 
 // ── New Game + dealer animation ───────────────────────────────────────
+document.getElementById('toggleSeatsBtn').innerHTML='&#129489; Seats &#9658;';
 document.getElementById('toggleSeatsBtn').onclick=()=>{
   const sec=document.getElementById('seatSection');
   const btn=document.getElementById('toggleSeatsBtn');

@@ -190,14 +190,15 @@ button.gold { background:#d4af37; color:#111; }
   background:rgba(0,0,0,0.88);
   z-index:1000;
   display:none;
-  align-items:center; justify-content:center; flex-direction:column;
-  gap:20px;
+  align-items:flex-start; justify-content:center; flex-direction:column;
+  gap:20px; padding-left:32px;
 }
 #shuffleOverlay.active { display:flex; }
 .shuffle-title {
   font-size:2.1em; font-weight:900;
-  color:#d4af37; text-align:center;
+  color:#d4af37; text-align:left;
 }
+#shuffleInfo { display:flex; flex-direction:column; gap:12px; align-items:flex-start; margin-top:4px; }
 .shuffle-subtitle { font-size:0.85em; opacity:0.55; text-align:center; }
 .shuffle-row { display:flex; gap:8px; perspective:300px; }
 .smcard {
@@ -302,7 +303,7 @@ button.gold { background:#d4af37; color:#111; }
   background:rgba(212,175,55,0.92);
   color:#111;
   font-size:2em; font-weight:900;
-  display:none; align-items:center; justify-content:center;
+  display:none; flex-direction:column; align-items:center; justify-content:center; gap:20px;
   z-index:998; text-align:center;
   pointer-events:none;
 }
@@ -559,7 +560,6 @@ button.gold { background:#d4af37; color:#111; }
 .dp-roatan { background:#0a7a9a url('/img/card-roatan.jpg') center/cover no-repeat; }
 
 /* ═══ SHUFFLE OVERLAY: DEALER/SB/BB INFO ═══ */
-#shuffleInfo { display:flex; flex-direction:column; gap:12px; align-items:center; margin-top:4px; }
 .sh-role { display:flex; align-items:center; gap:12px; font-size:1.65em; font-weight:700; }
 /* Larger badges specifically inside the shuffle overlay */
 #shuffleInfo .badge { width:40px; height:40px; font-size:0.65em; display:inline-flex; align-items:center; justify-content:center; }
