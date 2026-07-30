@@ -281,8 +281,9 @@
         <p id="pinErr" style="color:#f88;text-align:center;display:none;margin-top:4px;font-size:0.9em;">Incorrect PIN</p>
       </div>
       <div id="hostControls" class="host-panel" style="display:none;">
-        <div class="host-panel-title">&#9824; Dealer Controls
-          <button id="dealerControlsToggle" onclick="toggleDealerControls()" style="float:right;background:none;border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:6px;padding:2px 8px;font-size:0.75em;cursor:pointer;">▼ Expand</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div class="host-panel-title" style="margin-bottom:0;">&#9824; Dealer Controls</div>
+          <button id="dealerControlsToggle" onclick="toggleDealerControls()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.25);color:#fff;border-radius:6px;padding:3px 10px;font-size:0.75em;cursor:pointer;white-space:nowrap;">▼ Expand</button>
         </div>
         <!-- Collapsible action buttons — collapsed by default -->
         <div id="dealerActionSection" style="display:none;">
@@ -296,7 +297,7 @@
             <button class="hbtn" id="hbtnN" onclick="doNext()" style="background:#d4af37;color:#111;"><span class="bl">&#9654;</span><span class="bs">DEAL</span></button>
           </div>
         </div>
-        <div class="host-btn-row" style="margin-top:10px;">
+        <div class="host-btn-row">
           <button class="secondary" id="clearLogBtn">&#128465; Clear Log</button>
           <button class="secondary" id="changeDeckBtn">&#127183; Deck</button>
           <button class="secondary" id="newGameBtn">&#128683; End Game</button>
