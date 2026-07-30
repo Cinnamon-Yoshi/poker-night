@@ -169,7 +169,7 @@
 
 <!-- Turn notification (shown only to the player whose turn it is) -->
 <div id="turnNotif">🎯 Your turn!</div>
-<div id="proceedOverlay" onclick="hostProceed()"></div>
+<div id="proceedOverlay"></div>
 
 <!-- Street reveal overlay (Flop / Turn / River) -->
 <div id="streetOverlay">
@@ -430,7 +430,7 @@ function buildRunoutSection(runout, container){
 }
 
 // ── All-In Runout preview ────────────────────────────────────────────
-socket.on('allInRunoutPreview', data => showAllInOverlay(data));
+socket.on('allInRunoutPreview', data => { hideProceedOverlay(); showAllInOverlay(data); });
 
 // Dismiss all-in overlay when cards are actually dealt (after Proceed)
 socket.on('streetReveal', data => {
@@ -1172,8 +1172,8 @@ function showProceedOverlay(label){
   const ov = document.getElementById('proceedOverlay');
   ov.innerHTML = `
     <div class="po-label">All players have acted</div>
-    <div class="po-btn">${label}</div>
-    <div class="po-hint">Tap anywhere to continue</div>`;
+    <div class="po-btn" onclick="hostProceed()">${label}</div>
+    <div class="po-dismiss" onclick="hideProceedOverlay()">✕ Dismiss</div>`;
   ov.style.display = 'flex';
 }
 
