@@ -90,7 +90,7 @@ button.gold { background:#d4af37; color:#111; }
 .seat-btn.remove { background:#8b2222; }
 
 /* ── Action log ── */
-.log-wrap { max-height:130px; overflow-y:auto; font-size:0.82em; }
+.log-wrap { max-height:260px; overflow-y:auto; font-size:0.82em; }
 .log-entry { padding:3px 0; border-bottom:1px solid rgba(255,255,255,0.06); opacity:0.8; line-height:1.4; }
 .log-entry:first-child { opacity:1; font-weight:600; }
 .log-entry:last-child { border-bottom:none; }

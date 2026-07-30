@@ -46,7 +46,7 @@
 <!-- All-In Runout Preview overlay -->
 <div id="allInOverlay">
   <div class="aio-header">
-    <div class="aio-title">🎰 ALL-IN — Hands Revealed</div>
+    <div class="aio-title">ALL-IN — Hands Revealed</div>
     <button id="aioProceedBtn">Proceed ▶</button>
   </div>
   <button id="aioCloseBtn" class="secondary" style="display:none;width:100%;margin-bottom:8px;" onclick="closeResultsOverlay()">Close</button>
@@ -358,6 +358,16 @@ function showTurnNotif(){
 // ── Street reveal overlay ─────────────────────────────────────────────
 // streetReveal is handled by the allInRunout section above
 
+function hideStreetOverlay(){
+  const overlay=document.getElementById('streetOverlay');
+  const boardEl=document.getElementById('boardCards');
+  overlay.classList.remove('active');
+  const rs=document.getElementById('soRunout');
+  if(rs) rs.remove();
+  if(boardEl) boardEl.style.visibility='';
+  window.scrollTo({top:0,behavior:'instant'});
+}
+
 function showStreetOverlay(data) {
   const overlay=document.getElementById('streetOverlay');
   const ph1=document.getElementById('soPh1'),ph2=document.getElementById('soPh2');
@@ -390,17 +400,14 @@ function showStreetOverlay(data) {
   flippers.forEach((f,i)=>setTimeout(()=>f.classList.add('flipped'), FIRST_FLIP+i*STAGGER));
 
   setTimeout(()=>{
-    overlay.classList.remove('active');
-    const rs=document.getElementById('soRunout');
-    if(rs) rs.remove();
-    if(boardEl) boardEl.style.visibility='';
-    window.scrollTo({top:0,behavior:'instant'});
     streetAnimActive = false;
     if(pendingMyTurn){ showTurnNotif(); pendingMyTurn=false; }
-    // If this street was dealt as part of an all-in runout, the host
-    // automatically continues (next street preview, or Reveal Winner on the
-    // river) instead of the app dropping back to the home screen in between.
-    if (inAllInRunout && isHost) { doNext(); }
+    // If this street was dealt as part of an all-in runout, keep this overlay
+    // up (instead of dropping to the home screen) until the next preview or
+    // the winner announcement takes over — avoids a home-screen flash while
+    // waiting on the server round trip.
+    if (inAllInRunout && isHost) { doNext(); return; }
+    hideStreetOverlay();
   }, FIRST_FLIP+(n-1)*STAGGER+FLIP_DUR+VIEW);
 }
 
@@ -439,7 +446,7 @@ function buildRunoutSection(runout, container){
 }
 
 // ── All-In Runout preview ────────────────────────────────────────────
-socket.on('allInRunoutPreview', data => { inAllInRunout = true; showAllInOverlay(data); });
+socket.on('allInRunoutPreview', data => { inAllInRunout = true; hideStreetOverlay(); showAllInOverlay(data); });
 
 // Dismiss all-in overlay when cards are actually dealt (after Proceed)
 socket.on('streetReveal', data => {
@@ -525,7 +532,7 @@ function showAllInOverlay(data) {
 
   // Reset to normal all-in mode (not Results mode)
   const titleEl = ov.querySelector('.aio-title');
-  if (titleEl) titleEl.textContent = '🎰 ALL-IN — Hands Revealed';
+  if (titleEl) titleEl.textContent = 'ALL-IN — Hands Revealed';
   const closeBtn = document.getElementById('aioCloseBtn');
   if (closeBtn) closeBtn.style.display = 'none';
 
@@ -862,6 +869,7 @@ socket.on('shuffling', data => {
 
 // ── Winner popup (change 10) ─────────────────────────────────────────
 socket.on('winnerAnnounce',data=>{
+  hideStreetOverlay();
   const ov=document.getElementById('winnerOverlay');
   const dr=document.getElementById('woDrumroll');
   const rv=document.getElementById('woReveal');
@@ -945,7 +953,7 @@ function showRunoutResults(runout) {
   inAllInRunout = false;
   const ov = document.getElementById('allInOverlay');
   const titleEl = ov.querySelector('.aio-title');
-  if (titleEl) titleEl.textContent = '🃏 Results';
+  if (titleEl) titleEl.textContent = 'Results';
   document.getElementById('aioProceedBtn').style.display = 'none';
   let closeBtn = document.getElementById('aioCloseBtn');
   if (closeBtn) closeBtn.style.display = 'block';
@@ -1268,6 +1276,15 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.17.1', date:'July 2026',
+    changes:[
+      'Fixed brief home-screen flash during all-in runout auto-continue — street overlay now stays up until the next preview or the winner announcement is ready',
+      'Removed the slot machine icon from the All-In Hands Revealed heading and the playing card icon from the Results heading',
+      'Dealer controls Call/Check button always shows the letter C, since it is no longer paired with a separate Check button',
+      'Action log visible height doubled',
+    ]
+  },
   {
     v:'3.17', date:'July 2026',
     changes:[
@@ -1656,7 +1673,7 @@ function renderHostControls(state){
   const canCheck = bbCheck || (!idle&&!noActor&&!state.hasRaiseThisStreet);
   hbtnCAction = canCheck ? 'X' : 'C';
   document.getElementById('hbtnC').disabled = idle||noActor;
-  document.getElementById('hbtnCBl').textContent = canCheck ? 'X' : 'C';
+  document.getElementById('hbtnCBl').textContent = 'C';
   document.getElementById('hbtnCBs').textContent = canCheck ? 'CHECK' : 'CALL';
   document.getElementById('hbtnUndo').disabled=!state.canUndo;
 
