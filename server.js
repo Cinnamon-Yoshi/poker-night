@@ -1,1087 +1,760 @@
-{
-  "name": "poker-deal-app",
-  "version": "1.0.0",
-  "lockfileVersion": 3,
-  "requires": true,
-  "packages": {
-    "": {
-      "name": "poker-deal-app",
-      "version": "1.0.0",
-      "dependencies": {
-        "express": "^4.19.2",
-        "socket.io": "^4.7.5"
-      }
-    },
-    "node_modules/@socket.io/component-emitter": {
-      "version": "3.1.2",
-      "resolved": "https://registry.npmjs.org/@socket.io/component-emitter/-/component-emitter-3.1.2.tgz",
-      "integrity": "sha512-9BCxFwvbGg/RsZK9tjXd8s4UcwR0MWeFQ1XEKIQVVvAGJyINdrqKMcTRyLoK8Rse1GjzLV9cwjWV1olXRWEXVA==",
-      "license": "MIT"
-    },
-    "node_modules/@types/cors": {
-      "version": "2.8.19",
-      "resolved": "https://registry.npmjs.org/@types/cors/-/cors-2.8.19.tgz",
-      "integrity": "sha512-mFNylyeyqN93lfe/9CSxOGREz8cpzAhH+E93xJ4xWQf62V8sQ/24reV2nyzUWM6H6Xji+GGHpkbLe7pVoUEskg==",
-      "license": "MIT",
-      "dependencies": {
-        "@types/node": "*"
-      }
-    },
-    "node_modules/@types/node": {
-      "version": "26.0.1",
-      "resolved": "https://registry.npmjs.org/@types/node/-/node-26.0.1.tgz",
-      "integrity": "sha512-fc3KiUoBt6kie0N9bIW3E47vZsuaMf0PM2AaUpLCLT0s/LvX1nxAim6Fc049cNxODPpGm6qRAuUOB86SkRuPQw==",
-      "license": "MIT",
-      "dependencies": {
-        "undici-types": "~8.3.0"
-      }
-    },
-    "node_modules/@types/ws": {
-      "version": "8.18.1",
-      "resolved": "https://registry.npmjs.org/@types/ws/-/ws-8.18.1.tgz",
-      "integrity": "sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==",
-      "license": "MIT",
-      "dependencies": {
-        "@types/node": "*"
-      }
-    },
-    "node_modules/accepts": {
-      "version": "1.3.8",
-      "resolved": "https://registry.npmjs.org/accepts/-/accepts-1.3.8.tgz",
-      "integrity": "sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw==",
-      "license": "MIT",
-      "dependencies": {
-        "mime-types": "~2.1.34",
-        "negotiator": "0.6.3"
-      },
-      "engines": {
-        "node": ">= 0.6"
-      }
-    },
-    "node_modules/array-flatten": {
-      "version": "1.1.1",
-      "resolved": "https://registry.npmjs.org/array-flatten/-/array-flatten-1.1.1.tgz",
-      "integrity": "sha512-PCVAQswWemu6UdxsDFFX/+gVeYqKAod3D3UVm91jHwynguOwAvYPhx8nNlM++NqRcK6CxxpUafjmhIdKiHibqg==",
-      "license": "MIT"
-    },
-    "node_modules/base64id": {
-      "version": "2.0.0",
-      "resolved": "https://registry.npmjs.org/base64id/-/base64id-2.0.0.tgz",
-      "integrity": "sha512-lGe34o6EHj9y3Kts9R4ZYs/Gr+6N7MCaMlIFA3F1R2O5/m7K06AxfSeO5530PEERE6/WyEg3lsuyw4GHlPZHog==",
-      "license": "MIT",
-      "engines": {
-        "node": "^4.5.0 || >= 5.9"
-      }
-    },
-    "node_modules/body-parser": {
-      "version": "1.20.5",
-      "resolved": "https://registry.npmjs.org/body-parser/-/body-parser-1.20.5.tgz",
-      "integrity": "sha512-3grm+/2tUOvu2cjJkvsIxrv/wVpfXQW4PsQHYm7yk4vfpu7Ekl6nEsYBoJUL6qDwZUx8wUhQ8tR2qz+ad9c9OA==",
-      "license": "MIT",
-      "dependencies": {
-        "bytes": "~3.1.2",
-        "content-type": "~1.0.5",
-        "debug": "2.6.9",
-        "depd": "2.0.0",
-        "destroy": "~1.2.0",
-        "http-errors": "~2.0.1",
-        "iconv-lite": "~0.4.24",
-        "on-finished": "~2.4.1",
-        "qs": "~6.15.1",
-        "raw-body": "~2.5.3",
-        "type-is": "~1.6.18",
-        "unpipe": "~1.0.0"
-      },
-      "engines": {
-        "node": ">= 0.8",
-        "npm": "1.2.8000 || >= 1.4.16"
-      }
-    },
-    "node_modules/bytes": {
-      "version": "3.1.2",
-      "resolved": "https://registry.npmjs.org/bytes/-/bytes-3.1.2.tgz",
-      "integrity": "sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.8"
-      }
-    },
-    "node_modules/call-bind-apply-helpers": {
-      "version": "1.0.2",
-      "resolved": "https://registry.npmjs.org/call-bind-apply-helpers/-/call-bind-apply-helpers-1.0.2.tgz",
-      "integrity": "sha512-Sp1ablJ0ivDkSzjcaJdxEunN5/XvksFJ2sMBFfq6x0ryhQV/2b/KwFe21cMpmHtPOSij8K99/wSfoEuTObmuMQ==",
-      "license": "MIT",
-      "dependencies": {
-        "es-errors": "^1.3.0",
-        "function-bind": "^1.1.2"
-      },
-      "engines": {
-        "node": ">= 0.4"
-      }
-    },
-    "node_modules/call-bound": {
-      "version": "1.0.4",
-      "resolved": "https://registry.npmjs.org/call-bound/-/call-bound-1.0.4.tgz",
-      "integrity": "sha512-+ys997U96po4Kx/ABpBCqhA9EuxJaQWDQg7295H4hBphv3IZg0boBKuwYpt4YXp6MZ5AmZQnU/tyMTlRpaSejg==",
-      "license": "MIT",
-      "dependencies": {
-        "call-bind-apply-helpers": "^1.0.2",
-        "get-intrinsic": "^1.3.0"
-      },
-      "engines": {
-        "node": ">= 0.4"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/ljharb"
-      }
-    },
-    "node_modules/content-disposition": {
-      "version": "0.5.4",
-      "resolved": "https://registry.npmjs.org/content-disposition/-/content-disposition-0.5.4.tgz",
-      "integrity": "sha512-FveZTNuGw04cxlAiWbzi6zTAL/lhehaWbTtgluJh4/E95DqMwTmha3KZN1aAWA8cFIhHzMZUvLevkw5Rqk+tSQ==",
-      "license": "MIT",
-      "dependencies": {
-        "safe-buffer": "5.2.1"
-      },
-      "engines": {
-        "node": ">= 0.6"
-      }
-    },
-    "node_modules/content-type": {
-      "version": "1.0.5",
-      "resolved": "https://registry.npmjs.org/content-type/-/content-type-1.0.5.tgz",
-      "integrity": "sha512-nTjqfcBFEipKdXCv4YDQWCfmcLZKm81ldF0pAopTvyrFGVbcR6P/VAAd5G7N+0tTr8QqiU0tFadD6FK4NtJwOA==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.6"
-      }
-    },
-    "node_modules/cookie": {
-      "version": "0.7.2",
-      "resolved": "https://registry.npmjs.org/cookie/-/cookie-0.7.2.tgz",
-      "integrity": "sha512-yki5XnKuf750l50uGTllt6kKILY4nQ1eNIQatoXEByZ5dWgnKqbnqmTrBE5B4N7lrMJKQ2ytWMiTO2o0v6Ew/w==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.6"
-      }
-    },
-    "node_modules/cookie-signature": {
-      "version": "1.0.7",
-      "resolved": "https://registry.npmjs.org/cookie-signature/-/cookie-signature-1.0.7.tgz",
-      "integrity": "sha512-NXdYc3dLr47pBkpUCHtKSwIOQXLVn8dZEuywboCOJY/osA0wFSLlSawr3KN8qXJEyX66FcONTH8EIlVuK0yyFA==",
-      "license": "MIT"
-    },
-    "node_modules/cors": {
-      "version": "2.8.6",
-      "resolved": "https://registry.npmjs.org/cors/-/cors-2.8.6.tgz",
-      "integrity": "sha512-tJtZBBHA6vjIAaF6EnIaq6laBBP9aq/Y3ouVJjEfoHbRBcHBAHYcMh/w8LDrk2PvIMMq8gmopa5D4V8RmbrxGw==",
-      "license": "MIT",
-      "dependencies": {
-        "object-assign": "^4",
-        "vary": "^1"
-      },
-      "engines": {
-        "node": ">= 0.10"
-      },
-      "funding": {
-        "type": "opencollective",
-        "url": "https://opencollective.com/express"
-      }
-    },
-    "node_modules/debug": {
-      "version": "2.6.9",
-      "resolved": "https://registry.npmjs.org/debug/-/debug-2.6.9.tgz",
-      "integrity": "sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==",
-      "license": "MIT",
-      "dependencies": {
-        "ms": "2.0.0"
-      }
-    },
-    "node_modules/depd": {
-      "version": "2.0.0",
-      "resolved": "https://registry.npmjs.org/depd/-/depd-2.0.0.tgz",
-      "integrity": "sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.8"
-      }
-    },
-    "node_modules/destroy": {
-      "version": "1.2.0",
-      "resolved": "https://registry.npmjs.org/destroy/-/destroy-1.2.0.tgz",
-      "integrity": "sha512-2sJGJTaXIIaR1w4iJSNoN0hnMY7Gpc/n8D4qSCJw8QqFWXf7cuAgnEHxBpweaVcPevC2l3KpjYCx3NypQQgaJg==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.8",
-        "npm": "1.2.8000 || >= 1.4.16"
-      }
-    },
-    "node_modules/dunder-proto": {
-      "version": "1.0.1",
-      "resolved": "https://registry.npmjs.org/dunder-proto/-/dunder-proto-1.0.1.tgz",
-      "integrity": "sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==",
-      "license": "MIT",
-      "dependencies": {
-        "call-bind-apply-helpers": "^1.0.1",
-        "es-errors": "^1.3.0",
-        "gopd": "^1.2.0"
-      },
-      "engines": {
-        "node": ">= 0.4"
-      }
-    },
-    "node_modules/ee-first": {
-      "version": "1.1.1",
-      "resolved": "https://registry.npmjs.org/ee-first/-/ee-first-1.1.1.tgz",
-      "integrity": "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==",
-      "license": "MIT"
-    },
-    "node_modules/encodeurl": {
-      "version": "2.0.0",
-      "resolved": "https://registry.npmjs.org/encodeurl/-/encodeurl-2.0.0.tgz",
-      "integrity": "sha512-Q0n9HRi4m6JuGIV1eFlmvJB7ZEVxu93IrMyiMsGC0lrMJMWzRgx6WGquyfQgZVb31vhGgXnfmPNNXmxnOkRBrg==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.8"
-      }
-    },
-    "node_modules/engine.io": {
-      "version": "6.6.9",
-      "resolved": "https://registry.npmjs.org/engine.io/-/engine.io-6.6.9.tgz",
-      "integrity": "sha512-clKkw4C7nJ22mGgoVcCg6V/W/TxdNyIOTr89k2ONZu81qqkddPFDF0LXcbAwhzPD8DjkiRCjzuiO6Y+fkpD4vg==",
-      "license": "MIT",
-      "dependencies": {
-        "@types/cors": "^2.8.12",
-        "@types/node": ">=10.0.0",
-        "@types/ws": "^8.5.12",
-        "accepts": "~1.3.4",
-        "base64id": "2.0.0",
-        "cookie": "~0.7.2",
-        "cors": "~2.8.5",
-        "debug": "~4.4.1",
-        "engine.io-parser": "~5.2.1",
-        "ws": "~8.21.0"
-      },
-      "engines": {
-        "node": ">=10.2.0"
-      }
-    },
-    "node_modules/engine.io-parser": {
-      "version": "5.2.3",
-      "resolved": "https://registry.npmjs.org/engine.io-parser/-/engine.io-parser-5.2.3.tgz",
-      "integrity": "sha512-HqD3yTBfnBxIrbnM1DoD6Pcq8NECnh8d4As1Qgh0z5Gg3jRRIqijury0CL3ghu/edArpUYiYqQiDUQBIs4np3Q==",
-      "license": "MIT",
-      "engines": {
-        "node": ">=10.0.0"
-      }
-    },
-    "node_modules/engine.io/node_modules/debug": {
-      "version": "4.4.3",
-      "resolved": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
-      "integrity": "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==",
-      "license": "MIT",
-      "dependencies": {
-        "ms": "^2.1.3"
-      },
-      "engines": {
-        "node": ">=6.0"
-      },
-      "peerDependenciesMeta": {
-        "supports-color": {
-          "optional": true
-        }
-      }
-    },
-    "node_modules/engine.io/node_modules/ms": {
-      "version": "2.1.3",
-      "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
-      "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==",
-      "license": "MIT"
-    },
-    "node_modules/es-define-property": {
-      "version": "1.0.1",
-      "resolved": "https://registry.npmjs.org/es-define-property/-/es-define-property-1.0.1.tgz",
-      "integrity": "sha512-e3nRfgfUZ4rNGL232gUgX06QNyyez04KdjFrF+LTRoOXmrOgFKDg4BCdsjW8EnT69eqdYGmRpJwiPVYNrCaW3g==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.4"
-      }
-    },
-    "node_modules/es-errors": {
-      "version": "1.3.0",
-      "resolved": "https://registry.npmjs.org/es-errors/-/es-errors-1.3.0.tgz",
-      "integrity": "sha512-Zf5H2Kxt2xjTvbJvP2ZWLEICxA6j+hAmMzIlypy4xcBg1vKVnx89Wy0GbS+kf5cwCVFFzdCFh2XSCFNULS6csw==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.4"
-      }
-    },
-    "node_modules/es-object-atoms": {
-      "version": "1.1.2",
-      "resolved": "https://registry.npmjs.org/es-object-atoms/-/es-object-atoms-1.1.2.tgz",
-      "integrity": "sha512-HWcBoN6NileqtSydK2FqHbS/LoDd2pqrnQHLyJzBj4kOp/ky2MWMN694xOfkK8/SnUsW2DH7EfyVlydKCsm1Zw==",
-      "license": "MIT",
-      "dependencies": {
-        "es-errors": "^1.3.0"
-      },
-      "engines": {
-        "node": ">= 0.4"
-      }
-    },
-    "node_modules/escape-html": {
-      "version": "1.0.3",
-      "resolved": "https://registry.npmjs.org/escape-html/-/escape-html-1.0.3.tgz",
-      "integrity": "sha512-NiSupZ4OeuGwr68lGIeym/ksIZMJodUGOSCZ/FSnTxcrekbvqrgdUxlJOMpijaKZVjAJrWrGs/6Jy8OMuyj9ow==",
-      "license": "MIT"
-    },
-    "node_modules/etag": {
-      "version": "1.8.1",
-      "resolved": "https://registry.npmjs.org/etag/-/etag-1.8.1.tgz",
-      "integrity": "sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.6"
-      }
-    },
-    "node_modules/express": {
-      "version": "4.22.2",
-      "resolved": "https://registry.npmjs.org/express/-/express-4.22.2.tgz",
-      "integrity": "sha512-IuL+Elrou2ZvCFHs18/CIzy2Nzvo25nZ1/D2eIZlz7c+QUayAcYoiM2BthCjs+EBHVpjYjcuLDAiCWgeIX3X1Q==",
-      "license": "MIT",
-      "dependencies": {
-        "accepts": "~1.3.8",
-        "array-flatten": "1.1.1",
-        "body-parser": "~1.20.5",
-        "content-disposition": "~0.5.4",
-        "content-type": "~1.0.4",
-        "cookie": "~0.7.1",
-        "cookie-signature": "~1.0.6",
-        "debug": "2.6.9",
-        "depd": "2.0.0",
-        "encodeurl": "~2.0.0",
-        "escape-html": "~1.0.3",
-        "etag": "~1.8.1",
-        "finalhandler": "~1.3.1",
-        "fresh": "~0.5.2",
-        "http-errors": "~2.0.0",
-        "merge-descriptors": "1.0.3",
-        "methods": "~1.1.2",
-        "on-finished": "~2.4.1",
-        "parseurl": "~1.3.3",
-        "path-to-regexp": "~0.1.12",
-        "proxy-addr": "~2.0.7",
-        "qs": "~6.15.1",
-        "range-parser": "~1.2.1",
-        "safe-buffer": "5.2.1",
-        "send": "~0.19.0",
-        "serve-static": "~1.16.2",
-        "setprototypeof": "1.2.0",
-        "statuses": "~2.0.1",
-        "type-is": "~1.6.18",
-        "utils-merge": "1.0.1",
-        "vary": "~1.1.2"
-      },
-      "engines": {
-        "node": ">= 0.10.0"
-      },
-      "funding": {
-        "type": "opencollective",
-        "url": "https://opencollective.com/express"
-      }
-    },
-    "node_modules/finalhandler": {
-      "version": "1.3.2",
-      "resolved": "https://registry.npmjs.org/finalhandler/-/finalhandler-1.3.2.tgz",
-      "integrity": "sha512-aA4RyPcd3badbdABGDuTXCMTtOneUCAYH/gxoYRTZlIJdF0YPWuGqiAsIrhNnnqdXGswYk6dGujem4w80UJFhg==",
-      "license": "MIT",
-      "dependencies": {
-        "debug": "2.6.9",
-        "encodeurl": "~2.0.0",
-        "escape-html": "~1.0.3",
-        "on-finished": "~2.4.1",
-        "parseurl": "~1.3.3",
-        "statuses": "~2.0.2",
-        "unpipe": "~1.0.0"
-      },
-      "engines": {
-        "node": ">= 0.8"
-      }
-    },
-    "node_modules/forwarded": {
-      "version": "0.2.0",
-      "resolved": "https://registry.npmjs.org/forwarded/-/forwarded-0.2.0.tgz",
-      "integrity": "sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.6"
-      }
-    },
-    "node_modules/fresh": {
-      "version": "0.5.2",
-      "resolved": "https://registry.npmjs.org/fresh/-/fresh-0.5.2.tgz",
-      "integrity": "sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.6"
-      }
-    },
-    "node_modules/function-bind": {
-      "version": "1.1.2",
-      "resolved": "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz",
-      "integrity": "sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==",
-      "license": "MIT",
-      "funding": {
-        "url": "https://github.com/sponsors/ljharb"
-      }
-    },
-    "node_modules/get-intrinsic": {
-      "version": "1.3.0",
-      "resolved": "https://registry.npmjs.org/get-intrinsic/-/get-intrinsic-1.3.0.tgz",
-      "integrity": "sha512-9fSjSaos/fRIVIp+xSJlE6lfwhES7LNtKaCBIamHsjr2na1BiABJPo0mOjjz8GJDURarmCPGqaiVg5mfjb98CQ==",
-      "license": "MIT",
-      "dependencies": {
-        "call-bind-apply-helpers": "^1.0.2",
-        "es-define-property": "^1.0.1",
-        "es-errors": "^1.3.0",
-        "es-object-atoms": "^1.1.1",
-        "function-bind": "^1.1.2",
-        "get-proto": "^1.0.1",
-        "gopd": "^1.2.0",
-        "has-symbols": "^1.1.0",
-        "hasown": "^2.0.2",
-        "math-intrinsics": "^1.1.0"
-      },
-      "engines": {
-        "node": ">= 0.4"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/ljharb"
-      }
-    },
-    "node_modules/get-proto": {
-      "version": "1.0.1",
-      "resolved": "https://registry.npmjs.org/get-proto/-/get-proto-1.0.1.tgz",
-      "integrity": "sha512-sTSfBjoXBp89JvIKIefqw7U2CCebsc74kiY6awiGogKtoSGbgjYE/G/+l9sF3MWFPNc9IcoOC4ODfKHfxFmp0g==",
-      "license": "MIT",
-      "dependencies": {
-        "dunder-proto": "^1.0.1",
-        "es-object-atoms": "^1.0.0"
-      },
-      "engines": {
-        "node": ">= 0.4"
-      }
-    },
-    "node_modules/gopd": {
-      "version": "1.2.0",
-      "resolved": "https://registry.npmjs.org/gopd/-/gopd-1.2.0.tgz",
-      "integrity": "sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.4"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/ljharb"
-      }
-    },
-    "node_modules/has-symbols": {
-      "version": "1.1.0",
-      "resolved": "https://registry.npmjs.org/has-symbols/-/has-symbols-1.1.0.tgz",
-      "integrity": "sha512-1cDNdwJ2Jaohmb3sg4OmKaMBwuC48sYni5HUw2DvsC8LjGTLK9h+eb1X6RyuOHe4hT0ULCW68iomhjUoKUqlPQ==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.4"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/ljharb"
-      }
-    },
-    "node_modules/hasown": {
-      "version": "2.0.4",
-      "resolved": "https://registry.npmjs.org/hasown/-/hasown-2.0.4.tgz",
-      "integrity": "sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A==",
-      "license": "MIT",
-      "dependencies": {
-        "function-bind": "^1.1.2"
-      },
-      "engines": {
-        "node": ">= 0.4"
-      }
-    },
-    "node_modules/http-errors": {
-      "version": "2.0.1",
-      "resolved": "https://registry.npmjs.org/http-errors/-/http-errors-2.0.1.tgz",
-      "integrity": "sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ==",
-      "license": "MIT",
-      "dependencies": {
-        "depd": "~2.0.0",
-        "inherits": "~2.0.4",
-        "setprototypeof": "~1.2.0",
-        "statuses": "~2.0.2",
-        "toidentifier": "~1.0.1"
-      },
-      "engines": {
-        "node": ">= 0.8"
-      },
-      "funding": {
-        "type": "opencollective",
-        "url": "https://opencollective.com/express"
-      }
-    },
-    "node_modules/iconv-lite": {
-      "version": "0.4.24",
-      "resolved": "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.4.24.tgz",
-      "integrity": "sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==",
-      "license": "MIT",
-      "dependencies": {
-        "safer-buffer": ">= 2.1.2 < 3"
-      },
-      "engines": {
-        "node": ">=0.10.0"
-      }
-    },
-    "node_modules/inherits": {
-      "version": "2.0.4",
-      "resolved": "https://registry.npmjs.org/inherits/-/inherits-2.0.4.tgz",
-      "integrity": "sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==",
-      "license": "ISC"
-    },
-    "node_modules/ipaddr.js": {
-      "version": "1.9.1",
-      "resolved": "https://registry.npmjs.org/ipaddr.js/-/ipaddr.js-1.9.1.tgz",
-      "integrity": "sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.10"
-      }
-    },
-    "node_modules/math-intrinsics": {
-      "version": "1.1.0",
-      "resolved": "https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz",
-      "integrity": "sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.4"
-      }
-    },
-    "node_modules/media-typer": {
-      "version": "0.3.0",
-      "resolved": "https://registry.npmjs.org/media-typer/-/media-typer-0.3.0.tgz",
-      "integrity": "sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.6"
-      }
-    },
-    "node_modules/merge-descriptors": {
-      "version": "1.0.3",
-      "resolved": "https://registry.npmjs.org/merge-descriptors/-/merge-descriptors-1.0.3.tgz",
-      "integrity": "sha512-gaNvAS7TZ897/rVaZ0nMtAyxNyi/pdbjbAwUpFQpN70GqnVfOiXpeUUMKRBmzXaSQ8DdTX4/0ms62r2K+hE6mQ==",
-      "license": "MIT",
-      "funding": {
-        "url": "https://github.com/sponsors/sindresorhus"
-      }
-    },
-    "node_modules/methods": {
-      "version": "1.1.2",
-      "resolved": "https://registry.npmjs.org/methods/-/methods-1.1.2.tgz",
-      "integrity": "sha512-iclAHeNqNm68zFtnZ0e+1L2yUIdvzNoauKU4WBA3VvH/vPFieF7qfRlwUZU+DA9P9bPXIS90ulxoUoCH23sV2w==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.6"
-      }
-    },
-    "node_modules/mime": {
-      "version": "1.6.0",
-      "resolved": "https://registry.npmjs.org/mime/-/mime-1.6.0.tgz",
-      "integrity": "sha512-x0Vn8spI+wuJ1O6S7gnbaQg8Pxh4NNHb7KSINmEWKiPE4RKOplvijn+NkmYmmRgP68mc70j2EbeTFRsrswaQeg==",
-      "license": "MIT",
-      "bin": {
-        "mime": "cli.js"
-      },
-      "engines": {
-        "node": ">=4"
-      }
-    },
-    "node_modules/mime-db": {
-      "version": "1.52.0",
-      "resolved": "https://registry.npmjs.org/mime-db/-/mime-db-1.52.0.tgz",
-      "integrity": "sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.6"
-      }
-    },
-    "node_modules/mime-types": {
-      "version": "2.1.35",
-      "resolved": "https://registry.npmjs.org/mime-types/-/mime-types-2.1.35.tgz",
-      "integrity": "sha512-ZDY+bPm5zTTF+YpCrAU9nK0UgICYPT0QtT1NZWFv4s++TNkcgVaT0g6+4R2uI4MjQjzysHB1zxuWL50hzaeXiw==",
-      "license": "MIT",
-      "dependencies": {
-        "mime-db": "1.52.0"
-      },
-      "engines": {
-        "node": ">= 0.6"
-      }
-    },
-    "node_modules/ms": {
-      "version": "2.0.0",
-      "resolved": "https://registry.npmjs.org/ms/-/ms-2.0.0.tgz",
-      "integrity": "sha512-Tpp60P6IUJDTuOq/5Z8cdskzJujfwqfOTkrwIwj7IRISpnkJnT6SyJ4PCPnGMoFjC9ddhal5KVIYtAt97ix05A==",
-      "license": "MIT"
-    },
-    "node_modules/negotiator": {
-      "version": "0.6.3",
-      "resolved": "https://registry.npmjs.org/negotiator/-/negotiator-0.6.3.tgz",
-      "integrity": "sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.6"
-      }
-    },
-    "node_modules/object-assign": {
-      "version": "4.1.1",
-      "resolved": "https://registry.npmjs.org/object-assign/-/object-assign-4.1.1.tgz",
-      "integrity": "sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==",
-      "license": "MIT",
-      "engines": {
-        "node": ">=0.10.0"
-      }
-    },
-    "node_modules/object-inspect": {
-      "version": "1.13.4",
-      "resolved": "https://registry.npmjs.org/object-inspect/-/object-inspect-1.13.4.tgz",
-      "integrity": "sha512-W67iLl4J2EXEGTbfeHCffrjDfitvLANg0UlX3wFUUSTx92KXRFegMHUVgSqE+wvhAbi4WqjGg9czysTV2Epbew==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.4"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/ljharb"
-      }
-    },
-    "node_modules/on-finished": {
-      "version": "2.4.1",
-      "resolved": "https://registry.npmjs.org/on-finished/-/on-finished-2.4.1.tgz",
-      "integrity": "sha512-oVlzkg3ENAhCk2zdv7IJwd/QUD4z2RxRwpkcGY8psCVcCYZNq4wYnVWALHM+brtuJjePWiYF/ClmuDr8Ch5+kg==",
-      "license": "MIT",
-      "dependencies": {
-        "ee-first": "1.1.1"
-      },
-      "engines": {
-        "node": ">= 0.8"
-      }
-    },
-    "node_modules/parseurl": {
-      "version": "1.3.3",
-      "resolved": "https://registry.npmjs.org/parseurl/-/parseurl-1.3.3.tgz",
-      "integrity": "sha512-CiyeOxFT/JZyN5m0z9PfXw4SCBJ6Sygz1Dpl0wqjlhDEGGBP1GnsUVEL0p63hoG1fcj3fHynXi9NYO4nWOL+qQ==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.8"
-      }
-    },
-    "node_modules/path-to-regexp": {
-      "version": "0.1.13",
-      "resolved": "https://registry.npmjs.org/path-to-regexp/-/path-to-regexp-0.1.13.tgz",
-      "integrity": "sha512-A/AGNMFN3c8bOlvV9RreMdrv7jsmF9XIfDeCd87+I8RNg6s78BhJxMu69NEMHBSJFxKidViTEdruRwEk/WIKqA==",
-      "license": "MIT"
-    },
-    "node_modules/proxy-addr": {
-      "version": "2.0.7",
-      "resolved": "https://registry.npmjs.org/proxy-addr/-/proxy-addr-2.0.7.tgz",
-      "integrity": "sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==",
-      "license": "MIT",
-      "dependencies": {
-        "forwarded": "0.2.0",
-        "ipaddr.js": "1.9.1"
-      },
-      "engines": {
-        "node": ">= 0.10"
-      }
-    },
-    "node_modules/qs": {
-      "version": "6.15.3",
-      "resolved": "https://registry.npmjs.org/qs/-/qs-6.15.3.tgz",
-      "integrity": "sha512-O9gl3zCl5h5blw1KGUzQKhA5oUXSl8rwUIM5o0S3nCXMliSvy5Dzx7/DJcI+SwgICv+IneSZwhBh1oSyEHA71A==",
-      "license": "BSD-3-Clause",
-      "dependencies": {
-        "es-define-property": "^1.0.1",
-        "side-channel": "^1.1.1"
-      },
-      "engines": {
-        "node": ">=0.6"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/ljharb"
-      }
-    },
-    "node_modules/range-parser": {
-      "version": "1.2.1",
-      "resolved": "https://registry.npmjs.org/range-parser/-/range-parser-1.2.1.tgz",
-      "integrity": "sha512-Hrgsx+orqoygnmhFbKaHE6c296J+HTAQXoxEF6gNupROmmGJRoyzfG3ccAveqCBrwr/2yxQ5BVd/GTl5agOwSg==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.6"
-      }
-    },
-    "node_modules/raw-body": {
-      "version": "2.5.3",
-      "resolved": "https://registry.npmjs.org/raw-body/-/raw-body-2.5.3.tgz",
-      "integrity": "sha512-s4VSOf6yN0rvbRZGxs8Om5CWj6seneMwK3oDb4lWDH0UPhWcxwOWw5+qk24bxq87szX1ydrwylIOp2uG1ojUpA==",
-      "license": "MIT",
-      "dependencies": {
-        "bytes": "~3.1.2",
-        "http-errors": "~2.0.1",
-        "iconv-lite": "~0.4.24",
-        "unpipe": "~1.0.0"
-      },
-      "engines": {
-        "node": ">= 0.8"
-      }
-    },
-    "node_modules/safe-buffer": {
-      "version": "5.2.1",
-      "resolved": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.2.1.tgz",
-      "integrity": "sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==",
-      "funding": [
-        {
-          "type": "github",
-          "url": "https://github.com/sponsors/feross"
-        },
-        {
-          "type": "patreon",
-          "url": "https://www.patreon.com/feross"
-        },
-        {
-          "type": "consulting",
-          "url": "https://feross.org/support"
-        }
-      ],
-      "license": "MIT"
-    },
-    "node_modules/safer-buffer": {
-      "version": "2.1.2",
-      "resolved": "https://registry.npmjs.org/safer-buffer/-/safer-buffer-2.1.2.tgz",
-      "integrity": "sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==",
-      "license": "MIT"
-    },
-    "node_modules/send": {
-      "version": "0.19.2",
-      "resolved": "https://registry.npmjs.org/send/-/send-0.19.2.tgz",
-      "integrity": "sha512-VMbMxbDeehAxpOtWJXlcUS5E8iXh6QmN+BkRX1GARS3wRaXEEgzCcB10gTQazO42tpNIya8xIyNx8fll1OFPrg==",
-      "license": "MIT",
-      "dependencies": {
-        "debug": "2.6.9",
-        "depd": "2.0.0",
-        "destroy": "1.2.0",
-        "encodeurl": "~2.0.0",
-        "escape-html": "~1.0.3",
-        "etag": "~1.8.1",
-        "fresh": "~0.5.2",
-        "http-errors": "~2.0.1",
-        "mime": "1.6.0",
-        "ms": "2.1.3",
-        "on-finished": "~2.4.1",
-        "range-parser": "~1.2.1",
-        "statuses": "~2.0.2"
-      },
-      "engines": {
-        "node": ">= 0.8.0"
-      }
-    },
-    "node_modules/send/node_modules/ms": {
-      "version": "2.1.3",
-      "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
-      "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==",
-      "license": "MIT"
-    },
-    "node_modules/serve-static": {
-      "version": "1.16.3",
-      "resolved": "https://registry.npmjs.org/serve-static/-/serve-static-1.16.3.tgz",
-      "integrity": "sha512-x0RTqQel6g5SY7Lg6ZreMmsOzncHFU7nhnRWkKgWuMTu5NN0DR5oruckMqRvacAN9d5w6ARnRBXl9xhDCgfMeA==",
-      "license": "MIT",
-      "dependencies": {
-        "encodeurl": "~2.0.0",
-        "escape-html": "~1.0.3",
-        "parseurl": "~1.3.3",
-        "send": "~0.19.1"
-      },
-      "engines": {
-        "node": ">= 0.8.0"
-      }
-    },
-    "node_modules/setprototypeof": {
-      "version": "1.2.0",
-      "resolved": "https://registry.npmjs.org/setprototypeof/-/setprototypeof-1.2.0.tgz",
-      "integrity": "sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==",
-      "license": "ISC"
-    },
-    "node_modules/side-channel": {
-      "version": "1.1.1",
-      "resolved": "https://registry.npmjs.org/side-channel/-/side-channel-1.1.1.tgz",
-      "integrity": "sha512-6x6dK6zJdpTzF4sQeNYxwtvBzf6Eg4GtlesS94HOvTudUeyK2WXAaIfmDgsyslYrRBeFIlsi54AYsFGUuhmvrQ==",
-      "license": "MIT",
-      "dependencies": {
-        "es-errors": "^1.3.0",
-        "object-inspect": "^1.13.4",
-        "side-channel-list": "^1.0.1",
-        "side-channel-map": "^1.0.1",
-        "side-channel-weakmap": "^1.0.2"
-      },
-      "engines": {
-        "node": ">= 0.4"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/ljharb"
-      }
-    },
-    "node_modules/side-channel-list": {
-      "version": "1.0.1",
-      "resolved": "https://registry.npmjs.org/side-channel-list/-/side-channel-list-1.0.1.tgz",
-      "integrity": "sha512-mjn/0bi/oUURjc5Xl7IaWi/OJJJumuoJFQJfDDyO46+hBWsfaVM65TBHq2eoZBhzl9EchxOijpkbRC8SVBQU0w==",
-      "license": "MIT",
-      "dependencies": {
-        "es-errors": "^1.3.0",
-        "object-inspect": "^1.13.4"
-      },
-      "engines": {
-        "node": ">= 0.4"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/ljharb"
-      }
-    },
-    "node_modules/side-channel-map": {
-      "version": "1.0.1",
-      "resolved": "https://registry.npmjs.org/side-channel-map/-/side-channel-map-1.0.1.tgz",
-      "integrity": "sha512-VCjCNfgMsby3tTdo02nbjtM/ewra6jPHmpThenkTYh8pG9ucZ/1P8So4u4FGBek/BjpOVsDCMoLA/iuBKIFXRA==",
-      "license": "MIT",
-      "dependencies": {
-        "call-bound": "^1.0.2",
-        "es-errors": "^1.3.0",
-        "get-intrinsic": "^1.2.5",
-        "object-inspect": "^1.13.3"
-      },
-      "engines": {
-        "node": ">= 0.4"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/ljharb"
-      }
-    },
-    "node_modules/side-channel-weakmap": {
-      "version": "1.0.2",
-      "resolved": "https://registry.npmjs.org/side-channel-weakmap/-/side-channel-weakmap-1.0.2.tgz",
-      "integrity": "sha512-WPS/HvHQTYnHisLo9McqBHOJk2FkHO/tlpvldyrnem4aeQp4hai3gythswg6p01oSoTl58rcpiFAjF2br2Ak2A==",
-      "license": "MIT",
-      "dependencies": {
-        "call-bound": "^1.0.2",
-        "es-errors": "^1.3.0",
-        "get-intrinsic": "^1.2.5",
-        "object-inspect": "^1.13.3",
-        "side-channel-map": "^1.0.1"
-      },
-      "engines": {
-        "node": ">= 0.4"
-      },
-      "funding": {
-        "url": "https://github.com/sponsors/ljharb"
-      }
-    },
-    "node_modules/socket.io": {
-      "version": "4.8.3",
-      "resolved": "https://registry.npmjs.org/socket.io/-/socket.io-4.8.3.tgz",
-      "integrity": "sha512-2Dd78bqzzjE6KPkD5fHZmDAKRNe3J15q+YHDrIsy9WEkqttc7GY+kT9OBLSMaPbQaEd0x1BjcmtMtXkfpc+T5A==",
-      "license": "MIT",
-      "dependencies": {
-        "accepts": "~1.3.4",
-        "base64id": "~2.0.0",
-        "cors": "~2.8.5",
-        "debug": "~4.4.1",
-        "engine.io": "~6.6.0",
-        "socket.io-adapter": "~2.5.2",
-        "socket.io-parser": "~4.2.4"
-      },
-      "engines": {
-        "node": ">=10.2.0"
-      }
-    },
-    "node_modules/socket.io-adapter": {
-      "version": "2.5.8",
-      "resolved": "https://registry.npmjs.org/socket.io-adapter/-/socket.io-adapter-2.5.8.tgz",
-      "integrity": "sha512-6Oy52pbg+kvdCVvjcN+FnY7BvxZ7cIHNScbvztT/It5d0vbwoJoVZmF2gjJmnV0/4WlXRfG15zc45ySk9Ah8bw==",
-      "license": "MIT",
-      "dependencies": {
-        "debug": "~4.4.1",
-        "ws": "~8.21.0"
-      }
-    },
-    "node_modules/socket.io-adapter/node_modules/debug": {
-      "version": "4.4.3",
-      "resolved": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
-      "integrity": "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==",
-      "license": "MIT",
-      "dependencies": {
-        "ms": "^2.1.3"
-      },
-      "engines": {
-        "node": ">=6.0"
-      },
-      "peerDependenciesMeta": {
-        "supports-color": {
-          "optional": true
-        }
-      }
-    },
-    "node_modules/socket.io-adapter/node_modules/ms": {
-      "version": "2.1.3",
-      "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
-      "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==",
-      "license": "MIT"
-    },
-    "node_modules/socket.io-parser": {
-      "version": "4.2.6",
-      "resolved": "https://registry.npmjs.org/socket.io-parser/-/socket.io-parser-4.2.6.tgz",
-      "integrity": "sha512-asJqbVBDsBCJx0pTqw3WfesSY0iRX+2xzWEWzrpcH7L6fLzrhyF8WPI8UaeM4YCuDfpwA/cgsdugMsmtz8EJeg==",
-      "license": "MIT",
-      "dependencies": {
-        "@socket.io/component-emitter": "~3.1.0",
-        "debug": "~4.4.1"
-      },
-      "engines": {
-        "node": ">=10.0.0"
-      }
-    },
-    "node_modules/socket.io-parser/node_modules/debug": {
-      "version": "4.4.3",
-      "resolved": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
-      "integrity": "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==",
-      "license": "MIT",
-      "dependencies": {
-        "ms": "^2.1.3"
-      },
-      "engines": {
-        "node": ">=6.0"
-      },
-      "peerDependenciesMeta": {
-        "supports-color": {
-          "optional": true
-        }
-      }
-    },
-    "node_modules/socket.io-parser/node_modules/ms": {
-      "version": "2.1.3",
-      "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
-      "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==",
-      "license": "MIT"
-    },
-    "node_modules/socket.io/node_modules/debug": {
-      "version": "4.4.3",
-      "resolved": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
-      "integrity": "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==",
-      "license": "MIT",
-      "dependencies": {
-        "ms": "^2.1.3"
-      },
-      "engines": {
-        "node": ">=6.0"
-      },
-      "peerDependenciesMeta": {
-        "supports-color": {
-          "optional": true
-        }
-      }
-    },
-    "node_modules/socket.io/node_modules/ms": {
-      "version": "2.1.3",
-      "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
-      "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==",
-      "license": "MIT"
-    },
-    "node_modules/statuses": {
-      "version": "2.0.2",
-      "resolved": "https://registry.npmjs.org/statuses/-/statuses-2.0.2.tgz",
-      "integrity": "sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.8"
-      }
-    },
-    "node_modules/toidentifier": {
-      "version": "1.0.1",
-      "resolved": "https://registry.npmjs.org/toidentifier/-/toidentifier-1.0.1.tgz",
-      "integrity": "sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==",
-      "license": "MIT",
-      "engines": {
-        "node": ">=0.6"
-      }
-    },
-    "node_modules/type-is": {
-      "version": "1.6.18",
-      "resolved": "https://registry.npmjs.org/type-is/-/type-is-1.6.18.tgz",
-      "integrity": "sha512-TkRKr9sUTxEH8MdfuCSP7VizJyzRNMjj2J2do2Jr3Kym598JVdEksuzPQCnlFPW4ky9Q+iA+ma9BGm06XQBy8g==",
-      "license": "MIT",
-      "dependencies": {
-        "media-typer": "0.3.0",
-        "mime-types": "~2.1.24"
-      },
-      "engines": {
-        "node": ">= 0.6"
-      }
-    },
-    "node_modules/undici-types": {
-      "version": "8.3.0",
-      "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-8.3.0.tgz",
-      "integrity": "sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==",
-      "license": "MIT"
-    },
-    "node_modules/unpipe": {
-      "version": "1.0.0",
-      "resolved": "https://registry.npmjs.org/unpipe/-/unpipe-1.0.0.tgz",
-      "integrity": "sha512-pjy2bYhSsufwWlKwPc+l3cN7+wuJlK6uz0YdJEOlQDbl6jo/YlPi4mb8agUkVC8BF7V8NuzeyPNqRksA3hztKQ==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.8"
-      }
-    },
-    "node_modules/utils-merge": {
-      "version": "1.0.1",
-      "resolved": "https://registry.npmjs.org/utils-merge/-/utils-merge-1.0.1.tgz",
-      "integrity": "sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.4.0"
-      }
-    },
-    "node_modules/vary": {
-      "version": "1.1.2",
-      "resolved": "https://registry.npmjs.org/vary/-/vary-1.1.2.tgz",
-      "integrity": "sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==",
-      "license": "MIT",
-      "engines": {
-        "node": ">= 0.8"
-      }
-    },
-    "node_modules/ws": {
-      "version": "8.21.0",
-      "resolved": "https://registry.npmjs.org/ws/-/ws-8.21.0.tgz",
-      "integrity": "sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==",
-      "license": "MIT",
-      "engines": {
-        "node": ">=10.0.0"
-      },
-      "peerDependencies": {
-        "bufferutil": "^4.0.1",
-        "utf-8-validate": ">=5.0.2"
-      },
-      "peerDependenciesMeta": {
-        "bufferutil": {
-          "optional": true
-        },
-        "utf-8-validate": {
-          "optional": true
-        }
-      }
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const { evaluateBest, compareEval, cardLabel, describeEval, describeEvalKicker, findDecidingKicker, RANK_NAMES } = require('./public/handEval.js');
+
+// Pre-flop hole card description (pocket pair, suited connectors, etc.)
+function describeHoleCards(cards){
+  if(!cards||cards.length<2) return 'Hole Cards';
+  const [c1,c2]=[...cards].sort((a,b)=>b.r-a.r);
+  const suited=c1.s===c2.s, gap=Math.abs(c1.r-c2.r);
+  if(c1.r===c2.r) return 'Pocket '+RANK_NAMES[c1.r]+'s';
+  if(suited&&gap===1) return RANK_NAMES[c1.r]+'-'+RANK_NAMES[c2.r]+' Suited Connectors';
+  if(suited)         return RANK_NAMES[c1.r]+'-'+RANK_NAMES[c2.r]+' Suited';
+  if(gap===1)        return RANK_NAMES[c1.r]+'-'+RANK_NAMES[c2.r]+' Connectors';
+  return RANK_NAMES[c1.r]+'-'+RANK_NAMES[c2.r]+' Offsuit';
+}
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+app.use(express.static('public'));
+
+const HOST_PIN = process.env.HOST_PIN || '8888';
+const VERSION = '3.11';
+const LAST_UPDATED = 'July 2025';
+
+const fs = require('fs');
+const path = require('path');
+const DATA_DIR = path.join(__dirname, 'data');
+const TOURNAMENT_FILE = path.join(DATA_DIR, 'tournament.json');
+
+function loadTournament(){
+  try{
+    if(!fs.existsSync(TOURNAMENT_FILE)) return {games:[]};
+    return JSON.parse(fs.readFileSync(TOURNAMENT_FILE,'utf8'));
+  }catch(e){ return {games:[]}; }
+}
+function saveTournamentData(data){
+  if(!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR,{recursive:true});
+  fs.writeFileSync(TOURNAMENT_FILE,JSON.stringify(data,null,2),'utf8');
+}
+function formatSessionLabel(){
+  const d=new Date();
+  const mo=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getMonth()];
+  const day=String(d.getDate()).padStart(2,'0');
+  const h=String(d.getHours()).padStart(2,'0');
+  const m=String(d.getMinutes()).padStart(2,'0');
+  return `${mo}${day}-${h}:${m}`;
+}
+function computeTournamentResults(eliminations,remainingPlayers){
+  const total=eliminations.length+remainingPlayers.length;
+  if(total<2) return {results:[],totalPlayers:total};
+  const results=[];
+  remainingPlayers.forEach(name=>results.push({name,place:1,points:1}));
+  eliminations.forEach((name,i)=>{
+    const place=total-i;
+    results.push({name,place,points:place});
+  });
+  return {results,totalPlayers:total};
+}
+const SUITS = ['S','H','D','C'];
+const RANKS = [2,3,4,5,6,7,8,9,10,11,12,13,14];
+
+// { id, name, connected, folded, allIn, sittingOut, action }
+let players = [];
+let deck=[], board=[], holeCards={};
+let stage='idle', dealerIdx=-1;
+let actionLog=[], lastHandResult=null;
+let actingQueue=[], hasRaiseThisStreet=false, undoState=null;
+let bbCanCheck=false; // true pre-flop when no one has raised — gives BB the option to Check
+let cardBackStyle='roatan';
+let skipDealerAdvance=false;
+let pendingRunoutStage=null;
+let pendingDealerAnimation=false;
+let isRunoutSession=false; // true while an all-in runout is in progress; used for Results screen
+// Blind reminder tracking
+let initialDealerName=null;
+let firstHandDealt=false;
+// Tournament tracking
+let currentGameEliminations=[];  // player names in elimination order (earliest first)
+let currentSessionLabel=null;    // e.g. "JUL01-22:31", set when New Game is pressed
+
+function freshDeck(){
+  const d=[];
+  for(const s of SUITS) for(const r of RANKS) d.push({r,s});
+  for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]];}
+  return d;
+}
+
+function addLog(msg){actionLog.push(msg);if(actionLog.length>120)actionLog.shift();}
+
+function nextActive(from){
+  const n=players.length; if(!n) return -1;
+  let i=from;
+  for(let c=0;c<n;c++){
+    i=(i+1)%n;
+    if(!players[i].folded && !players[i].sittingOut) return i;
+  }
+  return -1;
+}
+// Between hands: skip only sitting-out players (folded state is stale from last hand)
+function nextForSB(from){
+  const n=players.length; if(!n) return -1;
+  let i=from;
+  for(let c=0;c<n;c++){ i=(i+1)%n; if(!players[i].sittingOut) return i; }
+  return -1;
+}
+function getSB(){
+  if(players.length<2) return -1;
+  // During a hand use folded-aware traversal; between hands use sittingOut-only
+  return stage==='idle' ? nextForSB(dealerIdx) : nextActive(dealerIdx);
+}
+function getBB(){
+  const sb=getSB(); if(sb===-1) return -1;
+  return stage==='idle' ? nextForSB(sb) : nextActive(sb);
+}
+function active(){return players.filter(p=>!p.folded);}
+
+// ── All-in runout detection ───────────────────────────────────────────
+function isAllInRunout(){
+  if(stage==='river'||stage==='idle') return false;
+  const act=active().filter(p=>!p.sittingOut&&!p.eliminated);
+  if(act.length<2) return false;
+  // Both conditions required:
+  // 1. Queue empty — everyone has acted (the 4th player has actually called)
+  // 2. At most 1 player still has chips — if 2+ have chips they can still side-pot
+  const withChips=act.filter(p=>!p.allIn).length;
+  return actingQueue.length===0 && withChips<=1 && act.some(p=>p.allIn);
+}
+
+function computeRunoutData(board){
+  const act=active().filter(p=>!p.sittingOut);
+  const knownKeys=new Set(board.map(c=>c.r+''+c.s));
+  const pdList=act.map(p=>{
+    const cards=holeCards[p.id]||[];
+    cards.forEach(c=>knownKeys.add(c.r+''+c.s));
+    return{name:p.name,cards,winningCards:[]};
+  });
+  const remaining=[];
+  for(const s of SUITS) for(const r of RANKS) if(!knownKeys.has(r+''+s)) remaining.push({r,s});
+  const cardsLeft=5-board.length;
+
+  // ── PRE-FLOP (or 3+ cards to come): Monte Carlo simulation ──────────
+  if(cardsLeft>=3){
+    const SAMPLES=1500;
+    const winCounts=new Array(pdList.length).fill(0);
+    const tieShares=new Array(pdList.length).fill(0);
+    for(let s=0;s<SAMPLES;s++){
+      // Fisher-Yates shuffle of remaining, deal first cardsLeft as community cards
+      const rem=[...remaining];
+      for(let i=rem.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[rem[i],rem[j]]=[rem[j],rem[i]];}
+      const simBoard=[...board,...rem.slice(0,cardsLeft)];
+      const evals=pdList.map(pd=>evaluateBest([...pd.cards,...simBoard]));
+      let best=evals[0];
+      for(let i=1;i<evals.length;i++) if(compareEval(evals[i],best)>0) best=evals[i];
+      const ws=evals.reduce((acc,e,i)=>{if(compareEval(e,best)===0) acc.push(i); return acc;},[]);
+      if(ws.length===1) winCounts[ws[0]]++;
+      else ws.forEach(i=>tieShares[i]+=1/ws.length);
     }
+    const scores=pdList.map((_,i)=>winCounts[i]+tieShares[i]);
+    const maxScore=Math.max(...scores);
+    pdList.forEach((pd,i)=>{
+      pd.outs=winCounts[i]; pd.totalRemaining=SAMPLES;
+      pd.score=scores[i]; pd.isMonteCarlo=true;
+      pd.desc=describeHoleCards(pd.cards);
+      pd.isLeader=Math.abs(scores[i]-maxScore)<0.001;
+    });
+    pdList.sort((a,b)=>b.score-a.score);
+    return{
+      players:pdList.map(pd=>({name:pd.name,cards:pd.cards,desc:pd.desc,
+        isLeader:pd.isLeader,outs:pd.outs,totalRemaining:pd.totalRemaining,
+        winningCards:[],isMonteCarlo:true})),
+      leaderNames:pdList.filter(pd=>pd.isLeader).map(pd=>pd.name),cardsLeft
+    };
+  }
+
+  // ── POST-FLOP: full hand evaluation ─────────────────────────────────
+  pdList.forEach(pd=>{
+    const allCards=[...pd.cards,...board];
+    pd.eval=allCards.length>=5?evaluateBest(allCards):null;
+    pd.desc=pd.eval?describeEval(pd.eval):null;
+  });
+  let topEval=null;
+  pdList.forEach(pd=>{if(!topEval||compareEval(pd.eval,topEval)>0) topEval=pd.eval;});
+  const leaderNames=pdList.filter(pd=>compareEval(pd.eval,topEval)===0).map(pd=>pd.name);
+
+  if(cardsLeft===1){
+    pdList.forEach(pd=>{
+      if(leaderNames.includes(pd.name)){pd.outs=null;pd.totalRemaining=remaining.length;return;}
+      const wCards=[];
+      remaining.forEach(c=>{
+        const b2=[...board,c];
+        const ev2=evaluateBest([...pd.cards,...b2]);
+        const wins=pdList.every(o=>o.name===pd.name||compareEval(ev2,evaluateBest([...o.cards,...b2]))>0);
+        if(wins) wCards.push(c);
+      });
+      pd.winningCards=wCards; pd.outs=wCards.length; pd.totalRemaining=remaining.length;
+    });
+  } else if(cardsLeft===2){
+    pdList.forEach(pd=>{
+      if(leaderNames.includes(pd.name)){pd.outs=null;pd.totalRemaining=null;return;}
+      const helpKeys=new Set(); let wins=0,total=0;
+      for(let i=0;i<remaining.length;i++) for(let j=i+1;j<remaining.length;j++){
+        const b2=[...board,remaining[i],remaining[j]];
+        const ev2=evaluateBest([...pd.cards,...b2]);
+        const w=pdList.every(o=>o.name===pd.name||compareEval(ev2,evaluateBest([...o.cards,...b2]))>0);
+        if(w){wins++;helpKeys.add(remaining[i].r+''+remaining[i].s);helpKeys.add(remaining[j].r+''+remaining[j].s);}
+        total++;
+      }
+      pd.outs=wins; pd.totalRemaining=total;
+      pd.winningCards=remaining.filter(c=>helpKeys.has(c.r+''+c.s));
+    });
+  }
+  pdList.sort((a,b)=>{
+    if(leaderNames.includes(a.name)&&!leaderNames.includes(b.name)) return -1;
+    if(!leaderNames.includes(a.name)&&leaderNames.includes(b.name)) return 1;
+    const pA=a.totalRemaining?(a.outs||0)/a.totalRemaining:0;
+    const pB=b.totalRemaining?(b.outs||0)/b.totalRemaining:0;
+    return pB-pA;
+  });
+  return{
+    players:pdList.map(pd=>({name:pd.name,cards:pd.cards,desc:pd.desc,
+      isLeader:leaderNames.includes(pd.name),outs:pd.outs,totalRemaining:pd.totalRemaining,
+      winningCards:pd.winningCards||[]})),
+    leaderNames,cardsLeft
+  };
+}
+
+function buildQueue(startAfterIdx){
+  const queue=[];
+  if(!players.length) return queue;
+  let idx=nextActive(startAfterIdx);
+  if(idx===-1) return queue;
+  const first=idx;
+  do {
+    if(!players[idx].allIn && !players[idx].sittingOut) queue.push(idx);
+    idx=nextActive(idx);
+    if(idx===-1) break;
+  } while(idx!==first);
+  return queue;
+}
+
+function buildQueueAfterRaise(raiserIdx){
+  const queue=[];
+  if(!players.length) return queue;
+  let idx=nextActive(raiserIdx);
+  if(idx===-1||idx===raiserIdx) return queue;
+  const first=idx;
+  do {
+    if(!players[idx].allIn && !players[idx].folded && !players[idx].sittingOut) queue.push(idx);
+    idx=nextActive(idx);
+    if(idx===-1) break;
+  } while(idx!==first && idx!==raiserIdx);
+  return queue;
+}
+
+function pruneQueue(){
+  while(actingQueue.length>0){
+    const p=players[actingQueue[0]];
+    if(!p||p.folded||p.allIn||p.sittingOut) actingQueue.shift();
+    else break;
   }
 }
+
+function canRevealNext(){
+  if(stage==='idle'||stage==='river') return false;
+  const act=active();
+  if(act.length<=1) return false;
+  pruneQueue();
+  return actingQueue.length===0 && act.every(p=>p.action!==null);
+}
+function canRevealWinner(){
+  if(stage==='idle') return false;
+  const act=active();
+  if(act.length<=1) return true;
+  if(stage==='river'){pruneQueue();return actingQueue.length===0&&act.every(p=>p.action!==null);}
+  return false;
+}
+
+function publicState(){
+  pruneQueue();
+  const sb=getSB(), bb=getBB();
+  const nextActor=actingQueue.length>0?actingQueue[0]:-1;
+  // Reveal hole cards to all clients during all-in runout
+  const runoutActive=isAllInRunout()||pendingRunoutStage!==null;
+  const revealedHoleCards={};
+  if(runoutActive){
+    players.forEach(p=>{
+      if(holeCards[p.id]&&holeCards[p.id].length>0) revealedHoleCards[p.name]=holeCards[p.id];
+    });
+  }
+  // Detect fold-win: only 1 non-folded, non-eliminated player remains mid-hand
+  const foldWinner = stage !== 'idle'
+    ? (() => { const rem=active().filter(p=>!p.eliminated); return rem.length===1?rem[0].name:null; })()
+    : null;
+  return {
+    stage, board, version:VERSION, lastUpdated:LAST_UPDATED, cardBackStyle,
+    pendingRunout:pendingRunoutStage!==null,
+    currentSessionLabel, currentEliminationCount:currentGameEliminations.length,
+    canRevealNext:canRevealNext(), canRevealWinner:canRevealWinner(),
+    foldWinner,
+    playerCount:players.filter(p=>!p.sittingOut).length,
+    actionLog:actionLog.slice(-40),
+    lastHandResult, actingQueue:[...actingQueue],
+    nextActorIdx:nextActor,
+    nextActorName:nextActor>=0&&players[nextActor]?players[nextActor].name:null,
+    hasRaiseThisStreet, canUndo:undoState!==null,
+    bbCanCheck, nextActorIsBB:stage==='preflop'&&actingQueue.length>0&&actingQueue[0]===getBB(),
+    revealedHoleCards,
+    players:players.map((p,i)=>({
+      name:p.name, connected:p.connected, folded:p.folded,
+      allIn:p.allIn, sittingOut:p.sittingOut||p.eliminated, eliminated:p.eliminated, action:p.action,
+      isDealer:i===dealerIdx, isSB:i===sb, isBB:i===bb,
+      isCurrent:i===nextActor
+    }))
+  };
+}
+
+function broadcast(){io.emit('state',publicState());}
+function sendCards(id){if(holeCards[id]) io.to(id).emit('yourCards',holeCards[id]);}
+
+function saveUndo(logEntry){
+  undoState={
+    playerStates:players.map(p=>({action:p.action,folded:p.folded,allIn:p.allIn})),
+    actingQueue:[...actingQueue], hasRaiseThisStreet, logEntry
+  };
+}
+
+io.on('connection',socket=>{
+
+  socket.on('checkPin',(pin,cb)=>{if(typeof cb==='function') cb(pin===HOST_PIN);});
+
+  socket.on('join',name=>{
+    name=String(name||'Player').trim().slice(0,20)||'Player';
+    const ex=players.find(p=>p.name===name);
+    if(ex){
+      if(holeCards[ex.id]){holeCards[socket.id]=holeCards[ex.id];delete holeCards[ex.id];}
+      ex.id=socket.id; ex.connected=true;
+      socket.emit('joined',{id:socket.id,reconnected:true});
+    } else {
+      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,eliminated:false,connected:true,action:null});
+      socket.emit('joined',{id:socket.id});
+      addLog(name+' joined the game');
+    }
+    sendCards(socket.id);
+    broadcast();
+  });
+
+  socket.on('reorder',names=>{
+    // Remember which player is currently the dealer so the index follows them
+    const dealerName=dealerIdx>=0&&players[dealerIdx]?players[dealerIdx].name:null;
+    const by={};
+    players.forEach(p=>{(by[p.name]=by[p.name]||[]).push(p);});
+    const out=[];
+    names.forEach(n=>{if(by[n]&&by[n].length) out.push(by[n].shift());});
+    players.forEach(p=>{if(!out.includes(p)) out.push(p);});
+    players=out;
+    // Restore dealerIdx to the same player at their new position
+    if(dealerName!==null){
+      const ni=players.findIndex(p=>p.name===dealerName);
+      if(ni>=0) dealerIdx=ni;
+    }
+    broadcast();
+  });
+
+  socket.on('renamePlayer',({oldName,newName})=>{
+    newName=String(newName||'').trim().slice(0,20);
+    if(!newName||newName===oldName) return;
+    if(players.find(p=>p.name===newName)) return;
+    const p=players.find(pl=>pl.name===oldName);
+    if(!p) return;
+    p.name=newName;
+    // Tell the renamed player to update their stored name
+    io.to(p.id).emit('youWereRenamed',newName);
+    addLog(oldName+' renamed to '+newName);
+    broadcast();
+  });
+
+  socket.on('startNewGame',()=>{
+    // Reset all player states first — bringing eliminated players back in
+    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=false;});
+    const eligible=players; // everyone is back in after reset
+    if(eligible.length<2) return;
+    // Notify ALL clients a new game is beginning
+    io.emit('newGameStarting');
+    // Commit state changes (dealer selection happens at first Deal press)
+    board=[];holeCards={};actingQueue=[];
+    pendingDealerAnimation=true; // dealer animation plays when host presses Deal
+    hasRaiseThisStreet=false;undoState=null;lastHandResult=null;
+    stage='idle';
+    actionLog=['=== New Game Started ==='];
+    pendingRunoutStage=null;
+    isRunoutSession=false;
+    firstHandDealt=false;
+    currentGameEliminations=[];
+    currentSessionLabel=formatSessionLabel();
+
+    players.forEach(p=>io.to(p.id).emit('yourCards',[]));
+    broadcast();
+  });
+
+  socket.on('removePlayer',name=>{
+    // If the removed player is the blind-reminder anchor, advance to next active player
+    if(name===initialDealerName){
+      const idx=players.findIndex(p=>p.name===name);
+      const rest=players.filter((p,i)=>i!==idx&&!p.sittingOut);
+      const after=players.slice(idx+1).find(p=>!p.sittingOut);
+      const before=players.slice(0,idx).find(p=>!p.sittingOut);
+      const next=after||before||rest[0]||null;
+      initialDealerName=next?next.name:null;
+    }
+    players=players.filter(p=>p.name!==name);
+    addLog(name+' removed from game'); broadcast();
+  });
+
+  // ── Tournament events ────────────────────────────────────────────────
+  socket.on('saveTournamentGame',(cb)=>{
+    if(!currentSessionLabel||currentGameEliminations.length===0){
+      if(cb) cb({success:false,reason:'nothing to save'});
+      return;
+    }
+    const tournament=loadTournament();
+    const remainingNames=players.filter(p=>!p.eliminated).map(p=>p.name);
+    const {results,totalPlayers}=computeTournamentResults(currentGameEliminations,remainingNames);
+    if(results.length===0){ if(cb) cb({success:false,reason:'too few players'}); return; }
+    tournament.games.push({sessionLabel:currentSessionLabel,totalPlayers,results});
+    saveTournamentData(tournament);
+    io.emit('tournamentUpdated',tournament);
+    if(cb) cb({success:true});
+  });
+
+  socket.on('getTournament',(cb)=>{
+    if(cb) cb(loadTournament());
+  });
+
+  socket.on('clearTournament',(cb)=>{
+    saveTournamentData({games:[]});
+    io.emit('tournamentUpdated',{games:[]});
+    if(cb) cb({success:true});
+  });
+
+  socket.on('eliminatePlayer',name=>{
+    const p=players.find(pl=>pl.name===name);
+    if(!p) return;
+    if(!p.eliminated){
+      p.eliminated=true; p.sittingOut=true;
+      currentGameEliminations.push(name);
+      io.to(p.id).emit('yourCards',[]); // clear their cards immediately
+      addLog('\u2620\uFE0F '+name+' busted out (place '+(currentGameEliminations.length)+')');
+    } else {
+      // Undo (host mistake recovery) — removes from elimination list
+      p.eliminated=false; p.sittingOut=false;
+      currentGameEliminations=currentGameEliminations.filter(n=>n!==name);
+      addLog(name+' un-busted (removed from elimination list)');
+    }
+    broadcast();
+  });
+
+  socket.on('clearLog',()=>{actionLog=[];broadcast();});
+
+  socket.on('setCardBack',style=>{
+    cardBackStyle=style;
+    addLog('Card back changed');
+    broadcast();
+  });
+
+  socket.on('startHand',()=>{
+    // First deal after new game: pick dealer and show animation
+    if(pendingDealerAnimation){
+      pendingDealerAnimation=false;
+      const eligAll=players.filter(p=>!p.eliminated);
+      if(eligAll.length<2) return;
+      const winner=eligAll[Math.floor(Math.random()*eligAll.length)];
+      const si=players.findIndex(p=>p.name===winner.name);
+      if(si>=0){ dealerIdx=si; skipDealerAdvance=true; }
+      initialDealerName=winner.name;
+      addLog('[Blind reminder tracking: '+winner.name+']');
+      io.emit('newGameAnimate',{eligible:eligAll.map(p=>p.name),winner:winner.name,followedByDeal:true});
+      // Deal will proceed right after — client queues shuffle behind the animation
+    }
+    const eligible=players.filter(p=>!p.sittingOut);
+    if(stage!=='idle'||eligible.length<2) return;
+    deck=freshDeck(); board=[]; holeCards={}; lastHandResult=null;
+
+    // Reset non-sitting-out players; sitting-out treated as pre-folded
+    players.forEach(p=>{
+      p.folded=p.sittingOut;
+      p.allIn=false;
+      p.action=null;
+    });
+
+    // Advance dealer (skip on first hand after New Game — dealer already set)
+    if(skipDealerAdvance){
+      skipDealerAdvance=false;
+    } else {
+      let tries=0;
+      do { dealerIdx=(dealerIdx+1)%players.length; tries++; }
+      while(players[dealerIdx].sittingOut && tries<players.length);
+    }
+
+    stage='preflop';
+    hasRaiseThisStreet=false;
+    undoState=null;
+
+    // Deal only to non-sitting-out players
+    for(let round=0;round<2;round++){
+      for(let k=0;k<players.length;k++){
+        const idx=(dealerIdx+1+k)%players.length;
+        const p=players[idx];
+        if(p.sittingOut) continue;
+        if(!holeCards[p.id]) holeCards[p.id]=[];
+        holeCards[p.id].push(deck.pop());
+      }
+    }
+    players.forEach(p=>sendCards(p.id));
+    actingQueue=buildQueue(getBB()); // UTG first, BB last
+    hasRaiseThisStreet=true;  // pre-flop: blinds already out = there's a bet to call
+    bbCanCheck=true;           // BB gets free check option if no one raises
+    addLog('--- New hand. Dealer: '+players[dealerIdx].name+' ---');
+    const sbIdx=getSB(), bbIdx=getBB();
+    const currentDealerName=players[dealerIdx]?players[dealerIdx].name:null;
+    // Blind reminder: fires when dealer wraps back to the initial dealer
+    if(firstHandDealt && currentDealerName && currentDealerName===initialDealerName){
+      addLog('[Blinds reminder fired for '+currentDealerName+']');
+      io.emit('blindsReminder',{dealerName:currentDealerName});
+    }
+    if(!firstHandDealt && initialDealerName){
+      console.log('[Blind reminder] Tracking armed. Initial dealer: '+initialDealerName);
+    }
+    firstHandDealt=true;
+    io.emit('shuffling',{
+      dealer:currentDealerName,
+      sb:sbIdx>=0&&players[sbIdx]?players[sbIdx].name:null,
+      bb:bbIdx>=0&&players[bbIdx]?players[bbIdx].name:null,
+    });
+    broadcast();
+  });
+
+  socket.on('recordAction',action=>{
+    pruneQueue();
+    if(actingQueue.length===0) return;
+    const playerIdx=actingQueue[0];
+    const p=players[playerIdx];
+    if(!p) return;
+    // Block check if there's been a raise — UNLESS it's the BB's free check option pre-flop
+    const nextActor=actingQueue.length>0?actingQueue[0]:-1;
+    const isBBCheck=bbCanCheck&&stage==='preflop'&&nextActor===getBB();
+    if(action==='X'&&hasRaiseThisStreet&&!isBBCheck) return;
+    const labels={F:'Fold',C:'Call',R:'Raise',A:'All In',X:'Check'};
+    const logEntry=p.name+': '+(labels[action]||action);
+    saveUndo(logEntry);
+    p.action=action;
+    if(action==='F') p.folded=true;
+    if(action==='A') p.allIn=true;
+    if(action==='R'||action==='A'){
+      bbCanCheck=false; // someone raised — BB loses free check option
+      hasRaiseThisStreet=true;
+      // All-in clears C, X and previous R (it's a re-raise); regular raise only clears C and X
+      const toClear=action==='A'?['C','X','R']:['C','X'];
+      players.forEach((other,i)=>{
+        if(i!==playerIdx&&!other.folded&&!other.allIn&&toClear.includes(other.action)){
+          other.action=null;
+        }
+      });
+      actingQueue=buildQueueAfterRaise(playerIdx);
+    } else {
+      actingQueue.shift();
+    }
+    addLog(logEntry);
+    broadcast();
+  });
+
+  socket.on('undoAction',()=>{
+    if(!undoState) return;
+    players.forEach((p,i)=>{
+      if(undoState.playerStates[i]){
+        p.action=undoState.playerStates[i].action;
+        p.folded=undoState.playerStates[i].folded;
+        p.allIn=undoState.playerStates[i].allIn;
+      }
+    });
+    actingQueue=[...undoState.actingQueue];
+    hasRaiseThisStreet=undoState.hasRaiseThisStreet;
+    if(actionLog.length>0&&actionLog[actionLog.length-1]===undoState.logEntry) actionLog.pop();
+    addLog('\u21A9 Undid: '+undoState.logEntry);
+    undoState=null;
+    broadcast();
+  });
+
+  socket.on('revealNext',()=>{
+    if(!canRevealNext()) return;
+    // Guard: if only 1 player remains (fold-win), don't reveal — host should tap WIN instead
+    if(active().filter(p=>!p.eliminated).length<=1) return;
+    // If all players are all-in, show preview BEFORE dealing cards
+    if(isAllInRunout()){
+      const preview=computeRunoutData(board);
+      pendingRunoutStage=stage;
+      io.emit('allInRunoutPreview',{board:[...board],preview,nextStreet:stage==='preflop'?'flop':stage==='flop'?'turn':'river'});
+      return; // wait for proceedRunout
+    }
+    doRevealNext(stage);
+    broadcast();
+  });
+
+  socket.on('proceedRunout',()=>{
+    if(!pendingRunoutStage) return;
+    isRunoutSession=true;
+    const prevStage=pendingRunoutStage;
+    pendingRunoutStage=null;
+    doRevealNext(prevStage);
+    // After animation plays, host uses N button to trigger next all-in preview or WIN
+    broadcast();
+  });
+
+  function doRevealNext(fromStage){
+    if(fromStage==='preflop'){
+      deck.pop(); board.push(deck.pop(),deck.pop(),deck.pop()); stage='flop';
+      players.filter(p=>!p.folded&&!p.allIn&&!p.sittingOut).forEach(p=>p.action=null);
+      actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; bbCanCheck=false; undoState=null;
+      // If ≤1 player still has chips (others all-in), no betting needed — clear queue for runout
+      {const wc=active().filter(p=>!p.allIn&&!p.sittingOut&&!p.eliminated).length;
+       if(wc<=1&&active().filter(p=>!p.sittingOut&&!p.eliminated).some(p=>p.allIn)) actingQueue=[];}
+      addLog('Flop: '+board.slice(0,3).map(c=>cardLabel(c)).join(' '));
+      io.emit('streetReveal',{street:'flop',label:'The Flop!',cards:board.slice(0,3)});
+    } else if(fromStage==='flop'){
+      deck.pop(); board.push(deck.pop()); stage='turn';
+      players.filter(p=>!p.folded&&!p.allIn&&!p.sittingOut).forEach(p=>p.action=null);
+      actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; bbCanCheck=false; undoState=null;
+      // If ≤1 player still has chips (others all-in), no betting needed — clear queue for runout
+      {const wc=active().filter(p=>!p.allIn&&!p.sittingOut&&!p.eliminated).length;
+       if(wc<=1&&active().filter(p=>!p.sittingOut&&!p.eliminated).some(p=>p.allIn)) actingQueue=[];}
+      addLog('Turn: '+cardLabel(board[3]));
+      io.emit('streetReveal',{street:'turn',label:'The Turn',cards:[board[3]]});
+    } else if(fromStage==='turn'){
+      deck.pop(); board.push(deck.pop()); stage='river';
+      players.filter(p=>!p.folded&&!p.allIn&&!p.sittingOut).forEach(p=>p.action=null);
+      actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; bbCanCheck=false; undoState=null;
+      // If ≤1 player still has chips (others all-in), no betting needed — clear queue for runout
+      {const wc=active().filter(p=>!p.allIn&&!p.sittingOut&&!p.eliminated).length;
+       if(wc<=1&&active().filter(p=>!p.sittingOut&&!p.eliminated).some(p=>p.allIn)) actingQueue=[];}
+      addLog('River: '+cardLabel(board[4]));
+      io.emit('streetReveal',{street:'river',label:'The River',cards:[board[4]]});
+    }
+  }
+
+  socket.on('endGame',()=>{
+    // Compute final standings for game results display
+    const remaining=players.filter(p=>!p.eliminated);
+    const elimReversed=[...currentGameEliminations].reverse(); // last eliminated first
+    const resultsList=[
+      ...remaining.map(p=>({name:p.name,isWinner:true})),
+      ...elimReversed.map(name=>({name,isWinner:false}))
+    ];
+    io.emit('gameResults',{
+      results:resultsList,
+      sessionLabel:currentSessionLabel,
+      canSave:!!(currentSessionLabel&&currentGameEliminations.length>0)
+    });
+  });
+
+  // Fold-win: called when only 1 player remains (everyone else folded)
+  socket.on('declareFoldWinner',()=>{
+    const rem=active().filter(p=>!p.eliminated);
+    if(rem.length!==1||stage==='idle') return;
+    addLog('🏆 '+rem[0].name+' wins (everyone else folded)');
+    stage='idle'; actingQueue=[]; bbCanCheck=false;
+    hasRaiseThisStreet=false; undoState=null;
+    pendingRunoutStage=null; lastHandResult=null;
+    broadcast();
+  });
+
+    socket.on('revealWinner',()=>{
+    if(stage==='idle') return;
+    // Evaluate all hands
+    const results=players.map(p=>{
+      const cards=holeCards[p.id]||[];
+      const all=[...cards,...board];
+      const best=all.length>=5?evaluateBest(all):null;
+      return{name:p.name,cards,handName:best?best.name:null,handDesc:null,_eval:best,folded:p.folded,sittingOut:p.sittingOut,winner:false};
+    });
+
+    // Determine winner among non-folded, non-sittingout
+    const act=results.filter(r=>!r.folded&&!r.sittingOut&&r._eval);
+    if(act.length===1){act[0].winner=true;}
+    else if(act.length>1){
+      let bev=null;
+      act.forEach(r=>{if(!bev||compareEval(r._eval,bev)>0) bev=r._eval;});
+      act.filter(r=>compareEval(r._eval,bev)===0).forEach(r=>r.winner=true);
+    }
+
+    // Find deciding kicker (comparing winner vs non-winner active players)
+    const winnerR=results.filter(r=>r.winner&&r._eval);
+    const loserR=results.filter(r=>!r.winner&&!r.folded&&!r.sittingOut&&r._eval);
+    let decidingPos=null;
+    if(winnerR.length===1&&loserR.length>0){
+      decidingPos=findDecidingKicker(winnerR[0]._eval,loserR.map(r=>r._eval));
+    }
+
+    // Generate descriptions
+    results.forEach(r=>{
+      if(!r._eval) return;
+      r.handDesc=r.winner&&decidingPos!==null ? describeEvalKicker(r._eval,decidingPos) : describeEval(r._eval);
+    });
+
+    // Log winner(s)
+    const winners=results.filter(r=>r.winner);
+    const isSplit=winners.length>1;
+    const wNames=winners.map(r=>r.name);
+    const wNamesStr=wNames.join(' & ');
+    const wDesc=winners[0]?winners[0].handDesc||winners[0].handName:'';
+    addLog((isSplit?'\uD83E\uDD1D Split pot \u2014 ':'\uD83C\uDFC6 ')+wNamesStr+(wDesc?(isSplit?' — tied with ':' wins with ')+wDesc+'!':' wins!'));
+
+    // Hand summary: only players who were actually in the hand (not sitting out)
+    const nonFolded=results.filter(r=>!r.folded&&!r.sittingOut)
+      .sort((a,b)=>{
+        if(a.winner&&!b.winner) return -1;
+        if(!a.winner&&b.winner) return 1;
+        return compareEval(b._eval,a._eval);
+      });
+    const foldedInHand=results.filter(r=>r.folded&&!r.sittingOut);
+    const ordinals=['1st','2nd','3rd','4th','5th','6th','7th','8th','9th'];
+    // For split: both winners are "1st"; then place continues from 2
+    let place=isSplit?winners.length+1:2;
+    nonFolded.forEach(r=>{
+      if(!r.winner){
+        addLog((ordinals[place-1]||`${place}th`)+' '+r.name+': '+(r.handDesc||''));
+        place++;
+      }
+    });
+    foldedInHand.forEach(r=>addLog(r.name+': Folded'));
+
+    // Emit to all clients — includes split flag and full winner name array
+    // runoutResults: included when this hand was an all-in runout, for the Results overlay
+    const runoutResultsData = isRunoutSession ? {
+      players: results.filter(r=>!r.sittingOut&&!r.eliminated&&!r.folded)
+        .map(r=>({name:r.name,cards:r.cards,handDesc:r.handDesc,winner:r.winner})),
+      board:[...board]
+    } : null;
+    isRunoutSession=false;
+    io.emit('winnerAnnounce',{
+      names:wNamesStr, nameList:wNames, hand:wDesc,
+      single:winners.length===1, isSplit,
+      runoutResults:runoutResultsData
+    });
+
+    // Clean up
+    results.forEach(r=>delete r._eval);
+    lastHandResult={results:results.filter(r=>!r.sittingOut),board:[...board]};
+    actingQueue=[]; undoState=null; stage='idle';
+    broadcast();
+  });
+
+  socket.on('disconnect',()=>{
+    const p=players.find(pl=>pl.id===socket.id);
+    if(p){p.connected=false;broadcast();}
+  });
+});
+
+const PORT=process.env.PORT||3000;
+server.listen(PORT,'0.0.0.0',()=>console.log(`Roatan Poker Club v${VERSION} on port ${PORT}. PIN: ${HOST_PIN}`));
