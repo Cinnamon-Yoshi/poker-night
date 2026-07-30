@@ -247,12 +247,6 @@
       <div id="playerList"></div>
     </div>
 
-    <!-- Previous Hand (moved above action log — change 6) -->
-    <div class="section" id="resultSection" style="display:none;">
-      <div class="label">Previous Hand</div>
-      <div id="resultList"></div>
-    </div>
-
     <!-- Hand Rankings cheat sheet -->
     <div class="section" id="cheatSheet" style="display:none;">
       <div class="rank-row"><span>1. Royal Flush</span><span>A K Q J 10, same suit</span></div>
@@ -859,7 +853,7 @@ socket.on('winnerAnnounce',data=>{
     ov.classList.remove('active');
     // Only show Results if the game is still between hands — a quick new deal clears this
     if (lastState && lastState.stage === 'idle') {
-      const handData = data.runoutResults || buildHandResults();
+      const handData = data.runoutResults || buildResultsData();
       if (handData) showRunoutResults(handData);
     }
   },4000);
@@ -1087,8 +1081,6 @@ socket.on('state',state=>{
   document.getElementById('eliminatedBanner').style.display=isElim?'block':'none';
   document.getElementById('holeCardsWrap').style.display=isElim?'none':'flex';
   renderLog(state.actionLog);
-  if(state.lastHandResult) renderResult(state.lastHandResult);
-  else document.getElementById('resultSection').style.display='none';
   if(isHost){renderHostControls(state);updateNButton(state);}
   renderPlayerActionBar(state);
   if(state.version) document.getElementById('versionInfo').textContent='v'+state.version+' · '+state.lastUpdated;
@@ -1242,6 +1234,14 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.14', date:'July 2026',
+    changes:[
+      'Removed the Previous Hand section from the table view',
+      'Results screen (community cards plus each hand ranked) now shows after every hand, not just all-in runouts — fixed a bug where a leftover function reference silently blocked it for regular hands',
+      'Action log order for hand results reversed — folded players log first, placed players log worst to best, winner logs last, so the winner appears on top of the log',
+    ]
+  },
   {
     v:'3.13', date:'July 2026',
     changes:[
@@ -2022,71 +2022,6 @@ function renderLog(log){
   });
 }
 
-function renderResult(result){
-  document.getElementById('resultSection').style.display='block';
-  const list=document.getElementById('resultList');list.innerHTML='';
-
-  // Sort non-folded: winner first, then by hand rank descending
-  const toShow=result.results.filter(r=>!r.folded)
-    .sort((a,b)=>{
-      if(a.winner&&!b.winner) return -1;
-      if(!a.winner&&b.winner) return 1;
-      const ea=evaluateBest([...(a.cards||[]),...(result.board||[])]);
-      const eb=evaluateBest([...(b.cards||[]),...(result.board||[])]);
-      return compareEval(eb,ea);
-    });
-
-  // Compute evals for deciding kicker
-  const evals=toShow.map(r=>{
-    const all=[...(r.cards||[]),...(result.board||[])];
-    return all.length>=5?evaluateBest(all):null;
-  });
-  const winnerIdx=toShow.findIndex(r=>r.winner);
-  let decidingPos=null;
-  if(winnerIdx>=0&&evals[winnerIdx]){
-    const losingEvals=evals.filter((_,i)=>i!==winnerIdx&&evals[i]);
-    decidingPos=findDecidingKicker(evals[winnerIdx],losingEvals);
-  }
-
-  const placements=['1st','2nd','3rd','4th','5th','6th','7th','8th','9th'];
-  const winnerCount=toShow.filter(r=>r.winner).length;
-  const isSplit=winnerCount>1;
-  let nonWinnerRank=winnerCount+1; // e.g. 3rd in a 2-way split
-
-  toShow.forEach((r,i)=>{
-    const div=document.createElement('div');
-    div.className='result-row'+(r.winner?' winner':'');
-    const ev=evals[i];
-    const bestKeys=ev&&ev.bestCards?new Set(ev.bestCards.map(c=>c.r+''+c.s)):new Set();
-    const boardUsed=(result.board||[]).filter(c=>bestKeys.has(c.r+''+c.s));
-
-    // Hole cards: dim any not in the best 5-card hand
-    const holeHtml=(r.cards||[]).map(c=>{
-      const used=bestKeys.has(c.r+''+c.s);
-      const isRed=c.s==='H'||c.s==='D';
-      return `<span class="rc${isRed?' rcr':''}${!used?' rc-dim':''}">${cardLabel(c)}</span>`;
-    }).join('');
-
-    const boardHtml=boardUsed.map(c=>coloredCardHtml(c)).join('');
-    let handDesc='';
-    if(ev) handDesc=r.winner&&!isSplit&&decidingPos!==null?describeEvalKicker(ev,decidingPos):describeEval(ev);
-    else handDesc=r.handDesc||r.handName||'';
-
-    let place;
-    if(r.winner){
-      place=isSplit?'\uD83E\uDD1D':'1st'; // 🤝 for split, 1st for solo win
-    } else {
-      place=placements[nonWinnerRank-1]||`${nonWinnerRank}th`;
-      nonWinnerRank++;
-    }
-    const winIcon=r.winner?(isSplit?'':'\uD83C\uDFC6 '):''; // trophy only for solo winner
-    div.innerHTML=
-      `<div class="result-name"><span class="result-place">${place}</span>${winIcon}${r.name}</div>`+
-      `<div class="result-cards-row">${holeHtml}${boardHtml?'<span class="result-plus">+</span>'+boardHtml:''}</div>`+
-      `<div class="result-hand">${handDesc}</div>`;
-    list.appendChild(div);
-  });
-}
 </script>
 </body>
 </html>
