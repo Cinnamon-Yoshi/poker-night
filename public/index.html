@@ -135,9 +135,11 @@
 
 <!-- Shuffle overlay -->
 <div id="shuffleOverlay">
-  <div class="shuffle-title">Dealer is shuffling…</div>
-  <div id="shuffleInfo"></div>
-  <div id="shuffleCardStage"></div>
+  <div class="shuffle-content">
+    <div class="shuffle-title">Dealer is shuffling…</div>
+    <div id="shuffleInfo"></div>
+    <div id="shuffleCardStage"></div>
+  </div>
 </div>
 
 <!-- New Game modal (dealer selection animation) -->
@@ -1240,6 +1242,13 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.13', date:'July 2026',
+    changes:[
+      'Fixed: host stuck after all-in runout — canRevealNext was incorrectly requiring all player actions to be set on each new street; now correctly allows proceed during all-in runout',
+      'Shuffle overlay D/SB/BB block now centered on screen with items left-aligned within it',
+    ]
+  },
   {
     v:'3.12', date:'July 2026',
     changes:[

@@ -190,15 +190,20 @@ button.gold { background:#d4af37; color:#111; }
   background:rgba(0,0,0,0.88);
   z-index:1000;
   display:none;
-  align-items:flex-start; justify-content:center; flex-direction:column;
-  gap:20px; padding-left:32px;
+  align-items:center; justify-content:center; flex-direction:column;
+  gap:20px;
 }
 #shuffleOverlay.active { display:flex; }
 .shuffle-title {
   font-size:2.1em; font-weight:900;
-  color:#d4af37; text-align:left;
+  color:#d4af37; text-align:left; width:100%;
 }
-#shuffleInfo { display:flex; flex-direction:column; gap:12px; align-items:flex-start; margin-top:4px; }
+.shuffle-content {
+  display:flex; flex-direction:column; gap:20px;
+  align-items:flex-start;
+  width:min(340px, 85vw);
+}
+#shuffleInfo { display:flex; flex-direction:column; gap:12px; align-items:flex-start; width:100%; }
 .shuffle-subtitle { font-size:0.85em; opacity:0.55; text-align:center; }
 .shuffle-row { display:flex; gap:8px; perspective:300px; }
 .smcard {
