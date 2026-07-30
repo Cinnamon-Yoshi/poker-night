@@ -55,6 +55,10 @@
     <div class="aio-community" id="aioCommunity"></div>
   </div>
   <div class="aio-players" id="aioPlayers"></div>
+  <div class="aio-hand-log-wrap">
+    <div class="aio-hand-log-label">This Hand</div>
+    <div class="log-wrap" id="aioHandLog"></div>
+  </div>
 </div>
 
 <!-- Tournament Standings modal -->
@@ -584,7 +588,7 @@ function showAllInOverlay(data) {
 
     const drawEl = document.createElement('div');
     drawEl.className = p.isLeader ? 'aio-odds' : 'aio-needs';
-    drawEl.style.fontSize = '0.8em';
+    drawEl.style.fontSize = '0.98em';
     drawEl.innerHTML = drawLine;
     info.appendChild(drawEl);
 
@@ -597,6 +601,7 @@ function showAllInOverlay(data) {
 
   ov.classList.add('active');
   window.scrollTo({top:0, behavior:'instant'});
+  renderLogInto(document.getElementById('aioHandLog'), data.handLog);
 }
 
 // ── PWA / Add to Home Screen ─────────────────────────────────────────
@@ -1013,6 +1018,7 @@ function showRunoutResults(runout) {
 
   ov.classList.add('active');
   window.scrollTo({top:0, behavior:'instant'});
+  renderCurrentHandLog();
 }
 
 // ── Auto-rejoin ──────────────────────────────────────────────────────
@@ -1276,6 +1282,15 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.18', date:'July 2026',
+    changes:[
+      'All-in action log lines now include hole cards once cards are actually revealed on the table — not the instant someone goes all-in, so nothing leaks early',
+      'Action log now records who is leading before each street is dealt during an all-in runout, and whether the leader changed on the next street',
+      'Both the All-In Hands Revealed screen and the Results screen now show a This Hand log at the bottom',
+      'Player name, hand, and status text enlarged on the All-In Hands Revealed and Results screens',
+    ]
+  },
   {
     v:'3.17.1', date:'July 2026',
     changes:[
@@ -2096,8 +2111,26 @@ function renderPlayerList(players, revealedHoleCards){
 
 // ── Log ───────────────────────────────────────────────────────────────
 function renderLog(log){
-  const el=document.getElementById('actionLog');el.innerHTML='';
-  [...(log||[])].reverse().forEach(entry=>{
+  renderLogInto(document.getElementById('actionLog'), log);
+}
+
+// Renders just the current hand's slice of the action log — used on the
+// All-In Hands Revealed and Results overlays so players can follow along
+function renderCurrentHandLog(){
+  const el=document.getElementById('aioHandLog');
+  if(!el||!lastState||!lastState.actionLog) return;
+  const log=lastState.actionLog;
+  let startIdx=0;
+  for(let i=log.length-1;i>=0;i--){
+    if(log[i].startsWith('--- New hand')){ startIdx=i; break; }
+  }
+  renderLogInto(el, log.slice(startIdx));
+}
+
+function renderLogInto(el, entries){
+  if(!el) return;
+  el.innerHTML='';
+  [...(entries||[])].reverse().forEach(entry=>{
     const d=document.createElement('div');
     d.className='log-entry'+(entry.includes('\uD83C\uDFC6')||entry.includes('---')?' hl':'');
     if(entry.includes('\u21A9')) d.style.opacity='0.6';
