@@ -49,7 +49,7 @@
     <div class="aio-title">🎰 ALL-IN — Hands Revealed</div>
     <button id="aioProceedBtn">Proceed ▶</button>
   </div>
-  <button id="aioCloseBtn" class="secondary" style="display:none;width:100%;margin-bottom:8px;" onclick="document.getElementById('allInOverlay').classList.remove('active')">Close</button>
+  <button id="aioCloseBtn" class="secondary" style="display:none;width:100%;margin-bottom:8px;" onclick="closeResultsOverlay()">Close</button>
   <div class="aio-community-wrap">
     <div class="aio-community-label">Community Cards</div>
     <div class="aio-community" id="aioCommunity"></div>
@@ -280,10 +280,9 @@
         <div class="host-panel-title">&#9824; Dealer Controls</div>
         <div class="host-act-row">
           <button class="hbtn hbtn-F" id="hbtnF" onclick="doAct('F')"><span class="bl">F</span><span class="bs">FOLD</span></button>
-          <button class="hbtn hbtn-C" id="hbtnC" onclick="doAct('C')"><span class="bl">C</span><span class="bs">CALL</span></button>
+          <button class="hbtn hbtn-C" id="hbtnC" onclick="doAct(hbtnCAction)"><span class="bl" id="hbtnCBl">C</span><span class="bs" id="hbtnCBs">CALL</span></button>
           <button class="hbtn hbtn-R" id="hbtnR" onclick="doAct('R')"><span class="bl">R</span><span class="bs">RAISE</span></button>
           <button class="hbtn hbtn-A" id="hbtnA" onclick="doAct('A')"><span class="bl">A</span><span class="bs">ALL IN</span></button>
-          <button class="hbtn hbtn-X" id="hbtnX" onclick="doAct('X')"><span class="bl">X</span><span class="bs">CHECK</span></button>
           <button class="hbtn hbtn-undo" id="hbtnUndo" onclick="doUndo()"><span class="bl">&#8617;</span><span class="bs">UNDO</span></button>
           <button class="hbtn" id="hbtnN" onclick="doNext()" style="background:#d4af37;color:#111;"><span class="bl">&#9654;</span><span class="bs">DEAL</span></button>
         </div>
@@ -795,7 +794,35 @@ function startShuffleAnim(stage) {
 }
 
 // ── Shuffle overlay ───────────────────────────────────────────────────
+// ── Results overlay auto-close (when host deals next hand while a player
+// still has the Results screen open) ──────────────────────────────────
+let resultsAutoCloseTimer = null;
+
+function closeResultsOverlay(){
+  if (resultsAutoCloseTimer) { clearInterval(resultsAutoCloseTimer); resultsAutoCloseTimer = null; }
+  document.getElementById('allInOverlay').classList.remove('active');
+  const btn = document.getElementById('aioCloseBtn');
+  if (btn) btn.textContent = 'Close';
+}
+
+function startResultsAutoClose(){
+  const ov = document.getElementById('allInOverlay');
+  const proceedBtn = document.getElementById('aioProceedBtn');
+  const btn = document.getElementById('aioCloseBtn');
+  // Only auto-close the post-hand Results view, not the mid-runout "hands revealed" view
+  if (!ov.classList.contains('active') || !btn || (proceedBtn && proceedBtn.style.display !== 'none')) return;
+  if (resultsAutoCloseTimer) clearInterval(resultsAutoCloseTimer);
+  let secondsLeft = 10;
+  btn.textContent = `Closing in ${secondsLeft}s`;
+  resultsAutoCloseTimer = setInterval(() => {
+    secondsLeft--;
+    if (secondsLeft <= 0) { closeResultsOverlay(); return; }
+    btn.textContent = `Closing in ${secondsLeft}s`;
+  }, 1000);
+}
+
 function doShowShuffle(data) {
+  startResultsAutoClose();
   shuffleActive = true;
   pendingMyTurn = false;
   window.scrollTo({top:0, behavior:'instant'});
@@ -1235,6 +1262,25 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.16.1', date:'July 2026',
+    changes:[
+      'Action colors now match across dealer controls, player controls, and the At the Table badges — Call and Check both green, All-In blue',
+    ]
+  },
+  {
+    v:'3.16', date:'July 2026',
+    changes:[
+      'Dealer controls Call and Check merged into a single button that shows whichever applies, matching the player action bar — 6 buttons instead of 7',
+      'All-In button in dealer controls recolored to blue, the color the separate Check button used to have',
+    ]
+  },
+  {
+    v:'3.15', date:'July 2026',
+    changes:[
+      'Results screen now auto-closes 10 seconds after the host deals the next hand, for any player who has not dismissed it — Close button changes to a countdown and can still be tapped to dismiss early',
+    ]
+  },
+  {
     v:'3.14', date:'July 2026',
     changes:[
       'Removed the Previous Hand section from the table view',
@@ -1577,6 +1623,7 @@ document.getElementById('versionInfo').onclick=()=>{
 };
 
 // ── Host controls ─────────────────────────────────────────────────────
+let hbtnCAction = 'C';
 function renderHostControls(state){
   hostPlayers=state.players;
   const _scroll=window.scrollY;
@@ -1585,13 +1632,11 @@ function renderHostControls(state){
   ['F','R','A'].forEach(a=>document.getElementById('hbtn'+a).disabled=idle||noActor);
   // BB special case: pre-flop, no raise yet → BB checks for free, can't call (already paid)
   const bbCheck=!idle&&!noActor&&state.bbCanCheck&&state.nextActorIsBB;
-  if(bbCheck){
-    document.getElementById('hbtnC').disabled=true;
-    document.getElementById('hbtnX').disabled=false;
-  }else{
-    document.getElementById('hbtnC').disabled=idle||noActor||!state.hasRaiseThisStreet;
-    document.getElementById('hbtnX').disabled=idle||noActor||state.hasRaiseThisStreet;
-  }
+  const canCheck = bbCheck || (!idle&&!noActor&&!state.hasRaiseThisStreet);
+  hbtnCAction = canCheck ? 'X' : 'C';
+  document.getElementById('hbtnC').disabled = idle||noActor;
+  document.getElementById('hbtnCBl').textContent = canCheck ? 'X' : 'C';
+  document.getElementById('hbtnCBs').textContent = canCheck ? 'CHECK' : 'CALL';
   document.getElementById('hbtnUndo').disabled=!state.canUndo;
 
   // Seating + bust-out + rename

@@ -68,9 +68,9 @@ button.gold { background:#d4af37; color:#111; }
 .badge.discon { background:#555; }
 .badge.fold  { background:#e01010; color:#fff; }
 .badge.call  { background:#2a7a4a; color:#fff; }
-.badge.check { background:#1a6a8a; color:#fff; }
+.badge.check { background:#2a7a4a; color:#fff; }
 .badge.raise { background:#6c3483; color:#fff; }
-.badge.allin { background:#8b2222; color:#fff; }
+.badge.allin { background:#1a6a8a; color:#fff; }
 
 /* ── Host panel ── */
 .host-panel { background:rgba(212,175,55,0.08); border:1px solid rgba(212,175,55,0.3); border-radius:12px; padding:12px 14px; margin-bottom:12px; }
@@ -139,8 +139,7 @@ button.gold { background:#d4af37; color:#111; }
 .hbtn-F { background:#e01010; }
 .hbtn-C { background:#2a7a4a; }
 .hbtn-R { background:#6c3483; }
-.hbtn-A { background:#8b2222; }
-.hbtn-X { background:#1a6a8a; }
+.hbtn-A { background:#1a6a8a; }
 .hbtn-undo { background:#3a3a3a; font-size:0.85em; padding:9px 0; flex:none; width:58px; }
 
 /* Current actor highlight in visual list */
@@ -807,9 +806,9 @@ button.gold { background:#d4af37; color:#111; }
 }
 .pab-btn.fold  { background:#e01010; color:#fff; }
 .pab-btn.call  { background:#2a7a4a; color:#fff; }
-.pab-btn.check { background:#1a6a8a; color:#fff; }
+.pab-btn.check { background:#2a7a4a; color:#fff; }
 .pab-btn.raise { background:#6c3483; color:#fff; }
-.pab-btn.allin { background:#8b2222; color:#fff; }
+.pab-btn.allin { background:#1a6a8a; color:#fff; }
 
 /* ═══ INLINE HAND NAME ═══ */
 .hand-name-inline {
