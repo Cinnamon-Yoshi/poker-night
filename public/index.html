@@ -169,6 +169,7 @@
 
 <!-- Turn notification (shown only to the player whose turn it is) -->
 <div id="turnNotif">🎯 Your turn!</div>
+<div id="proceedOverlay" onclick="hostProceed()"></div>
 
 <!-- Street reveal overlay (Flop / Turn / River) -->
 <div id="streetOverlay">
@@ -1162,6 +1163,24 @@ function updateNButton(state){
 function doAct(action){ socket.emit('recordAction',action); }
 function doUndo(){ socket.emit('undoAction'); }
 
+function hostProceed(){
+  document.getElementById('proceedOverlay').classList.remove('active');
+  doNext();
+}
+
+function showProceedOverlay(label){
+  const ov = document.getElementById('proceedOverlay');
+  ov.innerHTML = `
+    <div class="po-label">All players have acted</div>
+    <div class="po-btn">${label}</div>
+    <div class="po-hint">Tap anywhere to continue</div>`;
+  ov.style.display = 'flex';
+}
+
+function hideProceedOverlay(){
+  document.getElementById('proceedOverlay').style.display = 'none';
+}
+
 function playerAct(action){
   socket.emit('recordAction', action);
   document.getElementById('playerActionBar').classList.add('player-action-hidden');
@@ -1172,15 +1191,13 @@ function renderPlayerActionBar(state){
   const btns = document.getElementById('playerActionBtns');
   const me = state.players.find(p => p.name === myName);
 
-  // Show proceed button for host when all players have acted and it's time to advance
+  // Host proceed overlay — full screen prompt when it's time to advance
   if (isHost && !state.foldWinner) {
-    // After hand ends — prompt to deal next hand
     if (state.stage === 'idle' && state.playerCount >= 2) {
-      btns.innerHTML = `<button class="pab-btn" onclick="doNext()" style="background:#d4af37;color:#111;font-size:1.05em;">Deal Next Hand →</button>`;
-      bar.classList.remove('player-action-hidden');
+      showProceedOverlay('Deal Next Hand →');
+      bar.classList.add('player-action-hidden');
       return;
     }
-    // Mid-hand — prompt to advance street when all players have acted
     if (state.stage !== 'idle' && !state.pendingRunout) {
       const noOneActing = !state.nextActorName;
       if (noOneActing && (state.canRevealNext || state.canRevealWinner)) {
@@ -1188,12 +1205,15 @@ function renderPlayerActionBar(state){
                     : state.stage === 'flop'    ? 'Deal the Turn →'
                     : state.stage === 'turn'    ? 'Deal the River →'
                     : 'Reveal Winner →';
-        btns.innerHTML = `<button class="pab-btn" onclick="doNext()" style="background:#d4af37;color:#111;font-size:1.05em;">${label}</button>`;
-        bar.classList.remove('player-action-hidden');
+        showProceedOverlay(label);
+        bar.classList.add('player-action-hidden');
         return;
       }
     }
   }
+
+  // Hide proceed overlay when not needed
+  hideProceedOverlay();
 
   // Show action bar when it's this player's turn
   const show = me && me.isCurrent && state.stage !== 'idle' && !state.foldWinner;
