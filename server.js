@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.9';
+const VERSION = '3.10';
 const LAST_UPDATED = 'July 2025';
 
 const fs = require('fs');
@@ -658,16 +658,16 @@ io.on('connection',socket=>{
     });
   });
 
-    // Fold-win: called when only 1 player remains (everyone else folded)
-    socket.on('declareFoldWinner',()=>{
-      const rem=active().filter(p=>!p.eliminated);
-      if(rem.length!==1||stage==='idle') return;
-      addLog('🏆 '+rem[0].name+' wins (everyone else folded)');
-      stage='idle'; actingQueue=[]; bbCanCheck=false;
-      hasRaiseThisStreet=false; undoState=null;
-      pendingRunoutStage=null; lastHandResult=null;
-      broadcast();
-    });
+  // Fold-win: called when only 1 player remains (everyone else folded)
+  socket.on('declareFoldWinner',()=>{
+    const rem=active().filter(p=>!p.eliminated);
+    if(rem.length!==1||stage==='idle') return;
+    addLog('🏆 '+rem[0].name+' wins (everyone else folded)');
+    stage='idle'; actingQueue=[]; bbCanCheck=false;
+    hasRaiseThisStreet=false; undoState=null;
+    pendingRunoutStage=null; lastHandResult=null;
+    broadcast();
+  });
 
     socket.on('revealWinner',()=>{
     if(stage==='idle') return;

@@ -61,15 +61,16 @@ button.gold { background:#d4af37; color:#111; }
 .player-name.folded { opacity:0.35; text-decoration:line-through; }
 
 /* ── Badges ── */
-.badge { font-size:0.65em; padding:2px 6px; border-radius:20px; margin-left:3px; font-weight:800; display:inline-block; }
+.badge { font-size:0.65em; padding:2px 6px; border-radius:20px; margin-left:3px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; }
 .badge.dealer { background:#fff; color:#111; }
 .badge.sb { background:#4a90d9; }
 .badge.bb { background:#d9534f; }
 .badge.discon { background:#555; }
-.badge.fold { background:#8b2222; }
-.badge.call { background:#2a7a4a; }
-.badge.raise { background:#6c3483; }
-.badge.allin { background:#c0392b; }
+.badge.fold  { background:#e01010; color:#fff; }
+.badge.call  { background:#2a7a4a; color:#fff; }
+.badge.check { background:#1a6a8a; color:#fff; }
+.badge.raise { background:#6c3483; color:#fff; }
+.badge.allin { background:#8b2222; color:#fff; }
 
 /* ── Host panel ── */
 .host-panel { background:rgba(212,175,55,0.08); border:1px solid rgba(212,175,55,0.3); border-radius:12px; padding:12px 14px; margin-bottom:12px; }
@@ -135,12 +136,12 @@ button.gold { background:#d4af37; color:#111; }
 .hbtn:disabled { opacity:0.2; cursor:default; }
 .hbtn .bl { font-size:1.3em; }
 .hbtn .bs { font-size:0.55em; opacity:0.85; }
-.hbtn-F { background:#8b2222; }
+.hbtn-F { background:#e01010; }
 .hbtn-C { background:#2a7a4a; }
 .hbtn-R { background:#6c3483; }
-.hbtn-A { background:#922b21; }
+.hbtn-A { background:#8b2222; }
 .hbtn-X { background:#1a6a8a; }
-.hbtn-undo { background:rgba(255,255,255,0.12); font-size:0.85em; padding:9px 0; flex:none; width:58px; }
+.hbtn-undo { background:#3a3a3a; font-size:0.85em; padding:9px 0; flex:none; width:58px; }
 
 /* Current actor highlight in visual list */
 .player-row.current-actor { background:rgba(212,175,55,0.1); border-radius:8px; padding:7px 8px; margin:-4px; }
@@ -562,7 +563,7 @@ button.gold { background:#d4af37; color:#111; }
 #shuffleInfo { display:flex; flex-direction:column; gap:12px; align-items:center; margin-top:4px; }
 .sh-role { display:flex; align-items:center; gap:12px; font-size:1.65em; font-weight:700; }
 /* Larger badges specifically inside the shuffle overlay */
-#shuffleInfo .badge { width:40px; height:40px; font-size:0.65em; }
+#shuffleInfo .badge { width:40px; height:40px; font-size:0.65em; display:inline-flex; align-items:center; justify-content:center; }
 
 /* ═══ ALL-IN RUNOUT: HAND DISPLAY SECTION ═══ */
 .runout-wrap { width:100%; max-width:420px; }
@@ -800,8 +801,19 @@ button.gold { background:#d4af37; color:#111; }
   flex:1; border:none; border-radius:10px;
   padding:15px 4px; font-weight:900; font-size:0.9em; cursor:pointer;
 }
-.pab-btn.fold  { background:#8b1a1a; color:#fff; }
-.pab-btn.call  { background:#1a6b2e; color:#fff; }
-.pab-btn.check { background:#1a6b2e; color:#fff; }
-.pab-btn.raise { background:#6b3d9e; color:#fff; }
-.pab-btn.allin { background:#8b1a1a; color:#fff; }
+.pab-btn.fold  { background:#e01010; color:#fff; }
+.pab-btn.call  { background:#2a7a4a; color:#fff; }
+.pab-btn.check { background:#1a6a8a; color:#fff; }
+.pab-btn.raise { background:#6c3483; color:#fff; }
+.pab-btn.allin { background:#8b2222; color:#fff; }
+
+/* ═══ INLINE HAND NAME ═══ */
+.hand-name-inline {
+  flex: 1;
+  text-align: center;
+  font-size: 0.85em;
+  font-weight: 700;
+  color: #d4af37;
+  line-height: 1.3;
+  padding: 0 6px;
+}

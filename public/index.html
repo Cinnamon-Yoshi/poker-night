@@ -214,7 +214,7 @@
       <div id="myNameLabel" class="player-name-header"></div>
     </div>
 
-    <!-- Cards: Community above, Your Cards below (changes 4,5,6) -->
+    <!-- Cards: Community above, Your Cards below -->
     <div class="section">
       <div class="cards-your-group">
         <div class="sublabel">Community</div>
@@ -227,16 +227,16 @@
         </div>
         <div class="hole-cards-row" id="holeCardsWrap">
           <div class="cards-row" id="holeCardsRow"></div>
+          <div id="handNameInline" class="hand-name-inline"></div>
           <button class="view-btn" id="viewCardsBtn" style="display:none;">&#128065;<br>View</button>
         </div>
       </div>
     </div>
 
-    <!-- Best Hand (shown only while View button is held) -->
-    <div class="section" id="bestHandSection" style="display:none;">
-      <div class="label">Your Best Hand</div>
-      <div class="hand-name" id="handName" style="font-size:0.95em;">&mdash;</div>
-      <div id="drawsList"></div>
+    <!-- Player self-action bar (shows between Your Cards and At the Table when it's your turn) -->
+    <div id="playerActionBar" class="player-action-bar player-action-hidden">
+      <div class="player-action-label">Your Turn</div>
+      <div class="player-action-btns" id="playerActionBtns"></div>
     </div>
 
     <!-- Players at Table -->
@@ -265,12 +265,6 @@
       <div class="rank-row"><span>10. High Card</span><span>Best single card wins</span></div>
     </div>
 
-    <!-- Player self-action bar (slides up when it's your turn) -->
-    <div id="playerActionBar" class="player-action-bar player-action-hidden">
-      <div class="player-action-label">Your Turn</div>
-      <div class="player-action-btns" id="playerActionBtns"></div>
-    </div>
-
     <!-- Button row: Rankings + Tournament + Host Controls -->
     <div class="btn-row">
       <button class="secondary" id="cheatToggle">&#128203; Card Ranks</button>
@@ -287,16 +281,20 @@
         <p id="pinErr" style="color:#f88;text-align:center;display:none;margin-top:4px;font-size:0.9em;">Incorrect PIN</p>
       </div>
       <div id="hostControls" class="host-panel" style="display:none;">
-        <div class="host-panel-title">&#9824; Dealer Controls</div>
-        <!-- Single action row: F C R A X ↩ N (N = Deal/Flop/Turn/River/Winner) -->
-        <div class="host-act-row">
-          <button class="hbtn hbtn-F" id="hbtnF" onclick="doAct('F')"><span class="bl">F</span><span class="bs">FOLD</span></button>
-          <button class="hbtn hbtn-C" id="hbtnC" onclick="doAct('C')"><span class="bl">C</span><span class="bs">CALL</span></button>
-          <button class="hbtn hbtn-R" id="hbtnR" onclick="doAct('R')"><span class="bl">R</span><span class="bs">RAISE</span></button>
-          <button class="hbtn hbtn-A" id="hbtnA" onclick="doAct('A')"><span class="bl">A</span><span class="bs">ALL IN</span></button>
-          <button class="hbtn hbtn-X" id="hbtnX" onclick="doAct('X')"><span class="bl">X</span><span class="bs">CHECK</span></button>
-          <button class="hbtn hbtn-undo" id="hbtnUndo" onclick="doUndo()">&#8617;<br><span style="font-size:0.7em;">UNDO</span></button>
-          <button class="hbtn" id="hbtnN" onclick="doNext()" style="background:#d4af37;color:#111;"><span class="bl">&#9654;</span><span class="bs">DEAL</span></button>
+        <div class="host-panel-title">&#9824; Dealer Controls
+          <button id="dealerControlsToggle" onclick="toggleDealerControls()" style="float:right;background:none;border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:6px;padding:2px 8px;font-size:0.75em;cursor:pointer;">▼ Expand</button>
+        </div>
+        <!-- Collapsible action buttons — collapsed by default -->
+        <div id="dealerActionSection" style="display:none;">
+          <div class="host-act-row">
+            <button class="hbtn hbtn-F" id="hbtnF" onclick="doAct('F')"><span class="bl">F</span><span class="bs">FOLD</span></button>
+            <button class="hbtn hbtn-C" id="hbtnC" onclick="doAct('C')"><span class="bl">C</span><span class="bs">CALL</span></button>
+            <button class="hbtn hbtn-R" id="hbtnR" onclick="doAct('R')"><span class="bl">R</span><span class="bs">RAISE</span></button>
+            <button class="hbtn hbtn-A" id="hbtnA" onclick="doAct('A')"><span class="bl">A</span><span class="bs">ALL IN</span></button>
+            <button class="hbtn hbtn-X" id="hbtnX" onclick="doAct('X')"><span class="bl">X</span><span class="bs">CHECK</span></button>
+            <button class="hbtn hbtn-undo" id="hbtnUndo" onclick="doUndo()">&#8617;<br><span style="font-size:0.7em;">UNDO</span></button>
+            <button class="hbtn" id="hbtnN" onclick="doNext()" style="background:#d4af37;color:#111;"><span class="bl">&#9654;</span><span class="bs">DEAL</span></button>
+          </div>
         </div>
         <div class="host-btn-row" style="margin-top:10px;">
           <button class="secondary" id="clearLogBtn">&#128465; Clear Log</button>
@@ -1168,6 +1166,13 @@ function updateNButton(state){
 // ── Sequential actions ────────────────────────────────────────────────
 function doAct(action){ socket.emit('recordAction',action); }
 function doUndo(){ socket.emit('undoAction'); }
+function toggleDealerControls(){
+  const sec = document.getElementById('dealerActionSection');
+  const btn = document.getElementById('dealerControlsToggle');
+  const expanded = sec.style.display !== 'none';
+  sec.style.display = expanded ? 'none' : 'block';
+  btn.textContent = expanded ? '▼ Expand' : '▲ Collapse';
+}
 
 function playerAct(action){
   socket.emit('recordAction', action);
@@ -1185,17 +1190,17 @@ function renderPlayerActionBar(state){
   const canCheck = !state.hasRaiseThisStreet || (state.bbCanCheck && state.nextActorIsBB);
   if (canCheck) {
     btns.innerHTML = [
-      `<button class="pab-btn fold"  onclick="playerAct('fold')">Fold</button>`,
-      `<button class="pab-btn check" onclick="playerAct('check')">Check</button>`,
-      `<button class="pab-btn raise" onclick="playerAct('raise')">Raise</button>`,
-      `<button class="pab-btn allin" onclick="playerAct('allin')">All In</button>`
+      `<button class="pab-btn fold"  onclick="playerAct('F')">Fold</button>`,
+      `<button class="pab-btn check" onclick="playerAct('X')">Check</button>`,
+      `<button class="pab-btn raise" onclick="playerAct('R')">Raise</button>`,
+      `<button class="pab-btn allin" onclick="playerAct('A')">All In</button>`
     ].join('');
   } else {
     btns.innerHTML = [
-      `<button class="pab-btn fold"  onclick="playerAct('fold')">Fold</button>`,
-      `<button class="pab-btn call"  onclick="playerAct('call')">Call</button>`,
-      `<button class="pab-btn raise" onclick="playerAct('raise')">Raise</button>`,
-      `<button class="pab-btn allin" onclick="playerAct('allin')">All In</button>`
+      `<button class="pab-btn fold"  onclick="playerAct('F')">Fold</button>`,
+      `<button class="pab-btn call"  onclick="playerAct('C')">Call</button>`,
+      `<button class="pab-btn raise" onclick="playerAct('R')">Raise</button>`,
+      `<button class="pab-btn allin" onclick="playerAct('A')">All In</button>`
     ].join('');
   }
   bar.classList.remove('player-action-hidden');
@@ -1210,6 +1215,26 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.10', date:'July 2026',
+    changes:[
+      'Player action bar moved above At the Table section (between Your Cards and the player list)',
+      'Best hand shown inline in Your Cards row — no separate section needed, nothing pushed down',
+      'Dealer controls collapsed by default — F/C/R/A/X buttons hidden until expanded, keeping the host panel clean',
+    ]
+  },
+  {
+    v:'3.9', date:'July 2026',
+    changes:[
+      'Hand ends when all but one player folds — N button shows WIN immediately, host taps once to end hand with no cards revealed and no results screen',
+      'Player self-action bar — slides up on your turn with Fold + Call or Check + Raise + All In, hidden when not your turn',
+      'Action colors unified across host buttons, player action bar, and at-the-table badges',
+      'FOLD changed to bright red, ALL IN stays dark red',
+      'D/SB/BB badge letters now properly centered',
+      'UNDO button given proper visible background',
+      'Fold-win race condition fixed — server blocks street reveals when only one player remains',
+    ]
+  },
   {
     v:'3.9', date:'July 2025',
     changes:[
@@ -1859,36 +1884,31 @@ function renderHoleCards(){
 function setupViewButton(){
   const btn=document.getElementById('viewCardsBtn');
   if(!btn) return;
-  function startV(e){e.preventDefault();viewingCards=true;renderHoleCards();renderHandInfo(lastState?lastState.board:[]);document.getElementById('bestHandSection').style.display='block';}
-  function endV(e){e.preventDefault();viewingCards=false;renderHoleCards();renderHandInfo(lastState?lastState.board:[]);document.getElementById('bestHandSection').style.display='none';}
+  function startV(e){e.preventDefault();viewingCards=true;renderHoleCards();renderHandInfo(lastState?lastState.board:[]);}
+  function endV(e){e.preventDefault();viewingCards=false;renderHoleCards();renderHandInfo(lastState?lastState.board:[]);}
   btn.addEventListener('touchstart',startV,{passive:false});
   btn.addEventListener('touchend',endV,{passive:false});
   btn.addEventListener('touchcancel',endV,{passive:false});
   btn.addEventListener('mousedown',startV);
   btn.addEventListener('mouseup',endV);
-  btn.addEventListener('mouseleave',()=>{if(viewingCards){viewingCards=false;renderHoleCards();renderHandInfo(lastState?lastState.board:[]);document.getElementById('bestHandSection').style.display='none';}});
+  btn.addEventListener('mouseleave',()=>{if(viewingCards){viewingCards=false;renderHoleCards();renderHandInfo(lastState?lastState.board:[]);}});
 }
 
-// Best hand — hidden unless viewing (change 2)
+// Best hand — shown inline in Your Cards row
 function renderHandInfo(board){
-  const nameEl=document.getElementById('handName');
-  const dl=document.getElementById('drawsList');
-  if(!myCards.length){
-    nameEl.textContent='\u2014'; dl.innerHTML='';return;
+  const nameEl = document.getElementById('handNameInline');
+  if (!nameEl) return;
+  if (!myCards.length) { nameEl.textContent = ''; return; }
+  if (!viewingCards) {
+    nameEl.textContent = 'Hold View to see hand';
+    nameEl.style.opacity = '0.45';
+    nameEl.style.fontSize = '0.8em';
+    return;
   }
-  if(!viewingCards){
-    nameEl.style.color='rgba(255,255,255,0.4)';
-    nameEl.style.fontSize='0.85em';
-    nameEl.textContent='Tap and hold the View button to see your hand';
-    dl.innerHTML='';return;
-  }
-  nameEl.style.color='';nameEl.style.fontSize='';
-  const info=describeHand(myCards,board);
-  nameEl.textContent=info.label||'\u2014';
-  dl.innerHTML='';
-  info.draws.forEach(d=>{
-    const el=document.createElement('div');el.className='draw-item';el.textContent=d;dl.appendChild(el);
-  });
+  nameEl.style.opacity = '';
+  nameEl.style.fontSize = '';
+  const info = describeHand(myCards, board);
+  nameEl.textContent = info.label || '\u2014';
 }
 
 // ── Player list (changes 2,3) ─────────────────────────────────────────
