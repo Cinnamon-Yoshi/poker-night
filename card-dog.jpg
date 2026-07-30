@@ -61,7 +61,7 @@ button.gold { background:#d4af37; color:#111; }
 .player-name.folded { opacity:0.35; text-decoration:line-through; }
 
 /* ── Badges ── */
-.badge { font-size:0.65em; padding:2px 6px; border-radius:20px; margin-left:3px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; }
+.badge { font-size:0.65em; padding:2px 6px; border-radius:20px; margin-left:3px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; line-height:1; }
 .badge.dealer { background:#fff; color:#111; }
 .badge.sb { background:#4a90d9; }
 .badge.bb { background:#d9534f; }
