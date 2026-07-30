@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.13.1';
+const VERSION = '3.14';
 const LAST_UPDATED = 'July 2025';
 
 const fs = require('fs');
@@ -710,13 +710,14 @@ io.on('connection',socket=>{
       r.handDesc=r.winner&&decidingPos!==null ? describeEvalKicker(r._eval,decidingPos) : describeEval(r._eval);
     });
 
-    // Log winner(s)
+    // Compute winner info (logged last, so it lands at the top since the client
+    // displays the newest entries first)
     const winners=results.filter(r=>r.winner);
     const isSplit=winners.length>1;
     const wNames=winners.map(r=>r.name);
     const wNamesStr=wNames.join(' & ');
     const wDesc=winners[0]?winners[0].handDesc||winners[0].handName:'';
-    addLog((isSplit?'\uD83E\uDD1D Split pot \u2014 ':'\uD83C\uDFC6 ')+wNamesStr+(wDesc?(isSplit?' — tied with ':' wins with ')+wDesc+'!':' wins!'));
+    const winnerLogMsg=(isSplit?'\uD83E\uDD1D Split pot \u2014 ':'\uD83C\uDFC6 ')+wNamesStr+(wDesc?(isSplit?' — tied with ':' wins with ')+wDesc+'!':' wins!');
 
     // Hand summary: only players who were actually in the hand (not sitting out)
     const nonFolded=results.filter(r=>!r.folded&&!r.sittingOut)
@@ -728,14 +729,20 @@ io.on('connection',socket=>{
     const foldedInHand=results.filter(r=>r.folded&&!r.sittingOut);
     const ordinals=['1st','2nd','3rd','4th','5th','6th','7th','8th','9th'];
     // For split: both winners are "1st"; then place continues from 2
+    const placed=nonFolded.filter(r=>!r.winner);
     let place=isSplit?winners.length+1:2;
-    nonFolded.forEach(r=>{
-      if(!r.winner){
-        addLog((ordinals[place-1]||`${place}th`)+' '+r.name+': '+(r.handDesc||''));
-        place++;
-      }
+    const placedLogMsgs=placed.map(r=>{
+      const msg=(ordinals[place-1]||`${place}th`)+' '+r.name+': '+(r.handDesc||'');
+      place++;
+      return msg;
     });
+
+    // Log order: folded first, then placed players worst-to-best, then the winner
+    // last — since the client shows newest entries at the top, this puts the
+    // winner above 2nd place, 2nd above 3rd, and folded players at the bottom.
     foldedInHand.forEach(r=>addLog(r.name+': Folded'));
+    [...placedLogMsgs].reverse().forEach(msg=>addLog(msg));
+    addLog(winnerLogMsg);
 
     // Emit to all clients — includes split flag and full winner name array
     // runoutResults: included when this hand was an all-in runout, for the Results overlay
