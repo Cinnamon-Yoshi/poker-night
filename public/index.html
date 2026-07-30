@@ -397,6 +397,10 @@ function showStreetOverlay(data) {
     window.scrollTo({top:0,behavior:'instant'});
     streetAnimActive = false;
     if(pendingMyTurn){ showTurnNotif(); pendingMyTurn=false; }
+    // If this street was dealt as part of an all-in runout, the host
+    // automatically continues (next street preview, or Reveal Winner on the
+    // river) instead of the app dropping back to the home screen in between.
+    if (inAllInRunout && isHost) { doNext(); }
   }, FIRST_FLIP+(n-1)*STAGGER+FLIP_DUR+VIEW);
 }
 
@@ -435,7 +439,7 @@ function buildRunoutSection(runout, container){
 }
 
 // ── All-In Runout preview ────────────────────────────────────────────
-socket.on('allInRunoutPreview', data => showAllInOverlay(data));
+socket.on('allInRunoutPreview', data => { inAllInRunout = true; showAllInOverlay(data); });
 
 // Dismiss all-in overlay when cards are actually dealt (after Proceed)
 socket.on('streetReveal', data => {
@@ -822,6 +826,7 @@ function startResultsAutoClose(){
 }
 
 function doShowShuffle(data) {
+  inAllInRunout = false;
   startResultsAutoClose();
   shuffleActive = true;
   pendingMyTurn = false;
@@ -937,6 +942,7 @@ function buildResultsData() {
 }
 
 function showRunoutResults(runout) {
+  inAllInRunout = false;
   const ov = document.getElementById('allInOverlay');
   const titleEl = ov.querySelector('.aio-title');
   if (titleEl) titleEl.textContent = '🃏 Results';
@@ -1047,6 +1053,7 @@ let wasMyCurrent=false;
 let shuffleActive=false;
 let pendingMyTurn=false;
 let streetAnimActive=false;
+let inAllInRunout=false;
 let currentCardBack='blue-diamond';
 
 // ── Card back / deck management ──────────────────────────────────────
@@ -1261,6 +1268,13 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.17', date:'July 2026',
+    changes:[
+      'All-in runout no longer drops back to the home screen between streets — after each street animation the host automatically continues to the next Hands Revealed preview, straight through to the Results screen at the river',
+      'Client-side only change — reuses the existing Deal/Proceed/Reveal Winner flow automatically instead of requiring the host to tap back in from the home screen each street',
+    ]
+  },
   {
     v:'3.16.2', date:'July 2026',
     changes:[
