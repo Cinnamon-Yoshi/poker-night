@@ -281,21 +281,15 @@
         <p id="pinErr" style="color:#f88;text-align:center;display:none;margin-top:4px;font-size:0.9em;">Incorrect PIN</p>
       </div>
       <div id="hostControls" class="host-panel" style="display:none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <div class="host-panel-title" style="margin-bottom:0;">&#9824; Dealer Controls</div>
-          <button id="dealerControlsToggle" onclick="toggleDealerControls()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.25);color:#fff;border-radius:6px;padding:3px 10px;font-size:0.75em;cursor:pointer;white-space:nowrap;">▼ Expand</button>
-        </div>
-        <!-- Collapsible action buttons — collapsed by default -->
-        <div id="dealerActionSection" style="display:none;">
-          <div class="host-act-row">
-            <button class="hbtn hbtn-F" id="hbtnF" onclick="doAct('F')"><span class="bl">F</span><span class="bs">FOLD</span></button>
-            <button class="hbtn hbtn-C" id="hbtnC" onclick="doAct('C')"><span class="bl">C</span><span class="bs">CALL</span></button>
-            <button class="hbtn hbtn-R" id="hbtnR" onclick="doAct('R')"><span class="bl">R</span><span class="bs">RAISE</span></button>
-            <button class="hbtn hbtn-A" id="hbtnA" onclick="doAct('A')"><span class="bl">A</span><span class="bs">ALL IN</span></button>
-            <button class="hbtn hbtn-X" id="hbtnX" onclick="doAct('X')"><span class="bl">X</span><span class="bs">CHECK</span></button>
-            <button class="hbtn hbtn-undo" id="hbtnUndo" onclick="doUndo()">&#8617;<br><span style="font-size:0.7em;">UNDO</span></button>
-            <button class="hbtn" id="hbtnN" onclick="doNext()" style="background:#d4af37;color:#111;"><span class="bl">&#9654;</span><span class="bs">DEAL</span></button>
-          </div>
+        <div class="host-panel-title">&#9824; Dealer Controls</div>
+        <div class="host-act-row">
+          <button class="hbtn hbtn-F" id="hbtnF" onclick="doAct('F')"><span class="bl">F</span><span class="bs">FOLD</span></button>
+          <button class="hbtn hbtn-C" id="hbtnC" onclick="doAct('C')"><span class="bl">C</span><span class="bs">CALL</span></button>
+          <button class="hbtn hbtn-R" id="hbtnR" onclick="doAct('R')"><span class="bl">R</span><span class="bs">RAISE</span></button>
+          <button class="hbtn hbtn-A" id="hbtnA" onclick="doAct('A')"><span class="bl">A</span><span class="bs">ALL IN</span></button>
+          <button class="hbtn hbtn-X" id="hbtnX" onclick="doAct('X')"><span class="bl">X</span><span class="bs">CHECK</span></button>
+          <button class="hbtn hbtn-undo" id="hbtnUndo" onclick="doUndo()">&#8617;<br><span style="font-size:0.7em;">UNDO</span></button>
+          <button class="hbtn" id="hbtnN" onclick="doNext()" style="background:#d4af37;color:#111;"><span class="bl">&#9654;</span><span class="bs">DEAL</span></button>
         </div>
         <div class="host-btn-row">
           <button class="secondary" id="clearLogBtn">&#128465; Clear Log</button>
@@ -1167,17 +1161,9 @@ function updateNButton(state){
 // ── Sequential actions ────────────────────────────────────────────────
 function doAct(action){ socket.emit('recordAction',action); }
 function doUndo(){ socket.emit('undoAction'); }
-function toggleDealerControls(){
-  const sec = document.getElementById('dealerActionSection');
-  const btn = document.getElementById('dealerControlsToggle');
-  const expanded = sec.style.display !== 'none';
-  sec.style.display = expanded ? 'none' : 'block';
-  btn.textContent = expanded ? '▼ Expand' : '▲ Collapse';
-}
 
 function playerAct(action){
   socket.emit('recordAction', action);
-  // Immediately hide bar so player can't double-tap
   document.getElementById('playerActionBar').classList.add('player-action-hidden');
 }
 
@@ -1185,7 +1171,23 @@ function renderPlayerActionBar(state){
   const bar = document.getElementById('playerActionBar');
   const btns = document.getElementById('playerActionBtns');
   const me = state.players.find(p => p.name === myName);
-  const show = !isHost && me && me.isCurrent && state.stage !== 'idle' && !state.foldWinner;
+
+  // Show proceed button for host when all players have acted and it's time to advance
+  if (isHost && state.stage !== 'idle' && !state.foldWinner && !state.pendingRunout) {
+    const noOneActing = !state.nextActorName;
+    if (noOneActing && (state.canRevealNext || state.canRevealWinner)) {
+      const label = state.stage === 'preflop' ? 'Deal the Flop →'
+                  : state.stage === 'flop'    ? 'Deal the Turn →'
+                  : state.stage === 'turn'    ? 'Deal the River →'
+                  : 'Reveal Winner →';
+      btns.innerHTML = `<button class="pab-btn" onclick="doNext()" style="background:#d4af37;color:#111;font-size:1.05em;">${label}</button>`;
+      bar.classList.remove('player-action-hidden');
+      return;
+    }
+  }
+
+  // Show action bar when it's this player's turn
+  const show = me && me.isCurrent && state.stage !== 'idle' && !state.foldWinner;
   if (!show) { bar.classList.add('player-action-hidden'); return; }
 
   const canCheck = !state.hasRaiseThisStreet || (state.bbCanCheck && state.nextActorIsBB);
@@ -1216,6 +1218,15 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.11', date:'July 2026',
+    changes:[
+      'Your Turn notification is now a full-screen gold overlay that flashes briefly — no more overlap with action buttons regardless of screen size',
+      'Host now gets the same player action bar as everyone else when it is their turn to act',
+      'Host sees a Deal the Flop/Turn/River or Reveal Winner proceed button in the action bar area when all players have acted',
+      'Dealer controls expand/collapse removed — panel shows as before when Host button is tapped',
+    ]
+  },
   {
     v:'3.10', date:'July 2026',
     changes:[
