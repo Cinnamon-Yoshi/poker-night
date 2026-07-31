@@ -521,12 +521,17 @@ function buildDrawLine(p, board, remaining, cardsLeft, claimedCards) {
     return { handLine, drawLine: bestCard ? `Leading: ${cBadge(bestCard)} for ${bestDesc}` : 'Leading' };
   }
 
-  // ── DRAWING DEAD ──
-  if (!p.outs || p.outs === 0) return { handLine, drawLine: 'Drawing dead' };
+  if (p.isMonteCarlo) {
+    const pct = p.totalRemaining ? Math.round((p.score||0) / p.totalRemaining * 100) : 0;
+    return { handLine, drawLine: `~${pct}% equity` };
+  }
 
-  // ── ALL OTHERS: just the percentage ──
-  const pct = p.totalRemaining ? Math.round(p.outs / p.totalRemaining * 100) : 0;
-  if (p.isMonteCarlo) return { handLine, drawLine: `~${pct}% equity` };
+  // ── DRAWING DEAD — only when there is truly no way to win OR split ──
+  if (!p.outs && !p.tieOuts) return { handLine, drawLine: 'Drawing dead' };
+
+  // ── ALL OTHERS: percentage includes a half-share for tie/split outs ──
+  const equity = p.totalRemaining ? ((p.outs||0) + (p.tieOuts||0)*0.5) / p.totalRemaining : 0;
+  const pct = Math.round(equity * 100);
   return { handLine, drawLine: `${pct}% to win` };
 }
 
@@ -1338,6 +1343,19 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.20.4', date:'July 2026',
+    changes:[
+      'Fixed win odds and Drawing dead ignoring chances to chop the pot — the outs calculation only counted outright wins, not ties, so a real chance to split showed as 0%',
+      'Percentages now count a tie as a half share, matching standard equity math, on the Hands Revealed screen and in the action log',
+    ]
+  },
+  {
+    v:'3.20.3', date:'July 2026',
+    changes:[
+      'Version history entries now collapse by default (newest stays expanded) — tap the version number and date row to expand or collapse',
+    ]
+  },
+  {
     v:'3.20.2', date:'July 2026',
     changes:[
       'Fixed Show Hand button stretching full width and overlapping the row — a global button style was leaking through',
@@ -1771,12 +1789,13 @@ const CHANGELOG = [
 function buildChangelog(){
   const el=document.getElementById('changelogContent');
   el.innerHTML='';
-  CHANGELOG.forEach(entry=>{
+  CHANGELOG.forEach((entry,i)=>{
     const block=document.createElement('div');
-    block.className='cl-version-block';
+    block.className='cl-version-block'+(i===0?'':' collapsed'); // newest expanded by default
     const hdr=document.createElement('div');
     hdr.className='cl-v-header';
     hdr.innerHTML=`<span class="cl-v-num">v${entry.v}</span><span class="cl-v-date">${entry.date}</span>`;
+    hdr.onclick=()=>block.classList.toggle('collapsed');
     const ul=document.createElement('ul');
     ul.className='cl-changes';
     entry.changes.forEach(c=>{const li=document.createElement('li');li.textContent=c;ul.appendChild(li);});

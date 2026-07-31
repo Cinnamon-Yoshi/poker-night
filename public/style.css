@@ -501,8 +501,15 @@ button.gold { background:#d4af37; color:#111; }
 .cl-v-header {
   display:flex; justify-content:space-between; align-items:baseline;
   border-bottom:1px solid rgba(212,175,55,0.2); padding-bottom:5px; margin-bottom:8px;
+  cursor:pointer; user-select:none;
 }
 .cl-v-num { font-weight:800; color:#d4af37; font-size:0.95em; }
+.cl-v-num::before {
+  content:'▾'; display:inline-block; margin-right:6px;
+  transition:transform 0.2s ease; font-size:0.85em;
+}
+.cl-version-block.collapsed .cl-v-num::before { transform:rotate(-90deg); }
+.cl-version-block.collapsed .cl-changes { display:none; }
 .cl-v-date { font-size:0.72em; opacity:0.5; }
 .cl-changes { list-style:none; padding:0; margin:0; }
 .cl-changes li {
