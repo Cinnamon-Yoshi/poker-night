@@ -344,14 +344,13 @@ let viewingCards=false;
 // ── Turn notification ────────────────────────────────────────────────
 function showTurnNotif(){
   const el=document.getElementById('turnNotif');
-  // Build content: card back image + text
-  const card=makeCardBack();
-  card.style.cssText='width:90px;height:130px;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,0.45);flex-shrink:0;';
   el.innerHTML='';
-  el.appendChild(card);
   const txt=document.createElement('div');
   txt.textContent='Your turn!';
   el.appendChild(txt);
+  const card=makeCardBack();
+  card.style.cssText='width:130px;height:190px;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,0.45);flex-shrink:0;';
+  el.appendChild(card);
   el.classList.remove('active');
   void el.offsetWidth;
   el.classList.add('active');
@@ -873,35 +872,22 @@ socket.on('shuffling', data => {
 });
 
 // ── Winner popup (change 10) ─────────────────────────────────────────
+let pendingWinnerData = null;
+
+function tryShowPendingResults(){
+  if(!pendingWinnerData) return;
+  // Only show Results if the game is still between hands — a quick new deal clears this
+  if(lastState && lastState.stage === 'idle'){
+    const handData = pendingWinnerData.runoutResults || buildResultsData();
+    pendingWinnerData = null;
+    if(handData) showRunoutResults(handData);
+  }
+}
+
 socket.on('winnerAnnounce',data=>{
   hideStreetOverlay();
-  const ov=document.getElementById('winnerOverlay');
-  const dr=document.getElementById('woDrumroll');
-  const rv=document.getElementById('woReveal');
-  document.getElementById('woDrText').textContent = data.isSplit ? '🤝 It\'s a split pot…' : '🎰 And the winner is…';
-  dr.style.display='block'; rv.style.display='none';
-  ov.classList.add('active');
-  setTimeout(()=>{
-    if(data.isSplit){
-      document.getElementById('woTrophy').textContent='🤝';
-      document.getElementById('woName').innerHTML =
-        (data.nameList||data.names.split(' & ')).map(n=>`<div>${n}</div>`).join('') +
-        '<div style="font-size:0.65em;opacity:0.7;margin-top:4px;">Split Pot!</div>';
-    } else {
-      document.getElementById('woTrophy').textContent='🏆';
-      document.getElementById('woName').textContent = data.names + (data.single?' wins!':' win!');
-    }
-    document.getElementById('woHand').textContent=data.hand||'';
-    dr.style.display='none'; rv.style.display='block';
-  },1000);
-  setTimeout(()=>{
-    ov.classList.remove('active');
-    // Only show Results if the game is still between hands — a quick new deal clears this
-    if (lastState && lastState.stage === 'idle') {
-      const handData = data.runoutResults || buildResultsData();
-      if (handData) showRunoutResults(handData);
-    }
-  },4000);
+  pendingWinnerData = data;
+  tryShowPendingResults();
 });
 
 // Parse hand rank from description string as sort fallback
@@ -963,10 +949,26 @@ function showRunoutResults(runout) {
   let closeBtn = document.getElementById('aioCloseBtn');
   if (closeBtn) closeBtn.style.display = 'block';
 
+  // Determine which community cards are part of the winning hand, to
+  // slightly dim the ones that weren't used
+  let usedBoardKeys = null;
+  const winnerEntry = (runout.players||[]).find(p => p.winner && !p.folded);
+  if (winnerEntry) {
+    const all = [...(winnerEntry.cards||[]), ...(runout.board||[])];
+    if (all.length >= 5) {
+      const ev = evaluateBest(all);
+      if (ev && ev.bestCards) usedBoardKeys = new Set(ev.bestCards.map(c => c.r+''+c.s));
+    }
+  }
+
   const comm = document.getElementById('aioCommunity');
   comm.innerHTML = '';
   for (let i = 0; i < 5; i++) {
-    comm.appendChild((runout.board||[])[i] ? makeCard(runout.board[i]) : makeEmpty());
+    const c = (runout.board||[])[i];
+    if (!c) { comm.appendChild(makeEmpty()); continue; }
+    const cardEl = makeCard(c);
+    if (usedBoardKeys && !usedBoardKeys.has(c.r+''+c.s)) cardEl.classList.add('card-dim');
+    comm.appendChild(cardEl);
   }
 
   // Sort: winners → non-folded by hand strength → folded
@@ -1112,6 +1114,7 @@ document.getElementById('changeDeckBtn').onclick = () => {
 socket.on('state',state=>{
   lastState=state;
   if(state.cardBackStyle) applyCardBack(state.cardBackStyle);
+  tryShowPendingResults();
   // Detect when it becomes THIS player's turn (defer if shuffle overlay is showing)
   const meInState=state.players.find(p=>p.name===myName);
   const isMeCurrent=!!(meInState&&meInState.isCurrent);
@@ -1237,7 +1240,8 @@ function renderPlayerActionBar(state){
     if (state.stage !== 'idle' && !state.pendingRunout) {
       const noOneActing = !state.nextActorName;
       if (noOneActing && (state.canRevealNext || state.canRevealWinner)) {
-        const label = state.stage === 'preflop' ? 'Deal the Flop →'
+        const label = state.willRunout ? "Let's Show the Cards →"
+                    : state.stage === 'preflop' ? 'Deal the Flop →'
                     : state.stage === 'flop'    ? 'Deal the Turn →'
                     : state.stage === 'turn'    ? 'Deal the River →'
                     : 'Reveal Winner →';
@@ -1282,6 +1286,21 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.19', date:'July 2026',
+    changes:[
+      'Removed the And the Winner Is drumroll screen — Results now shows as soon as the server confirms the hand is over, driven by the actual state update instead of a fixed timer',
+      'Host action button now shows Lets Show the Cards instead of Deal the Flop/Turn/River whenever the next click will trigger the all-in reveal rather than actually dealing',
+      'Your Turn screen now shows the text above the card (matching the dealing animation) and uses the same larger single-card size',
+      'Results screen now slightly dims the community cards that are not part of the winning hand',
+    ]
+  },
+  {
+    v:'3.18.3', date:'July 2026',
+    changes:[
+      'Final winner and placement log lines (both home screen and Results screen) now use compact card notation, matching the runout leader lines fixed in 3.18.1 — these were a separate code path that got missed',
+    ]
+  },
   {
     v:'3.18.2', date:'July 2026',
     changes:[

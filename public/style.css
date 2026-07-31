@@ -306,7 +306,7 @@ button.gold { background:#d4af37; color:#111; }
   position:fixed; inset:0;
   background:rgba(212,175,55,0.92);
   color:#111;
-  font-size:2em; font-weight:900;
+  font-size:2.1em; font-weight:900;
   display:none; flex-direction:column; align-items:center; justify-content:center; gap:20px;
   z-index:998; text-align:center;
   pointer-events:none;
@@ -465,6 +465,7 @@ button.gold { background:#d4af37; color:#111; }
 
 /* ═══ RESULT SECTION: unused card dimming & placement ═══ */
 .rc-dim { opacity:0.28; filter:grayscale(1); }
+.card-dim { opacity:0.45; }
 .result-place { font-size:0.75em; color:#d4af37; font-weight:700; margin-right:4px; }
 
 /* Half-width host buttons */
