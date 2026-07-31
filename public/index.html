@@ -342,14 +342,35 @@ let myId=null, myName=null, myCards=[], isHost=false, lastState=null, hostPlayer
 let viewingCards=false;
 
 // ── Turn notification ────────────────────────────────────────────────
+let turnAudioCtx = null;
+function unlockTurnAudio(){
+  if (turnAudioCtx) return;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  try {
+    turnAudioCtx = new Ctx();
+    // Near-silent blip on the very first tap — required by mobile browsers
+    // before any audio triggered later (e.g. by a server event) will play
+    const o = turnAudioCtx.createOscillator();
+    const g = turnAudioCtx.createGain();
+    g.gain.value = 0.0001;
+    o.connect(g); g.connect(turnAudioCtx.destination);
+    o.start(); o.stop(turnAudioCtx.currentTime + 0.01);
+  } catch(e) {}
+}
+document.addEventListener('touchstart', unlockTurnAudio, {once:true, passive:true});
+document.addEventListener('click', unlockTurnAudio, {once:true});
+
 function playTurnAlert(){
-  // Vibration (mobile) — short double-pulse
+  // Vibration (mobile, Android/Chrome only — iOS Safari has never
+  // implemented the Vibration API, so this is a no-op there)
   if (navigator.vibrate) { try { navigator.vibrate([180, 90, 180]); } catch(e) {} }
   // Synthesized two-tone chime — no audio file needed
   try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
+    if (!turnAudioCtx) unlockTurnAudio();
+    if (!turnAudioCtx) return;
+    if (turnAudioCtx.state === 'suspended') turnAudioCtx.resume();
+    const ctx = turnAudioCtx;
     const o = ctx.createOscillator();
     const g = ctx.createGain();
     o.type = 'sine';
@@ -361,7 +382,6 @@ function playTurnAlert(){
     o.connect(g); g.connect(ctx.destination);
     o.start();
     o.stop(ctx.currentTime + 0.42);
-    o.onended = () => ctx.close();
   } catch(e) {}
 }
 
@@ -1366,6 +1386,12 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.21.1', date:'July 2026',
+    changes:[
+      'Fixed Your Turn sound not playing — the AudioContext was created fresh each time from a server event, which mobile browsers start suspended and silently block; now unlocked once on the first tap and reused',
+    ]
+  },
   {
     v:'3.21', date:'July 2026',
     changes:[
