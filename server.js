@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.18.1';
+const VERSION = '3.18.2';
 const LAST_UPDATED = 'July 2025';
 
 const fs = require('fs');
@@ -157,7 +157,9 @@ function compactDesc(str){
 
 // Builds one log line covering who leads (and whether that changed since the
 // last street) plus every other player's current hand, all in the same
-// compact notation shown on screen.
+// compact notation shown on screen. Returns separate lines so the caller can
+// log others first and the leader last — the client shows newest entries on
+// top, so logging the leader last puts it at the top of the group.
 function describeRunoutUpdate(preview, previousLeaderNames){
   const leaders=preview.leaderNames||[];
   if(leaders.length===0) return null;
@@ -165,31 +167,33 @@ function describeRunoutUpdate(preview, previousLeaderNames){
   (preview.players||[]).forEach(pd=>{ byName[pd.name]=pd; });
   const descOf=name=>compactDesc((byName[name]&&byName[name].desc)||'');
 
-  let leadPhrase;
+  let leaderLine;
   if(leaders.length>1){
     const desc=descOf(leaders[0]);
-    leadPhrase=leaders.join(' and ')+' are tied for the lead'+(desc?' with '+desc:'');
+    leaderLine=leaders.join(' and ')+' are tied for the lead'+(desc?' with '+desc:'');
   } else {
     const name=leaders[0];
     const desc=descOf(name);
     const sameAsBefore=previousLeaderNames.length===1&&previousLeaderNames[0]===name;
-    if(previousLeaderNames.length===0) leadPhrase=name+' leads'+(desc?' with '+desc:'');
-    else if(sameAsBefore) leadPhrase=name+' still leads'+(desc?' with '+desc:'');
-    else leadPhrase=name+' took over the lead'+(desc?' with '+desc:'');
+    if(previousLeaderNames.length===0) leaderLine=name+' leads'+(desc?' with '+desc:'');
+    else if(sameAsBefore) leaderLine=name+' still leads'+(desc?' with '+desc:'');
+    else leaderLine=name+' took over the lead'+(desc?' with '+desc:'');
   }
 
-  const others=(preview.players||[]).filter(pd=>!leaders.includes(pd.name));
-  const otherParts=others.map(pd=>{
-    const desc=compactDesc(pd.desc||'');
-    let pctStr='';
-    if(pd.totalRemaining){
-      const pct=Math.round((pd.outs||0)/pd.totalRemaining*100);
-      pctStr=' ('+pct+'%'+(pd.isMonteCarlo?' equity':' to win')+')';
-    }
-    return pd.name+': '+desc+pctStr;
-  });
+  // preview.players is already sorted leader(s) first, then best-to-worst odds
+  const otherLines=(preview.players||[])
+    .filter(pd=>!leaders.includes(pd.name))
+    .map(pd=>{
+      const desc=compactDesc(pd.desc||'');
+      let pctStr='';
+      if(pd.totalRemaining){
+        const pct=Math.round((pd.outs||0)/pd.totalRemaining*100);
+        pctStr=' ('+pct+'%'+(pd.isMonteCarlo?' equity':' to win')+')';
+      }
+      return pd.name+': '+desc+pctStr;
+    });
 
-  return leadPhrase+'.'+(otherParts.length?' '+otherParts.join('; ')+'.':'');
+  return {leaderLine,otherLines};
 }
 
 function computeRunoutData(board){
@@ -684,10 +688,14 @@ io.on('connection',socket=>{
         });
       }
 
-      // Log who is leading heading into this street, plus every other
-      // player's current hand
-      const updateMsg=describeRunoutUpdate(preview,lastLeaderNames);
-      if(updateMsg) addLog(updateMsg);
+      // Log every other player's current hand on its own line, then the
+      // leader last — the client shows newest entries first, so logging the
+      // leader last puts it at the top of this street's group of lines
+      const update=describeRunoutUpdate(preview,lastLeaderNames);
+      if(update){
+        [...update.otherLines].reverse().forEach(line=>addLog(line));
+        addLog(update.leaderLine);
+      }
       lastLeaderNames=preview.leaderNames||[];
 
       pendingRunoutStage=stage;
