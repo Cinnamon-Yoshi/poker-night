@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.19';
+const VERSION = '3.19.1';
 const LAST_UPDATED = 'July 2025';
 
 const fs = require('fs');
@@ -73,6 +73,9 @@ let skipDealerAdvance=false;
 let pendingRunoutStage=null;
 let pendingDealerAnimation=false;
 let isRunoutSession=false; // true while an all-in runout is in progress; used for Results screen
+let handSBIdx=-1, handBBIdx=-1; // SB/BB player index locked at deal time — for badge display only.
+                                 // getSB()/getBB() themselves stay fold-aware for actual game logic
+                                 // (acting order), which needs to skip folded players; badges must not.
 let lastActionLogIdx={};   // player name -> actionLog index of their most recent action line, for this hand
 let allInCardsRevealed=false; // true once this hand's all-in cards have been logged
 let lastLeaderNames=[];    // leader(s) as of the last logged runout update, for this hand
@@ -355,7 +358,11 @@ function canRevealWinner(){
 
 function publicState(){
   pruneQueue();
-  const sb=getSB(), bb=getBB();
+  // Badge display: while a hand is in progress, use the SB/BB locked in at deal
+  // time so badges don't drift as players fold. Between hands, show a live
+  // preview of the upcoming rotation.
+  const sb = stage==='idle' ? getSB() : handSBIdx;
+  const bb = stage==='idle' ? getBB() : handBBIdx;
   const nextActor=actingQueue.length>0?actingQueue[0]:-1;
   // Reveal hole cards to all clients during all-in runout
   const runoutActive=isAllInRunout()||pendingRunoutStage!==null;
@@ -596,6 +603,7 @@ io.on('connection',socket=>{
     bbCanCheck=true;           // BB gets free check option if no one raises
     addLog('--- New hand. Dealer: '+players[dealerIdx].name+' ---');
     const sbIdx=getSB(), bbIdx=getBB();
+    handSBIdx=sbIdx; handBBIdx=bbIdx;
     const currentDealerName=players[dealerIdx]?players[dealerIdx].name:null;
     // Blind reminder: fires when dealer wraps back to the initial dealer
     if(firstHandDealt && currentDealerName && currentDealerName===initialDealerName){
