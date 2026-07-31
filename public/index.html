@@ -890,6 +890,26 @@ socket.on('winnerAnnounce',data=>{
   tryShowPendingResults();
 });
 
+socket.on('foldWinnerRevealed', data => {
+  const container = document.getElementById('fwHiddenCards');
+  if (container) {
+    container.innerHTML = '';
+    container.removeAttribute('id');
+    (data.cards||[]).forEach((c, i) => {
+      const wrap = document.createElement('div'); wrap.className = 'flip-wrap fw-flip';
+      const flipper = document.createElement('div'); flipper.className = 'flipper';
+      const front = document.createElement('div'); front.className = 'flip-face flip-front'; front.appendChild(makeCardBack());
+      const rear = document.createElement('div'); rear.className = 'flip-face flip-rear'; rear.appendChild(makeCard(c));
+      flipper.appendChild(front); flipper.appendChild(rear);
+      wrap.appendChild(flipper);
+      container.appendChild(wrap);
+      setTimeout(() => flipper.classList.add('flipped'), 150 + i*300);
+    });
+  }
+  // Refresh the visible This Hand log so the "shown" line appears right away
+  renderLogInto(document.getElementById('aioHandLog'), data.handLog);
+});
+
 // Parse hand rank from description string as sort fallback
 function handRankFromDesc(desc) {
   if (!desc || desc === 'Folded') return 0;
@@ -1014,11 +1034,21 @@ function showRunoutResults(runout) {
         if (ev2 && ev2.bestCards) myUsedKeys = new Set(ev2.bestCards.map(c => c.r+''+c.s));
       }
     }
-    (p.cards||[]).forEach(c => {
-      const cardEl = makeCard(c);
-      if (myUsedKeys && !myUsedKeys.has(c.r+''+c.s)) cardEl.classList.add('card-dim');
-      cardsDiv.appendChild(cardEl);
-    });
+    if (runout.foldWin && p.winner) {
+      cardsDiv.id = 'fwHiddenCards';
+      cardsDiv.appendChild(makeCardBack());
+      cardsDiv.appendChild(makeCardBack());
+    } else {
+      (p.cards||[]).forEach(c => {
+        const cardEl = makeCard(c);
+        if (p.winner) {
+          if (myUsedKeys && !myUsedKeys.has(c.r+''+c.s)) cardEl.classList.add('card-dim');
+        } else {
+          cardEl.classList.add('card-dim'); // losing, non-folded — dim both cards
+        }
+        cardsDiv.appendChild(cardEl);
+      });
+    }
     top.appendChild(cardsDiv);
     const info = document.createElement('div'); info.className = 'aio-info';
     const nameEl = document.createElement('div'); nameEl.className = 'aio-name';
@@ -1027,7 +1057,15 @@ function showRunoutResults(runout) {
     handEl.textContent = p.handDesc||''; info.appendChild(handEl);
     const status = document.createElement('div'); status.className = 'aio-odds';
     status.textContent = labels[idx]; info.appendChild(status);
-    top.appendChild(info); row.appendChild(top); pl.appendChild(row);
+    top.appendChild(info);
+    if (runout.foldWin && p.winner && (isHost || myName === p.name)) {
+      const showBtn = document.createElement('button');
+      showBtn.className = 'fw-show-hand-btn';
+      showBtn.textContent = 'Show Hand';
+      showBtn.onclick = () => { socket.emit('revealFoldWinnerHand'); showBtn.remove(); };
+      top.appendChild(showBtn);
+    }
+    row.appendChild(top); pl.appendChild(row);
   });
 
   ov.classList.add('active');
@@ -1299,6 +1337,20 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.20.1', date:'July 2026',
+    changes:[
+      'Results screen now dims both hole cards for every non-folded losing player, instead of only dimming the specific unused card — the winner still shows selective dimming of just their unused card',
+    ]
+  },
+  {
+    v:'3.20', date:'July 2026',
+    changes:[
+      'Fold-win hands now show a Results screen instead of jumping straight to Deal Next Hand — community cards dealt so far, folded players below the winner, winner shown with cards face down',
+      'Added a Show Hand button on the fold-win winner row (visible to the winner and the host) that flips their two cards face up one at a time if pressed before the next hand is dealt',
+      'Revealing the fold-win hand records it in the log as [Player] wins (everyone else folded) (cards shown)',
+    ]
+  },
   {
     v:'3.19.1', date:'July 2026',
     changes:[
