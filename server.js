@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.20.1';
+const VERSION = '3.20.2';
 const LAST_UPDATED = 'July 2025';
 
 const fs = require('fs');
