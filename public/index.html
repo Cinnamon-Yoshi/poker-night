@@ -1181,7 +1181,7 @@ socket.on('state',state=>{
   renderBoard(state.board);
   renderHoleCards();
   renderHandInfo(state.board);
-  renderPlayerList(state.players, state.revealedHoleCards||{});
+  renderPlayerList(state.players);
   // Eliminated observer banner — reuse meInState already declared above
   const isElim=!!(meInState&&meInState.eliminated);
   document.getElementById('eliminatedBanner').style.display=isElim?'block':'none';
@@ -1342,6 +1342,12 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.20.5', date:'July 2026',
+    changes:[
+      'Removed hole card display from the At the Table section entirely — including for folded players during an all-in showdown — since the All-In Hands Revealed screen already shows this properly',
+    ]
+  },
   {
     v:'3.20.4', date:'July 2026',
     changes:[
@@ -2199,8 +2205,7 @@ function renderHandInfo(board){
 }
 
 // ── Player list (changes 2,3) ─────────────────────────────────────────
-function renderPlayerList(players, revealedHoleCards){
-  revealedHoleCards=revealedHoleCards||{};
+function renderPlayerList(players){
   const list=document.getElementById('playerList');list.innerHTML='';
   const ac={F:'fold',C:'call',R:'raise',A:'allin',X:'check'};
   const al={F:'FOLD',C:'CALL',R:'RAISE',A:'ALL IN',X:'CHECK'};
@@ -2215,20 +2220,6 @@ function renderPlayerList(players, revealedHoleCards){
     if(p.eliminated) pos+=' <span class="badge sitout">BUST</span>';
     name.innerHTML=p.name+pos;
     row.appendChild(name);
-    // Revealed hole cards during all-in runout
-    const cards=revealedHoleCards[p.name];
-    if(cards&&cards.length){
-      const cardWrap=document.createElement('span');
-      cardWrap.className='at-hole-cards';
-      cards.forEach(c=>{
-        const isRed=c.s==='H'||c.s==='D';
-        const sp=document.createElement('span');
-        sp.className='at-card'+(isRed?' red':'');
-        sp.innerHTML=`<span class="at-rank">${RANK_NAMES[c.r]}</span><span class="at-suit">${SUIT_SYMBOLS[c.s]}</span>`;
-        cardWrap.appendChild(sp);
-      });
-      row.appendChild(cardWrap);
-    }
     const badges=document.createElement('span');
     if(p.eliminated||p.sittingOut){
       // no action badge — observer/bust-out
