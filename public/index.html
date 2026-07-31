@@ -367,21 +367,27 @@ function playTurnAlert(){
   if (navigator.vibrate) { try { navigator.vibrate([180, 90, 180]); } catch(e) {} }
   // Synthesized two-tone chime — no audio file needed
   try {
-    if (!turnAudioCtx) unlockTurnAudio();
+    if (!turnAudioCtx || turnAudioCtx.state === 'closed') unlockTurnAudio();
     if (!turnAudioCtx) return;
-    if (turnAudioCtx.state === 'suspended') turnAudioCtx.resume();
     const ctx = turnAudioCtx;
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(880, ctx.currentTime);
-    o.frequency.setValueAtTime(1175, ctx.currentTime + 0.13);
-    g.gain.setValueAtTime(0.0001, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
-    o.connect(g); g.connect(ctx.destination);
-    o.start();
-    o.stop(ctx.currentTime + 0.42);
+    const fire = () => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(880, ctx.currentTime);
+      o.frequency.setValueAtTime(1175, ctx.currentTime + 0.13);
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+      o.connect(g); g.connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.42);
+    };
+    // iOS re-suspends the context after a period of inactivity (e.g. while
+    // waiting through other players' turns) — resume() is async, so the
+    // chime must wait for it to actually finish or it gets silently dropped
+    if (ctx.state === 'suspended') ctx.resume().then(fire).catch(()=>{});
+    else fire();
   } catch(e) {}
 }
 
@@ -1043,7 +1049,13 @@ function showRunoutResults(runout) {
   // Sort: winners → non-folded by hand strength → folded
   const pl = document.getElementById('aioPlayers');
   pl.innerHTML = '';
-  const sorted = [...(runout.players||[])].sort(sortPlayers);
+  // Folded players are already documented in the log — no need to list them
+  // here too, except on a fold-win screen where the whole point is showing
+  // who folded below the winner
+  const visiblePlayers = runout.foldWin
+    ? (runout.players||[])
+    : (runout.players||[]).filter(p => !p.folded);
+  const sorted = [...visiblePlayers].sort(sortPlayers);
 
   // Assign placements with tie detection
   function handsEqual(p1, p2) {
@@ -1386,6 +1398,18 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.21.3', date:'July 2026',
+    changes:[
+      'Results screen no longer lists folded players for regular showdown hands — their fold is already in the log. Fold-win hands still show folded players below the winner, since that screen is specifically about showing who folded',
+    ]
+  },
+  {
+    v:'3.21.2', date:'July 2026',
+    changes:[
+      'Fixed Your Turn sound only playing the first time — iOS re-suspends the audio context during idle periods (e.g. while other players act), and the chime was not waiting for resume to actually finish before playing',
+    ]
+  },
   {
     v:'3.21.1', date:'July 2026',
     changes:[
