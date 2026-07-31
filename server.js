@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.18.2';
+const VERSION = '3.19';
 const LAST_UPDATED = 'July 2025';
 
 const fs = require('fs');
@@ -372,6 +372,7 @@ function publicState(){
   return {
     stage, board, version:VERSION, lastUpdated:LAST_UPDATED, cardBackStyle,
     pendingRunout:pendingRunoutStage!==null,
+    willRunout:isAllInRunout(),
     currentSessionLabel, currentEliminationCount:currentGameEliminations.length,
     canRevealNext:canRevealNext(), canRevealWinner:canRevealWinner(),
     foldWinner,
@@ -813,7 +814,8 @@ io.on('connection',socket=>{
     const wNames=winners.map(r=>r.name);
     const wNamesStr=wNames.join(' & ');
     const wDesc=winners[0]?winners[0].handDesc||winners[0].handName:'';
-    const winnerLogMsg=(isSplit?'\uD83E\uDD1D Split pot \u2014 ':'\uD83C\uDFC6 ')+wNamesStr+(wDesc?(isSplit?' — tied with ':' wins with ')+wDesc+'!':' wins!');
+    const wDescLog=compactDesc(wDesc);
+    const winnerLogMsg=(isSplit?'\uD83E\uDD1D Split pot \u2014 ':'\uD83C\uDFC6 ')+wNamesStr+(wDescLog?(isSplit?' — tied with ':' wins with ')+wDescLog+'!':' wins!');
 
     // Hand summary: only players who were actually in the hand (not sitting out)
     const nonFolded=results.filter(r=>!r.folded&&!r.sittingOut)
@@ -828,7 +830,7 @@ io.on('connection',socket=>{
     const placed=nonFolded.filter(r=>!r.winner);
     let place=isSplit?winners.length+1:2;
     const placedLogMsgs=placed.map(r=>{
-      const msg=(ordinals[place-1]||`${place}th`)+' '+r.name+': '+(r.handDesc||'');
+      const msg=(ordinals[place-1]||`${place}th`)+' '+r.name+': '+compactDesc(r.handDesc||'');
       place++;
       return msg;
     });
