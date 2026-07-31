@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.20.2';
+const VERSION = '3.20.4';
 const LAST_UPDATED = 'July 2025';
 
 const fs = require('fs');
@@ -191,7 +191,8 @@ function describeRunoutUpdate(preview, previousLeaderNames){
       const desc=compactDesc(pd.desc||'');
       let pctStr='';
       if(pd.totalRemaining){
-        const pct=Math.round((pd.outs||0)/pd.totalRemaining*100);
+        const equity=pd.isMonteCarlo ? (pd.score||0)/pd.totalRemaining : ((pd.outs||0)+(pd.tieOuts||0)*0.5)/pd.totalRemaining;
+        const pct=Math.round(equity*100);
         pctStr=' ('+pct+'%'+(pd.isMonteCarlo?' equity':' to win')+')';
       }
       return pd.name+': '+desc+pctStr;
@@ -240,7 +241,7 @@ function computeRunoutData(board){
     pdList.sort((a,b)=>b.score-a.score);
     return{
       players:pdList.map(pd=>({name:pd.name,cards:pd.cards,desc:pd.desc,
-        isLeader:pd.isLeader,outs:pd.outs,totalRemaining:pd.totalRemaining,
+        isLeader:pd.isLeader,outs:pd.outs,score:pd.score,totalRemaining:pd.totalRemaining,
         winningCards:[],isMonteCarlo:true})),
       leaderNames:pdList.filter(pd=>pd.isLeader).map(pd=>pd.name),cardsLeft
     };
@@ -258,41 +259,55 @@ function computeRunoutData(board){
 
   if(cardsLeft===1){
     pdList.forEach(pd=>{
-      if(leaderNames.includes(pd.name)){pd.outs=null;pd.totalRemaining=remaining.length;return;}
-      const wCards=[];
+      if(leaderNames.includes(pd.name)){pd.outs=null;pd.tieOuts=null;pd.totalRemaining=remaining.length;return;}
+      const wCards=[]; let tieCount=0;
       remaining.forEach(c=>{
         const b2=[...board,c];
         const ev2=evaluateBest([...pd.cards,...b2]);
-        const wins=pdList.every(o=>o.name===pd.name||compareEval(ev2,evaluateBest([...o.cards,...b2]))>0);
-        if(wins) wCards.push(c);
+        let bestOther=null;
+        pdList.forEach(o=>{
+          if(o.name===pd.name) return;
+          const oe=evaluateBest([...o.cards,...b2]);
+          if(!bestOther||compareEval(oe,bestOther)>0) bestOther=oe;
+        });
+        const cmp=compareEval(ev2,bestOther);
+        if(cmp>0) wCards.push(c);
+        else if(cmp===0) tieCount++;
       });
-      pd.winningCards=wCards; pd.outs=wCards.length; pd.totalRemaining=remaining.length;
+      pd.winningCards=wCards; pd.outs=wCards.length; pd.tieOuts=tieCount; pd.totalRemaining=remaining.length;
     });
   } else if(cardsLeft===2){
     pdList.forEach(pd=>{
-      if(leaderNames.includes(pd.name)){pd.outs=null;pd.totalRemaining=null;return;}
-      const helpKeys=new Set(); let wins=0,total=0;
+      if(leaderNames.includes(pd.name)){pd.outs=null;pd.tieOuts=null;pd.totalRemaining=null;return;}
+      const helpKeys=new Set(); let wins=0,ties=0,total=0;
       for(let i=0;i<remaining.length;i++) for(let j=i+1;j<remaining.length;j++){
         const b2=[...board,remaining[i],remaining[j]];
         const ev2=evaluateBest([...pd.cards,...b2]);
-        const w=pdList.every(o=>o.name===pd.name||compareEval(ev2,evaluateBest([...o.cards,...b2]))>0);
-        if(w){wins++;helpKeys.add(remaining[i].r+''+remaining[i].s);helpKeys.add(remaining[j].r+''+remaining[j].s);}
+        let bestOther=null;
+        pdList.forEach(o=>{
+          if(o.name===pd.name) return;
+          const oe=evaluateBest([...o.cards,...b2]);
+          if(!bestOther||compareEval(oe,bestOther)>0) bestOther=oe;
+        });
+        const cmp=compareEval(ev2,bestOther);
+        if(cmp>0){wins++;helpKeys.add(remaining[i].r+''+remaining[i].s);helpKeys.add(remaining[j].r+''+remaining[j].s);}
+        else if(cmp===0) ties++;
         total++;
       }
-      pd.outs=wins; pd.totalRemaining=total;
+      pd.outs=wins; pd.tieOuts=ties; pd.totalRemaining=total;
       pd.winningCards=remaining.filter(c=>helpKeys.has(c.r+''+c.s));
     });
   }
   pdList.sort((a,b)=>{
     if(leaderNames.includes(a.name)&&!leaderNames.includes(b.name)) return -1;
     if(!leaderNames.includes(a.name)&&leaderNames.includes(b.name)) return 1;
-    const pA=a.totalRemaining?(a.outs||0)/a.totalRemaining:0;
-    const pB=b.totalRemaining?(b.outs||0)/b.totalRemaining:0;
+    const pA=a.totalRemaining?((a.outs||0)+(a.tieOuts||0)*0.5)/a.totalRemaining:0;
+    const pB=b.totalRemaining?((b.outs||0)+(b.tieOuts||0)*0.5)/b.totalRemaining:0;
     return pB-pA;
   });
   return{
     players:pdList.map(pd=>({name:pd.name,cards:pd.cards,desc:pd.desc,
-      isLeader:leaderNames.includes(pd.name),outs:pd.outs,totalRemaining:pd.totalRemaining,
+      isLeader:leaderNames.includes(pd.name),outs:pd.outs,tieOuts:pd.tieOuts,totalRemaining:pd.totalRemaining,
       winningCards:pd.winningCards||[]})),
     leaderNames,cardsLeft
   };
