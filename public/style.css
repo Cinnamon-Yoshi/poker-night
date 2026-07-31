@@ -95,6 +95,10 @@ button.gold { background:#d4af37; color:#111; }
 .log-entry:first-child { opacity:1; font-weight:600; }
 .log-entry:last-child { border-bottom:none; }
 .log-entry.hl { color:#d4af37; }
+.log-entry.log-fold { color:#ff6b6b; }
+.log-entry.log-call { color:#5fd38d; }
+.log-entry.log-raise { color:#c58fe8; }
+.log-entry.log-allin { color:#5bb8d9; }
 
 /* ── Previous hand result ── */
 .result-row { padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.08); }

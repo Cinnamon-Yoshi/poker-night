@@ -342,6 +342,29 @@ let myId=null, myName=null, myCards=[], isHost=false, lastState=null, hostPlayer
 let viewingCards=false;
 
 // ── Turn notification ────────────────────────────────────────────────
+function playTurnAlert(){
+  // Vibration (mobile) — short double-pulse
+  if (navigator.vibrate) { try { navigator.vibrate([180, 90, 180]); } catch(e) {} }
+  // Synthesized two-tone chime — no audio file needed
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(880, ctx.currentTime);
+    o.frequency.setValueAtTime(1175, ctx.currentTime + 0.13);
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+    o.connect(g); g.connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + 0.42);
+    o.onended = () => ctx.close();
+  } catch(e) {}
+}
+
 function showTurnNotif(){
   const el=document.getElementById('turnNotif');
   el.innerHTML='';
@@ -354,6 +377,7 @@ function showTurnNotif(){
   el.classList.remove('active');
   void el.offsetWidth;
   el.classList.add('active');
+  playTurnAlert();
   clearTimeout(window._tnTimer);
   window._tnTimer=setTimeout(()=>el.classList.remove('active'),2500);
 }
@@ -1343,6 +1367,13 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.21', date:'July 2026',
+    changes:[
+      'Action log entries now color-coded by action type — Fold red, Call/Check green, Raise purple, All-In blue',
+      'Your Turn notification now also vibrates (mobile) and plays a short synthesized chime alongside the existing full-screen flash',
+    ]
+  },
+  {
     v:'3.20.5', date:'July 2026',
     changes:[
       'Removed hole card display from the At the Table section entirely — including for folded players during an all-in showdown — since the All-In Hands Revealed screen already shows this properly',
@@ -2252,12 +2283,19 @@ function renderCurrentHandLog(){
   renderLogInto(el, log.slice(startIdx));
 }
 
+function actionLogColorClass(entry){
+  const m = entry.match(/^.+?: (Fold|Call|Raise|All In|Check)\b/);
+  if (!m) return '';
+  const map = {Fold:'log-fold', Call:'log-call', Check:'log-call', Raise:'log-raise', 'All In':'log-allin'};
+  return map[m[1]] ? ' '+map[m[1]] : '';
+}
+
 function renderLogInto(el, entries){
   if(!el) return;
   el.innerHTML='';
   [...(entries||[])].reverse().forEach(entry=>{
     const d=document.createElement('div');
-    d.className='log-entry'+(entry.includes('\uD83C\uDFC6')||entry.includes('---')?' hl':'');
+    d.className='log-entry'+(entry.includes('\uD83C\uDFC6')||entry.includes('---')?' hl':'')+actionLogColorClass(entry);
     if(entry.includes('\u21A9')) d.style.opacity='0.6';
     d.textContent=entry;el.appendChild(d);
   });
