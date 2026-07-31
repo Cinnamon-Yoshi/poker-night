@@ -1058,7 +1058,7 @@ function showRunoutResults(runout) {
     const status = document.createElement('div'); status.className = 'aio-odds';
     status.textContent = labels[idx]; info.appendChild(status);
     top.appendChild(info);
-    if (runout.foldWin && p.winner && (isHost || myName === p.name)) {
+    if (runout.foldWin && p.winner && myName === p.name) {
       const showBtn = document.createElement('button');
       showBtn.className = 'fw-show-hand-btn';
       showBtn.textContent = 'Show Hand';
@@ -1337,6 +1337,14 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.20.2', date:'July 2026',
+    changes:[
+      'Fixed Show Hand button stretching full width and overlapping the row — a global button style was leaking through',
+      'Show Hand button now only shows for the winning player, not the host',
+      'Fixed Results/Hands Revealed screen having a separate nested scroll area for the log — the whole screen now scrolls as one',
+    ]
+  },
   {
     v:'3.20.1', date:'July 2026',
     changes:[

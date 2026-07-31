@@ -432,7 +432,7 @@ button.gold { background:#d4af37; color:#111; }
 .flip-wrap.fw-flip .flip-face .card .card-rank { font-size:calc(var(--card-w) * 0.607); }
 .flip-wrap.fw-flip .flip-face .card .card-suit { font-size:calc(var(--card-w) * 0.679); }
 .fw-show-hand-btn {
-  margin-left:auto; flex-shrink:0;
+  width:auto; margin-left:auto; margin-bottom:0; flex-shrink:0;
   background:#d4af37; color:#111; font-weight:800;
   border:none; border-radius:8px; padding:8px 14px; font-size:0.8em;
   cursor:pointer; white-space:nowrap;
@@ -648,7 +648,7 @@ button.gold { background:#d4af37; color:#111; }
 .aio-odds { font-size:0.95em; color:#d4af37; font-weight:700; margin-top:3px; }
 .aio-hand-log-wrap { width:100%; max-width:420px; margin-top:14px; }
 .aio-hand-log-label { font-size:0.72em; opacity:0.55; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
-#aioHandLog { max-height:160px; }
+#aioHandLog { max-height:none; overflow-y:visible; }
 .aio-needs { display:flex; flex-wrap:wrap; gap:3px; margin-top:5px; align-items:center; }
 .aio-needs-label { font-size:0.68em; opacity:0.55; margin-right:2px; }
 .aio-wcard { background:#fff; color:#111; border-radius:3px; padding:1px 4px; font-size:0.78em; font-weight:800; }
