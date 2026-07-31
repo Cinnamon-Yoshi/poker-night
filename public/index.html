@@ -1006,7 +1006,19 @@ function showRunoutResults(runout) {
     row.className = 'aio-player' + (p.winner ? ' aio-leader' : '');
     const top = document.createElement('div'); top.className = 'aio-player-top';
     const cardsDiv = document.createElement('div'); cardsDiv.className = 'aio-hole-cards';
-    (p.cards||[]).forEach(c => cardsDiv.appendChild(makeCard(c)));
+    let myUsedKeys = null;
+    if (!p.folded) {
+      const all = [...(p.cards||[]), ...(runout.board||[])];
+      if (all.length >= 5) {
+        const ev2 = evaluateBest(all);
+        if (ev2 && ev2.bestCards) myUsedKeys = new Set(ev2.bestCards.map(c => c.r+''+c.s));
+      }
+    }
+    (p.cards||[]).forEach(c => {
+      const cardEl = makeCard(c);
+      if (myUsedKeys && !myUsedKeys.has(c.r+''+c.s)) cardEl.classList.add('card-dim');
+      cardsDiv.appendChild(cardEl);
+    });
     top.appendChild(cardsDiv);
     const info = document.createElement('div'); info.className = 'aio-info';
     const nameEl = document.createElement('div'); nameEl.className = 'aio-name';
@@ -1180,12 +1192,13 @@ function updateNButton(state){
   if(!btn) return;
   // Fold-win: one player left standing — show winner button immediately
   if(state.foldWinner){
+    btn.onclick = ()=>socket.emit('declareFoldWinner');
     btn.innerHTML='<span class="bl">&#127942;</span><span class="bs">WIN</span>';
     btn.disabled=false;
     btn.style.background='#d4af37'; btn.style.color='#111';
     return;
   }
-  btn.onclick = state.foldWinner ? ()=>socket.emit('declareFoldWinner') : doNext;
+  btn.onclick = doNext;
   // During runout preview: N is blocked — host uses Proceed button instead
   if(state.pendingRunout){
     btn.innerHTML='<span class="bl">&#9646;&#9646;</span><span class="bs">WAIT</span>';
@@ -1286,6 +1299,14 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.19.1', date:'July 2026',
+    changes:[
+      'Fixed the WIN button doing nothing on a fold-out — its click handler was never actually being wired up due to an early return',
+      'Fixed SB/BB badges drifting to the wrong player mid-hand as people folded — they are now locked in at deal time',
+      'Results screen now also dims each players own unused hole cards, not just the unused community cards',
+    ]
+  },
   {
     v:'3.19', date:'July 2026',
     changes:[
