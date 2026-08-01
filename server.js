@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.22';
+const VERSION = '3.22.3';
 const LAST_UPDATED = 'July 2025';
 
 const fs = require('fs');
@@ -193,7 +193,7 @@ function describeRunoutUpdate(preview, previousLeaderNames){
       if(pd.totalRemaining){
         const equity=pd.isMonteCarlo ? (pd.score||0)/pd.totalRemaining : ((pd.outs||0)+(pd.tieOuts||0)*0.5)/pd.totalRemaining;
         const pct=Math.round(equity*100);
-        pctStr=' ('+pct+'%'+(pd.isMonteCarlo?' equity':' to win')+')';
+        pctStr=' ('+(pd.isMonteCarlo?'~':'')+pct+'% to win)';
       }
       return pd.name+': '+desc+pctStr;
     });
