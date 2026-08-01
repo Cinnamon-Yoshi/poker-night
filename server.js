@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.21.3';
+const VERSION = '3.22';
 const LAST_UPDATED = 'July 2025';
 
 const fs = require('fs');
@@ -864,7 +864,12 @@ io.on('connection',socket=>{
     const wNamesStr=wNames.join(' & ');
     const wDesc=winners[0]?winners[0].handDesc||winners[0].handName:'';
     const wDescLog=compactDesc(wDesc);
-    const winnerLogMsg=(isSplit?'\uD83E\uDD1D Split pot \u2014 ':'\uD83C\uDFC6 ')+wNamesStr+(wDescLog?(isSplit?' — tied with ':' wins with ')+wDescLog+'!':' wins!');
+    // If this was an all-in runout and the winner was not leading heading into
+    // the river, call it out — they caught up on the last card
+    const wasNotLeading=isRunoutSession&&!isSplit&&lastLeaderNames.length>0&&!lastLeaderNames.includes(wNames[0]);
+    const winnerLogMsg=isSplit
+      ?'\uD83E\uDD1D Split pot \u2014 '+wNamesStr+(wDescLog?' — tied with '+wDescLog+'!':'!')
+      :'\uD83C\uDFC6 '+wNamesStr+(wasNotLeading?' rivers the win':' wins')+(wDescLog?' with '+wDescLog+'!':'!');
 
     // Hand summary: only players who were actually in the hand (not sitting out)
     const nonFolded=results.filter(r=>!r.folded&&!r.sittingOut)
