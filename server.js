@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.25.1';
+const VERSION = '3.26';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -52,6 +52,8 @@ let firstHandDealt=false;
 // Tournament tracking
 let currentGameEliminations=[];  // player names in elimination order (earliest first) — used for Stats display order
 let sessionHandsPlayed=0;        // total hands dealt this session — for Stats context/percentages, resets on New Game
+let sessionStartTime=null;       // Date.now() when New Game started — drives the session clock
+let sessionInfo={buyIn:0,playersToCash:0,blindsStart:'',blindsIncrease:''}; // host-entered placeholders, resets on New Game
 
 function freshDeck(){
   const d=[];
@@ -382,12 +384,15 @@ function publicState(){
     revealedHoleCards,
     eliminationOrder:[...currentGameEliminations],
     sessionHandsPlayed,
+    sessionStartTime,
+    sessionInfo,
     players:players.map((p,i)=>({
       name:p.name, connected:p.connected, folded:p.folded,
       allIn:p.allIn, sittingOut:p.sittingOut||p.eliminated, eliminated:p.eliminated, action:p.action,
       isDealer:i===dealerIdx, isSB:i===sb, isBB:i===bb,
       isCurrent:i===nextActor,
       statsPlayed:p.statsPlayed||0, statsWon:p.statsWon||0, statsFolded:p.statsFolded||0, statsDecided:p.statsDecided||0,
+      statsRaised:p.statsRaised||0, statsCalled:p.statsCalled||0, statsAllIn:p.statsAllIn||0,
       streakType:p.streakType||null, streakCount:p.streakCount||0
     }))
   };
@@ -415,7 +420,7 @@ io.on('connection',socket=>{
       ex.id=socket.id; ex.connected=true;
       socket.emit('joined',{id:socket.id,reconnected:true});
     } else {
-      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,eliminated:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,streakType:null,streakCount:0,hadMoneyInPot:false});
+      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,eliminated:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,statsRaised:0,statsCalled:0,statsAllIn:0,streakType:null,streakCount:0,hadMoneyInPot:false});
       socket.emit('joined',{id:socket.id});
       addLog(name+' joined the game');
     }
@@ -455,7 +460,7 @@ io.on('connection',socket=>{
 
   socket.on('startNewGame',()=>{
     // Reset all player states first — bringing eliminated players back in
-    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=false;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.streakType=null;p.streakCount=0;p.hadMoneyInPot=false;});
+    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=false;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.hadMoneyInPot=false;});
     const eligible=players; // everyone is back in after reset
     if(eligible.length<2) return;
     // Commit state changes
@@ -469,6 +474,8 @@ io.on('connection',socket=>{
     firstHandDealt=false;
     currentGameEliminations=[];
     sessionHandsPlayed=0;
+    sessionStartTime=Date.now();
+    sessionInfo={buyIn:0,playersToCash:0,blindsStart:'',blindsIncrease:''};
 
     players.forEach(p=>io.to(p.id).emit('yourCards',[]));
     broadcast();
@@ -512,6 +519,17 @@ io.on('connection',socket=>{
     broadcast();
   });
 
+  socket.on('setSessionInfo',info=>{
+    if(!info||typeof info!=='object') return;
+    sessionInfo={
+      buyIn: Math.max(0, Number(info.buyIn)||0),
+      playersToCash: Math.max(0, Math.floor(Number(info.playersToCash)||0)),
+      blindsStart: String(info.blindsStart||'').slice(0,40),
+      blindsIncrease: String(info.blindsIncrease||'').slice(0,40),
+    };
+    broadcast();
+  });
+
   function dealHand(){
     // First deal after new game: pick dealer and show animation
     if(pendingDealerAnimation){
@@ -537,6 +555,9 @@ io.on('connection',socket=>{
       p.allIn=false;
       p.action=null;
       p.hadMoneyInPot=false;
+      p.raisedThisHand=false;
+      p.calledThisHand=false;
+      p.allInThisHand=false;
     });
 
     // Advance dealer (skip on first hand after New Game — dealer already set)
@@ -614,6 +635,9 @@ io.on('connection',socket=>{
       if(p.hadMoneyInPot){ p.statsFolded=(p.statsFolded||0)+1; p.statsDecided=(p.statsDecided||0)+1; recordStreak(p,false); }
     } else if(action==='C'||action==='R'||action==='A'){
       if(!p.hadMoneyInPot){ p.hadMoneyInPot=true; p.statsPlayed=(p.statsPlayed||0)+1; }
+      if(action==='C'&&!p.calledThisHand){ p.calledThisHand=true; p.statsCalled=(p.statsCalled||0)+1; }
+      if(action==='R'&&!p.raisedThisHand){ p.raisedThisHand=true; p.statsRaised=(p.statsRaised||0)+1; }
+      if(action==='A'&&!p.allInThisHand){ p.allInThisHand=true; p.statsAllIn=(p.statsAllIn||0)+1; }
     }
     if(action==='A') p.allIn=true;
     if(action==='R'||action==='A'){
