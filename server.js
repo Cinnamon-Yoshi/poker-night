@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.23';
+const VERSION = '3.23.1';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -447,11 +447,9 @@ io.on('connection',socket=>{
     players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=false;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;});
     const eligible=players; // everyone is back in after reset
     if(eligible.length<2) return;
-    // Notify ALL clients a new game is beginning
-    io.emit('newGameStarting');
-    // Commit state changes (dealer selection happens at first Deal press)
+    // Commit state changes
     board=[];holeCards={};actingQueue=[];
-    pendingDealerAnimation=true; // dealer animation plays when host presses Deal
+    pendingDealerAnimation=true; // consumed immediately below by dealHand()
     hasRaiseThisStreet=false;undoState=null;lastHandResult=null;
     stage='idle';
     actionLog=['=== New Game Started ==='];
@@ -462,6 +460,7 @@ io.on('connection',socket=>{
 
     players.forEach(p=>io.to(p.id).emit('yourCards',[]));
     broadcast();
+    dealHand(); // go straight into dealer selection + first hand — no extra Deal press needed
   });
 
   socket.on('removePlayer',name=>{
@@ -501,7 +500,7 @@ io.on('connection',socket=>{
     broadcast();
   });
 
-  socket.on('startHand',()=>{
+  function dealHand(){
     // First deal after new game: pick dealer and show animation
     if(pendingDealerAnimation){
       pendingDealerAnimation=false;
@@ -574,7 +573,9 @@ io.on('connection',socket=>{
       bb:bbIdx>=0&&players[bbIdx]?players[bbIdx].name:null,
     });
     broadcast();
-  });
+  }
+
+  socket.on('startHand',()=>{ dealHand(); });
 
   socket.on('recordAction',action=>{
     pruneQueue();
