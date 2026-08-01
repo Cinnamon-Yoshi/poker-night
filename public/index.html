@@ -68,7 +68,7 @@
       <span class="full-modal-title">Stats</span>
       <button id="statsCloseBtn" class="full-modal-close">✕</button>
     </div>
-    <div class="tourn-subtitle">This session only — resets on New Game. Played/$Fold only count hands where you had money in (blind posted, called, or raised).</div>
+    <div class="tourn-subtitle">This session only — resets on New Game. Played/$Fold/Win%/Loss% only count hands where you had money in (blind posted, called, or raised) — a fold with money in counts as a loss.</div>
     <div id="statsTableWrap"></div>
   </div>
 </div>
@@ -1323,6 +1323,13 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.25.1', date:'July 2026',
+    changes:[
+      'Folding with money in the pot now counts as a decided loss for Win%/Loss%, matching how it already broke a streak — these two stats were inconsistent before',
+      'Win% and Loss% now show a count alongside the percentage, matching Played and $Fold',
+    ]
+  },
+  {
     v:'3.25', date:'July 2026',
     changes:[
       'Stats now shows total hands played this session at the top of the table',
@@ -2004,7 +2011,7 @@ function computeStatsRows(state) {
     const playedPct = totalHands > 0 ? Math.round(played / totalHands * 100) : null;
     const foldPct = played > 0 ? Math.round(folded / played * 100) : null;
     return {
-      name: p.name, played, won, folded, winPct, lossPct, playedPct, foldPct,
+      name: p.name, played, won, folded, decided, winPct, lossPct, playedPct, foldPct,
       streakType: p.streakType || null, streakCount: p.streakCount || 0,
       eliminated: p.eliminated, isWinner: isOver && !p.eliminated
     };
@@ -2040,12 +2047,14 @@ function renderStatsTable(state) {
     const streakColor = r.streakType === 'W' ? '#d4af37' : r.streakType === 'L' ? '#ff6b6b' : 'inherit';
     const playedCell = r.playedPct !== null ? `${r.played} (${r.playedPct}%)` : `${r.played}`;
     const foldCell = r.foldPct !== null ? `${r.folded} (${r.foldPct}%)` : `${r.folded}`;
+    const winCell = r.winPct !== null ? `${r.won} (${r.winPct}%)` : '—';
+    const lossCell = r.lossPct !== null ? `${r.decided - r.won} (${r.lossPct}%)` : '—';
     html += `<tr class="${cls}"${style}>`;
     html += `<td class="tc-name">${r.name}${statusBadge}</td>`;
     html += `<td class="tc-pts">${playedCell}</td>`;
     html += `<td class="tc-pts">${foldCell}</td>`;
-    html += `<td class="tc-pts">${r.winPct !== null ? r.winPct + '%' : '—'}</td>`;
-    html += `<td class="tc-pts">${r.lossPct !== null ? r.lossPct + '%' : '—'}</td>`;
+    html += `<td class="tc-pts">${winCell}</td>`;
+    html += `<td class="tc-pts">${lossCell}</td>`;
     html += `<td class="tc-pts" style="color:${streakColor};font-weight:800;">${streakText}</td>`;
     html += '</tr>';
   });
