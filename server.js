@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.24';
+const VERSION = '3.25';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -51,6 +51,7 @@ let initialDealerName=null;
 let firstHandDealt=false;
 // Tournament tracking
 let currentGameEliminations=[];  // player names in elimination order (earliest first) — used for Stats display order
+let sessionHandsPlayed=0;        // total hands dealt this session — for Stats context/percentages, resets on New Game
 
 function freshDeck(){
   const d=[];
@@ -380,12 +381,13 @@ function publicState(){
     bbCanCheck, nextActorIsBB:stage==='preflop'&&actingQueue.length>0&&actingQueue[0]===getBB(),
     revealedHoleCards,
     eliminationOrder:[...currentGameEliminations],
+    sessionHandsPlayed,
     players:players.map((p,i)=>({
       name:p.name, connected:p.connected, folded:p.folded,
       allIn:p.allIn, sittingOut:p.sittingOut||p.eliminated, eliminated:p.eliminated, action:p.action,
       isDealer:i===dealerIdx, isSB:i===sb, isBB:i===bb,
       isCurrent:i===nextActor,
-      statsPlayed:p.statsPlayed||0, statsWon:p.statsWon||0, statsFolded:p.statsFolded||0,
+      statsPlayed:p.statsPlayed||0, statsWon:p.statsWon||0, statsFolded:p.statsFolded||0, statsDecided:p.statsDecided||0,
       streakType:p.streakType||null, streakCount:p.streakCount||0
     }))
   };
@@ -413,7 +415,7 @@ io.on('connection',socket=>{
       ex.id=socket.id; ex.connected=true;
       socket.emit('joined',{id:socket.id,reconnected:true});
     } else {
-      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,eliminated:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,streakType:null,streakCount:0,hadMoneyInPot:false});
+      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,eliminated:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,streakType:null,streakCount:0,hadMoneyInPot:false});
       socket.emit('joined',{id:socket.id});
       addLog(name+' joined the game');
     }
@@ -453,7 +455,7 @@ io.on('connection',socket=>{
 
   socket.on('startNewGame',()=>{
     // Reset all player states first — bringing eliminated players back in
-    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=false;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.streakType=null;p.streakCount=0;p.hadMoneyInPot=false;});
+    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=false;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.streakType=null;p.streakCount=0;p.hadMoneyInPot=false;});
     const eligible=players; // everyone is back in after reset
     if(eligible.length<2) return;
     // Commit state changes
@@ -466,6 +468,7 @@ io.on('connection',socket=>{
     isRunoutSession=false;
     firstHandDealt=false;
     currentGameEliminations=[];
+    sessionHandsPlayed=0;
 
     players.forEach(p=>io.to(p.id).emit('yourCards',[]));
     broadcast();
@@ -563,6 +566,7 @@ io.on('connection',socket=>{
     actingQueue=buildQueue(getBB()); // UTG first, BB last
     hasRaiseThisStreet=true;  // pre-flop: blinds already out = there's a bet to call
     bbCanCheck=true;           // BB gets free check option if no one raises
+    sessionHandsPlayed++;
     addLog('--- New hand. Dealer: '+players[dealerIdx].name+' ---');
     const sbIdx=getSB(), bbIdx=getBB();
     handSBIdx=sbIdx; handBBIdx=bbIdx;
@@ -736,6 +740,7 @@ io.on('connection',socket=>{
     if(rem.length!==1||stage==='idle') return;
     const winner=rem[0];
     winner.statsWon=(winner.statsWon||0)+1;
+    winner.statsDecided=(winner.statsDecided||0)+1;
     recordStreak(winner,true);
     addLog('🏆 '+winner.name+' wins (everyone else folded)');
     const resultsPlayers=players.filter(p=>!p.sittingOut&&!p.eliminated).map(p=>({
@@ -806,14 +811,14 @@ io.on('connection',socket=>{
     const winners=results.filter(r=>r.winner);
     winners.forEach(w=>{
       const pl=players.find(pp=>pp.name===w.name);
-      if(pl){ pl.statsWon=(pl.statsWon||0)+1; recordStreak(pl,true); }
+      if(pl){ pl.statsWon=(pl.statsWon||0)+1; pl.statsDecided=(pl.statsDecided||0)+1; recordStreak(pl,true); }
     });
     // Non-winning players who reached showdown (didn't fold) and had money in
-    // the pot take a loss streak update too — a fold already recorded its own
-    // loss streak update immediately when it happened
+    // the pot count as a decided loss, plus a loss streak update — a fold
+    // already recorded its own loss streak update immediately when it happened
     results.filter(r=>!r.winner&&!r.folded&&!r.sittingOut).forEach(r=>{
       const pl=players.find(pp=>pp.name===r.name);
-      if(pl&&pl.hadMoneyInPot) recordStreak(pl,false);
+      if(pl&&pl.hadMoneyInPot){ pl.statsDecided=(pl.statsDecided||0)+1; recordStreak(pl,false); }
     });
     const isSplit=winners.length>1;
     const wNames=winners.map(r=>r.name);
