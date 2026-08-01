@@ -69,6 +69,23 @@
       <button id="statsCloseBtn" class="full-modal-close">✕</button>
     </div>
     <div class="tourn-subtitle">This session only — resets on New Game. Played/$Fold/Win%/Loss% only count hands where you had money in (blind posted, called, or raised) — a fold with money in counts as a loss.</div>
+    <div id="statsClockLine" style="font-size:0.85em;opacity:0.75;margin:10px 0;"></div>
+
+    <div id="sessionInfoBox" style="margin-bottom:16px;padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;">
+      <div style="font-size:0.78em;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Game Info</div>
+      <div id="sessionInfoDisplay" style="font-size:0.85em;line-height:1.7;"></div>
+      <div id="sessionInfoEditFields" style="display:none;margin-top:10px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div><label style="font-size:0.72em;opacity:0.6;display:block;margin-bottom:3px;">Buy-in ($)</label><input type="number" id="siBuyIn" min="0" style="width:100%;padding:8px;border-radius:6px;border:none;background:#1a1a1a;color:#fff;"></div>
+          <div><label style="font-size:0.72em;opacity:0.6;display:block;margin-bottom:3px;">Players to Cash</label><input type="number" id="siPlayersToCash" min="0" style="width:100%;padding:8px;border-radius:6px;border:none;background:#1a1a1a;color:#fff;"></div>
+          <div><label style="font-size:0.72em;opacity:0.6;display:block;margin-bottom:3px;">Blinds Start</label><input type="text" id="siBlindsStart" placeholder="e.g. 5/10" style="width:100%;padding:8px;border-radius:6px;border:none;background:#1a1a1a;color:#fff;"></div>
+          <div><label style="font-size:0.72em;opacity:0.6;display:block;margin-bottom:3px;">Blinds Increase</label><input type="text" id="siBlindsIncrease" placeholder="e.g. every 20 min" style="width:100%;padding:8px;border-radius:6px;border:none;background:#1a1a1a;color:#fff;"></div>
+        </div>
+        <button id="siSaveBtn" style="width:100%;margin-top:10px;">Save</button>
+      </div>
+      <button id="siEditToggleBtn" class="secondary" style="width:100%;margin-top:8px;display:none;">Edit Game Info</button>
+    </div>
+
     <div id="statsTableWrap"></div>
   </div>
 </div>
@@ -1323,6 +1340,14 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.26', date:'July 2026',
+    changes:[
+      'Added a session clock to Stats — shows total time since New Game was pressed',
+      'Added Raise%, Call%, and All-In% columns to Stats — percentage of played hands where each action happened at least once',
+      'Added a Game Info section to Stats — host-editable Buy-in, Players to Cash, Blinds Start, and Blinds Increase, with a computed Total Pot and an even-split placeholder payout. Real chip tracking is a future feature; this is placeholder session metadata only',
+    ]
+  },
+  {
     v:'3.25.1', date:'July 2026',
     changes:[
       'Folding with money in the pot now counts as a decided loss for Win%/Loss%, matching how it already broke a streak — these two stats were inconsistent before',
@@ -1985,12 +2010,64 @@ document.getElementById('toggleSeatsBtn').onclick=()=>{
   btn.innerHTML=hidden?'&#129489; Seats &#9660;':'&#129489; Seats &#9658;';
 };
 // ── Stats ────────────────────────────────────────────────────────────
+let statsClockInterval = null;
+function formatElapsed(ms) {
+  if (ms < 0) ms = 0;
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+function updateStatsClock() {
+  const el = document.getElementById('statsClockLine');
+  if (!el) return;
+  if (!lastState || !lastState.sessionStartTime) { el.textContent = ''; return; }
+  el.textContent = `Session time: ${formatElapsed(Date.now() - lastState.sessionStartTime)}`;
+}
+function renderSessionInfo(state) {
+  const info = state.sessionInfo || {buyIn:0,playersToCash:0,blindsStart:'',blindsIncrease:''};
+  const totalPlayers = (state.players || []).length;
+  const totalPot = (info.buyIn || 0) * totalPlayers;
+  const payout = info.playersToCash > 0 ? totalPot / info.playersToCash : null;
+  const fmtMoney = n => '$' + (Math.round(n * 100) / 100).toString();
+  const display = document.getElementById('sessionInfoDisplay');
+  let html = '';
+  html += `<div>Buy-in: ${info.buyIn > 0 ? fmtMoney(info.buyIn) : '—'}</div>`;
+  html += `<div>Total Pot: ${info.buyIn > 0 ? fmtMoney(totalPot) + ` (${totalPlayers} players)` : '—'}</div>`;
+  html += `<div>Players to Cash: ${info.playersToCash > 0 ? info.playersToCash : '—'}</div>`;
+  html += `<div>Split: ${payout !== null ? fmtMoney(payout) + ' each (even split placeholder)' : '—'}</div>`;
+  html += `<div>Blinds Start: ${info.blindsStart || '—'}</div>`;
+  html += `<div>Blinds Increase: ${info.blindsIncrease || '—'}</div>`;
+  display.innerHTML = html;
+  document.getElementById('siEditToggleBtn').style.display = isHost ? 'block' : 'none';
+  document.getElementById('siBuyIn').value = info.buyIn || '';
+  document.getElementById('siPlayersToCash').value = info.playersToCash || '';
+  document.getElementById('siBlindsStart').value = info.blindsStart || '';
+  document.getElementById('siBlindsIncrease').value = info.blindsIncrease || '';
+}
+document.getElementById('siEditToggleBtn').onclick = () => {
+  const fields = document.getElementById('sessionInfoEditFields');
+  fields.style.display = fields.style.display === 'none' ? 'block' : 'none';
+};
+document.getElementById('siSaveBtn').onclick = () => {
+  socket.emit('setSessionInfo', {
+    buyIn: document.getElementById('siBuyIn').value,
+    playersToCash: document.getElementById('siPlayersToCash').value,
+    blindsStart: document.getElementById('siBlindsStart').value,
+    blindsIncrease: document.getElementById('siBlindsIncrease').value,
+  });
+  document.getElementById('sessionInfoEditFields').style.display = 'none';
+};
 document.getElementById('statsBtn').onclick = () => {
-  if (lastState) renderStatsTable(lastState);
+  if (lastState) { renderStatsTable(lastState); renderSessionInfo(lastState); updateStatsClock(); }
   document.getElementById('statsModal').style.display = 'flex';
+  clearInterval(statsClockInterval);
+  statsClockInterval = setInterval(updateStatsClock, 30000);
 };
 document.getElementById('statsCloseBtn').onclick = () => {
   document.getElementById('statsModal').style.display = 'none';
+  clearInterval(statsClockInterval);
+  statsClockInterval = null;
 };
 
 function computeStatsRows(state) {
@@ -2010,8 +2087,15 @@ function computeStatsRows(state) {
     const lossPct = decided > 0 ? Math.round((decided - won) / decided * 100) : null;
     const playedPct = totalHands > 0 ? Math.round(played / totalHands * 100) : null;
     const foldPct = played > 0 ? Math.round(folded / played * 100) : null;
+    const raised = p.statsRaised || 0;
+    const called = p.statsCalled || 0;
+    const allIn = p.statsAllIn || 0;
+    const raisePct = played > 0 ? Math.round(raised / played * 100) : null;
+    const callPct = played > 0 ? Math.round(called / played * 100) : null;
+    const allInPct = played > 0 ? Math.round(allIn / played * 100) : null;
     return {
       name: p.name, played, won, folded, decided, winPct, lossPct, playedPct, foldPct,
+      raised, called, allIn, raisePct, callPct, allInPct,
       streakType: p.streakType || null, streakCount: p.streakCount || 0,
       eliminated: p.eliminated, isWinner: isOver && !p.eliminated
     };
@@ -2038,7 +2122,7 @@ function renderStatsTable(state) {
   const rows = computeStatsRows(state);
   let html = `<div style="font-size:0.8em;opacity:0.6;margin-bottom:8px;">${totalHands} hand${totalHands === 1 ? '' : 's'} played this session</div>`;
   html += '<div class="tourn-scroll"><table class="tourn-table">';
-  html += '<thead><tr><th class="tc-name">Player</th><th class="tc-game">Played</th><th class="tc-game">$Fold</th><th class="tc-game">Win%</th><th class="tc-game">Loss%</th><th class="tc-game">Streak</th></tr></thead><tbody>';
+  html += '<thead><tr><th class="tc-name">Player</th><th class="tc-game">Played</th><th class="tc-game">$Fold</th><th class="tc-game">Win%</th><th class="tc-game">Loss%</th><th class="tc-game">Streak</th><th class="tc-game">Raise%</th><th class="tc-game">Call%</th><th class="tc-game">All-In%</th></tr></thead><tbody>';
   rows.forEach(r => {
     const cls = r.isWinner ? 'tr-leader' : '';
     const style = r.eliminated ? ' style="opacity:0.55;"' : '';
@@ -2056,6 +2140,9 @@ function renderStatsTable(state) {
     html += `<td class="tc-pts">${winCell}</td>`;
     html += `<td class="tc-pts">${lossCell}</td>`;
     html += `<td class="tc-pts" style="color:${streakColor};font-weight:800;">${streakText}</td>`;
+    html += `<td class="tc-pts">${r.raisePct !== null ? r.raisePct + '%' : '—'}</td>`;
+    html += `<td class="tc-pts">${r.callPct !== null ? r.callPct + '%' : '—'}</td>`;
+    html += `<td class="tc-pts">${r.allInPct !== null ? r.allInPct + '%' : '—'}</td>`;
     html += '</tr>';
   });
   html += '</tbody></table></div>';
