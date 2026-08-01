@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.25';
+const VERSION = '3.25.1';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -611,7 +611,7 @@ io.on('connection',socket=>{
     p.action=action;
     if(action==='F'){
       p.folded=true;
-      if(p.hadMoneyInPot){ p.statsFolded=(p.statsFolded||0)+1; recordStreak(p,false); }
+      if(p.hadMoneyInPot){ p.statsFolded=(p.statsFolded||0)+1; p.statsDecided=(p.statsDecided||0)+1; recordStreak(p,false); }
     } else if(action==='C'||action==='R'||action==='A'){
       if(!p.hadMoneyInPot){ p.hadMoneyInPot=true; p.statsPlayed=(p.statsPlayed||0)+1; }
     }
