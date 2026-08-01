@@ -21,43 +21,9 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.22.3';
+const VERSION = '3.23';
 const LAST_UPDATED = 'July 2025';
 
-const fs = require('fs');
-const path = require('path');
-const DATA_DIR = path.join(__dirname, 'data');
-const TOURNAMENT_FILE = path.join(DATA_DIR, 'tournament.json');
-
-function loadTournament(){
-  try{
-    if(!fs.existsSync(TOURNAMENT_FILE)) return {games:[]};
-    return JSON.parse(fs.readFileSync(TOURNAMENT_FILE,'utf8'));
-  }catch(e){ return {games:[]}; }
-}
-function saveTournamentData(data){
-  if(!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR,{recursive:true});
-  fs.writeFileSync(TOURNAMENT_FILE,JSON.stringify(data,null,2),'utf8');
-}
-function formatSessionLabel(){
-  const d=new Date();
-  const mo=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getMonth()];
-  const day=String(d.getDate()).padStart(2,'0');
-  const h=String(d.getHours()).padStart(2,'0');
-  const m=String(d.getMinutes()).padStart(2,'0');
-  return `${mo}${day}-${h}:${m}`;
-}
-function computeTournamentResults(eliminations,remainingPlayers){
-  const total=eliminations.length+remainingPlayers.length;
-  if(total<2) return {results:[],totalPlayers:total};
-  const results=[];
-  remainingPlayers.forEach(name=>results.push({name,place:1,points:1}));
-  eliminations.forEach((name,i)=>{
-    const place=total-i;
-    results.push({name,place,points:place});
-  });
-  return {results,totalPlayers:total};
-}
 const SUITS = ['S','H','D','C'];
 const RANKS = [2,3,4,5,6,7,8,9,10,11,12,13,14];
 
@@ -84,8 +50,7 @@ let lastLeaderNames=[];    // leader(s) as of the last logged runout update, for
 let initialDealerName=null;
 let firstHandDealt=false;
 // Tournament tracking
-let currentGameEliminations=[];  // player names in elimination order (earliest first)
-let currentSessionLabel=null;    // e.g. "JUL01-22:31", set when New Game is pressed
+let currentGameEliminations=[];  // player names in elimination order (earliest first) — used for Stats display order
 
 function freshDeck(){
   const d=[];
@@ -396,7 +361,6 @@ function publicState(){
     stage, board, version:VERSION, lastUpdated:LAST_UPDATED, cardBackStyle,
     pendingRunout:pendingRunoutStage!==null,
     willRunout:isAllInRunout(),
-    currentSessionLabel, currentEliminationCount:currentGameEliminations.length,
     canRevealNext:canRevealNext(), canRevealWinner:canRevealWinner(),
     foldWinner,
     playerCount:players.filter(p=>!p.sittingOut).length,
@@ -407,11 +371,13 @@ function publicState(){
     hasRaiseThisStreet, canUndo:undoState!==null,
     bbCanCheck, nextActorIsBB:stage==='preflop'&&actingQueue.length>0&&actingQueue[0]===getBB(),
     revealedHoleCards,
+    eliminationOrder:[...currentGameEliminations],
     players:players.map((p,i)=>({
       name:p.name, connected:p.connected, folded:p.folded,
       allIn:p.allIn, sittingOut:p.sittingOut||p.eliminated, eliminated:p.eliminated, action:p.action,
       isDealer:i===dealerIdx, isSB:i===sb, isBB:i===bb,
-      isCurrent:i===nextActor
+      isCurrent:i===nextActor,
+      statsPlayed:p.statsPlayed||0, statsWon:p.statsWon||0, statsFolded:p.statsFolded||0
     }))
   };
 }
@@ -438,7 +404,7 @@ io.on('connection',socket=>{
       ex.id=socket.id; ex.connected=true;
       socket.emit('joined',{id:socket.id,reconnected:true});
     } else {
-      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,eliminated:false,connected:true,action:null});
+      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,eliminated:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0});
       socket.emit('joined',{id:socket.id});
       addLog(name+' joined the game');
     }
@@ -478,7 +444,7 @@ io.on('connection',socket=>{
 
   socket.on('startNewGame',()=>{
     // Reset all player states first — bringing eliminated players back in
-    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=false;});
+    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=false;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;});
     const eligible=players; // everyone is back in after reset
     if(eligible.length<2) return;
     // Notify ALL clients a new game is beginning
@@ -493,7 +459,6 @@ io.on('connection',socket=>{
     isRunoutSession=false;
     firstHandDealt=false;
     currentGameEliminations=[];
-    currentSessionLabel=formatSessionLabel();
 
     players.forEach(p=>io.to(p.id).emit('yourCards',[]));
     broadcast();
@@ -513,32 +478,6 @@ io.on('connection',socket=>{
     addLog(name+' removed from game'); broadcast();
   });
 
-  // ── Tournament events ────────────────────────────────────────────────
-  socket.on('saveTournamentGame',(cb)=>{
-    if(!currentSessionLabel||currentGameEliminations.length===0){
-      if(cb) cb({success:false,reason:'nothing to save'});
-      return;
-    }
-    const tournament=loadTournament();
-    const remainingNames=players.filter(p=>!p.eliminated).map(p=>p.name);
-    const {results,totalPlayers}=computeTournamentResults(currentGameEliminations,remainingNames);
-    if(results.length===0){ if(cb) cb({success:false,reason:'too few players'}); return; }
-    tournament.games.push({sessionLabel:currentSessionLabel,totalPlayers,results});
-    saveTournamentData(tournament);
-    io.emit('tournamentUpdated',tournament);
-    if(cb) cb({success:true});
-  });
-
-  socket.on('getTournament',(cb)=>{
-    if(cb) cb(loadTournament());
-  });
-
-  socket.on('clearTournament',(cb)=>{
-    saveTournamentData({games:[]});
-    io.emit('tournamentUpdated',{games:[]});
-    if(cb) cb({success:true});
-  });
-
   socket.on('eliminatePlayer',name=>{
     const p=players.find(pl=>pl.name===name);
     if(!p) return;
@@ -555,8 +494,6 @@ io.on('connection',socket=>{
     }
     broadcast();
   });
-
-  socket.on('clearLog',()=>{actionLog=[];broadcast();});
 
   socket.on('setCardBack',style=>{
     cardBackStyle=style;
@@ -588,6 +525,7 @@ io.on('connection',socket=>{
       p.folded=p.sittingOut;
       p.allIn=false;
       p.action=null;
+      if(!p.sittingOut) p.statsPlayed=(p.statsPlayed||0)+1;
     });
 
     // Advance dealer (skip on first hand after New Game — dealer already set)
@@ -652,7 +590,7 @@ io.on('connection',socket=>{
     const logEntry=p.name+': '+(labels[action]||action);
     saveUndo(logEntry);
     p.action=action;
-    if(action==='F') p.folded=true;
+    if(action==='F'){ p.folded=true; p.statsFolded=(p.statsFolded||0)+1; }
     if(action==='A') p.allIn=true;
     if(action==='R'||action==='A'){
       bbCanCheck=false; // someone raised — BB loses free check option
@@ -772,26 +710,12 @@ io.on('connection',socket=>{
     }
   }
 
-  socket.on('endGame',()=>{
-    // Compute final standings for game results display
-    const remaining=players.filter(p=>!p.eliminated);
-    const elimReversed=[...currentGameEliminations].reverse(); // last eliminated first
-    const resultsList=[
-      ...remaining.map(p=>({name:p.name,isWinner:true})),
-      ...elimReversed.map(name=>({name,isWinner:false}))
-    ];
-    io.emit('gameResults',{
-      results:resultsList,
-      sessionLabel:currentSessionLabel,
-      canSave:!!(currentSessionLabel&&currentGameEliminations.length>0)
-    });
-  });
-
   // Fold-win: called when only 1 player remains (everyone else folded)
   socket.on('declareFoldWinner',()=>{
     const rem=active().filter(p=>!p.eliminated);
     if(rem.length!==1||stage==='idle') return;
     const winner=rem[0];
+    winner.statsWon=(winner.statsWon||0)+1;
     addLog('🏆 '+winner.name+' wins (everyone else folded)');
     const resultsPlayers=players.filter(p=>!p.sittingOut&&!p.eliminated).map(p=>({
       name:p.name,
@@ -859,6 +783,10 @@ io.on('connection',socket=>{
     // Compute winner info (logged last, so it lands at the top since the client
     // displays the newest entries first)
     const winners=results.filter(r=>r.winner);
+    winners.forEach(w=>{
+      const pl=players.find(pp=>pp.name===w.name);
+      if(pl) pl.statsWon=(pl.statsWon||0)+1;
+    });
     const isSplit=winners.length>1;
     const wNames=winners.map(r=>r.name);
     const wNamesStr=wNames.join(' & ');
