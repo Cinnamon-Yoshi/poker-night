@@ -1323,6 +1323,19 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.25', date:'July 2026',
+    changes:[
+      'Stats now shows total hands played this session at the top of the table',
+      'Played and $Fold now show a percentage alongside the count — Played is a share of the session total, $Fold is a share of hands played',
+    ]
+  },
+  {
+    v:'3.24.1', date:'July 2026',
+    changes:[
+      'Fixed Win%/Loss% showing 0%/100% for a hand still in progress — Played increments the instant a blind is posted, but the old percentage math used that as the denominator immediately, before the hand had actually resolved. Now uses a proper counter that only increments when a hand is actually won or lost',
+    ]
+  },
+  {
     v:'3.24', date:'July 2026',
     changes:[
       'Played and $Fold now only count when a player actually had money in the pot — a cold fold before ever posting a blind or calling no longer counts as a played hand',
@@ -1980,15 +1993,18 @@ function computeStatsRows(state) {
   const isOver = active.length === 1 && players.length > 1;
   const bustedRank = {};
   [...elimOrder].reverse().forEach((name, i) => { bustedRank[name] = i; }); // 0 = most recently busted
+  const totalHands = state.sessionHandsPlayed || 0;
   const rows = players.map(p => {
     const played = p.statsPlayed || 0;
     const folded = p.statsFolded || 0;
     const won = p.statsWon || 0;
-    const decided = played - folded; // hands where they didn't fold — folding isn't a losing attempt to win
+    const decided = p.statsDecided || 0; // only hands actually resolved (won or lost at showdown) — not folds, not hands still in progress
     const winPct = decided > 0 ? Math.round(won / decided * 100) : null;
     const lossPct = decided > 0 ? Math.round((decided - won) / decided * 100) : null;
+    const playedPct = totalHands > 0 ? Math.round(played / totalHands * 100) : null;
+    const foldPct = played > 0 ? Math.round(folded / played * 100) : null;
     return {
-      name: p.name, played, won, folded, winPct, lossPct,
+      name: p.name, played, won, folded, winPct, lossPct, playedPct, foldPct,
       streakType: p.streakType || null, streakCount: p.streakCount || 0,
       eliminated: p.eliminated, isWinner: isOver && !p.eliminated
     };
@@ -2011,8 +2027,10 @@ function renderStatsTable(state) {
     wrap.innerHTML = '<div class="tourn-empty">No players yet.</div>';
     return;
   }
+  const totalHands = state.sessionHandsPlayed || 0;
   const rows = computeStatsRows(state);
-  let html = '<div class="tourn-scroll"><table class="tourn-table">';
+  let html = `<div style="font-size:0.8em;opacity:0.6;margin-bottom:8px;">${totalHands} hand${totalHands === 1 ? '' : 's'} played this session</div>`;
+  html += '<div class="tourn-scroll"><table class="tourn-table">';
   html += '<thead><tr><th class="tc-name">Player</th><th class="tc-game">Played</th><th class="tc-game">$Fold</th><th class="tc-game">Win%</th><th class="tc-game">Loss%</th><th class="tc-game">Streak</th></tr></thead><tbody>';
   rows.forEach(r => {
     const cls = r.isWinner ? 'tr-leader' : '';
@@ -2020,10 +2038,12 @@ function renderStatsTable(state) {
     const statusBadge = r.isWinner ? ' 🏆' : r.eliminated ? ' <span style="opacity:0.5;font-size:0.85em;">(busted)</span>' : '';
     const streakText = r.streakType ? `${r.streakType}${r.streakCount}` : '—';
     const streakColor = r.streakType === 'W' ? '#d4af37' : r.streakType === 'L' ? '#ff6b6b' : 'inherit';
+    const playedCell = r.playedPct !== null ? `${r.played} (${r.playedPct}%)` : `${r.played}`;
+    const foldCell = r.foldPct !== null ? `${r.folded} (${r.foldPct}%)` : `${r.folded}`;
     html += `<tr class="${cls}"${style}>`;
     html += `<td class="tc-name">${r.name}${statusBadge}</td>`;
-    html += `<td class="tc-pts">${r.played}</td>`;
-    html += `<td class="tc-pts">${r.folded}</td>`;
+    html += `<td class="tc-pts">${playedCell}</td>`;
+    html += `<td class="tc-pts">${foldCell}</td>`;
     html += `<td class="tc-pts">${r.winPct !== null ? r.winPct + '%' : '—'}</td>`;
     html += `<td class="tc-pts">${r.lossPct !== null ? r.lossPct + '%' : '—'}</td>`;
     html += `<td class="tc-pts" style="color:${streakColor};font-weight:800;">${streakText}</td>`;
