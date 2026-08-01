@@ -655,6 +655,7 @@ button.gold { background:#d4af37; color:#111; }
 
 .aio-info { flex:1; min-width:0; }
 .aio-name { font-weight:800; font-size:1.15em; }
+.aio-name-dim { opacity:0.45; }
 .aio-hand { font-size:0.92em; opacity:0.7; margin-top:2px; }
 .aio-odds { font-size:0.95em; color:#d4af37; font-weight:700; margin-top:3px; }
 .aio-hand-log-wrap { width:100%; max-width:420px; margin-top:14px; }

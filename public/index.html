@@ -551,29 +551,15 @@ function aioRemaining(board, players) {
 
 function buildDrawLine(p, board, remaining, cardsLeft, claimedCards) {
   const handLine = compactDesc(p.desc || '');
-  const allCards = [...(p.cards||[]), ...board];
 
-  // ── LEADER: show current hand + best improvement card ──
+  // ── LEADER: already leading, no need to show what would improve them further ──
   if (p.isLeader) {
-    if (cardsLeft === 0) return { handLine, drawLine: 'Leading' };
-    const curEval = allCards.length >= 5 ? evaluateBest(allCards) : null;
-    let bestCard = null, bestDesc = null;
-    if (curEval) {
-      remaining.forEach(c => {
-        const ev = evaluateBest([...allCards, c]);
-        if (compareEval(ev, curEval) > 0) {
-          if (!bestCard || compareEval(ev, evaluateBest([...allCards, bestCard])) > 0) {
-            bestCard = c; bestDesc = shortDesc(describeEval(ev));
-          }
-        }
-      });
-    }
-    return { handLine, drawLine: bestCard ? `Leading: ${cBadge(bestCard)} for ${bestDesc}` : 'Leading' };
+    return { handLine, drawLine: 'Leading' };
   }
 
   if (p.isMonteCarlo) {
     const pct = p.totalRemaining ? Math.round((p.score||0) / p.totalRemaining * 100) : 0;
-    return { handLine, drawLine: `~${pct}% equity` };
+    return { handLine, drawLine: `~${pct}% to win` };
   }
 
   // ── DRAWING DEAD — only when there is truly no way to win OR split ──
@@ -620,20 +606,25 @@ function showAllInOverlay(data) {
     const top = document.createElement('div');
     top.className = 'aio-player-top';
 
+    const { handLine, drawLine } = buildDrawLine(p, board, remaining, cardsLeft, claimedCards);
+    const isDrawingDead = drawLine === 'Drawing dead';
+
     const cardsDiv = document.createElement('div');
     cardsDiv.className = 'aio-hole-cards';
-    (p.cards || []).forEach(c => cardsDiv.appendChild(makeCard(c)));
+    (p.cards || []).forEach(c => {
+      const cardEl = makeCard(c);
+      if (isDrawingDead) cardEl.classList.add('card-dim');
+      cardsDiv.appendChild(cardEl);
+    });
     top.appendChild(cardsDiv);
 
     const info = document.createElement('div');
     info.className = 'aio-info';
 
     const nameEl = document.createElement('div');
-    nameEl.className = 'aio-name';
+    nameEl.className = 'aio-name' + (isDrawingDead ? ' aio-name-dim' : '');
     nameEl.textContent = p.name;
     info.appendChild(nameEl);
-
-    const { handLine, drawLine } = buildDrawLine(p, board, remaining, cardsLeft, claimedCards);
 
     const handEl = document.createElement('div');
     handEl.className = 'aio-hand';
@@ -1076,7 +1067,7 @@ function showRunoutResults(runout) {
     let gj = gi;
     while (gj < sorted.length && !sorted[gj].winner && !sorted[gj].folded && handsEqual(sorted[gj], sorted[gi])) gj++;
     const groupSize = gj - gi;
-    const label = groupSize > 1 ? '🤝 Tied' : ordStr(placeCounter);
+    const label = groupSize > 1 ? 'Tied for ' + ordStr(placeCounter) : ordStr(placeCounter);
     for (let k = gi; k < gj; k++) labels.push(label);
     placeCounter += groupSize;
     gi = gj;
@@ -1398,6 +1389,25 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.22.3', date:'July 2026',
+    changes:[
+      'Tied placements on Results now show which place was tied for (e.g. Tied for 3rd) instead of just Tied, and dropped the handshake icon',
+      'Preflop odds now say to win instead of equity, both on screen and in the log — the ~ approximation symbol already conveys that it is an estimate',
+    ]
+  },
+  {
+    v:'3.22.2', date:'July 2026',
+    changes:[
+      'Drawing dead players on the Hands Revealed screen now have their cards and name dimmed, matching how losing players are dimmed on the Results screen',
+    ]
+  },
+  {
+    v:'3.22.1', date:'July 2026',
+    changes:[
+      'Removed the cards needed to improve hint for the leader on the Hands Revealed screen — they simply show Leading now',
+    ]
+  },
   {
     v:'3.22', date:'July 2026',
     changes:[
