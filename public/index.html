@@ -68,7 +68,7 @@
       <span class="full-modal-title">Stats</span>
       <button id="statsCloseBtn" class="full-modal-close">✕</button>
     </div>
-    <div class="tourn-subtitle">This session only — resets on New Game</div>
+    <div class="tourn-subtitle">This session only — resets on New Game. Played/$Fold only count hands where you had money in (blind posted, called, or raised).</div>
     <div id="statsTableWrap"></div>
   </div>
 </div>
@@ -1323,6 +1323,15 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.24', date:'July 2026',
+    changes:[
+      'Played and $Fold now only count when a player actually had money in the pot — a cold fold before ever posting a blind or calling no longer counts as a played hand',
+      'Added current win/loss streak per player (e.g. W3, L2) — splits count as wins, a cold fold does not break a streak',
+      'Removed the Won column from Stats since Win% already conveys it',
+      'Renamed Folded to $Fold to make the new definition clear',
+    ]
+  },
+  {
     v:'3.23.1', date:'July 2026',
     changes:[
       'Removed the New Game Starting popup — it was only adding an artificial pause before the dealer selection animation',
@@ -1978,7 +1987,11 @@ function computeStatsRows(state) {
     const decided = played - folded; // hands where they didn't fold — folding isn't a losing attempt to win
     const winPct = decided > 0 ? Math.round(won / decided * 100) : null;
     const lossPct = decided > 0 ? Math.round((decided - won) / decided * 100) : null;
-    return { name: p.name, played, won, folded, winPct, lossPct, eliminated: p.eliminated, isWinner: isOver && !p.eliminated };
+    return {
+      name: p.name, played, won, folded, winPct, lossPct,
+      streakType: p.streakType || null, streakCount: p.streakCount || 0,
+      eliminated: p.eliminated, isWinner: isOver && !p.eliminated
+    };
   });
   rows.sort((a, b) => {
     if (a.isWinner && !b.isWinner) return -1;
@@ -2000,18 +2013,20 @@ function renderStatsTable(state) {
   }
   const rows = computeStatsRows(state);
   let html = '<div class="tourn-scroll"><table class="tourn-table">';
-  html += '<thead><tr><th class="tc-name">Player</th><th class="tc-game">Played</th><th class="tc-game">Won</th><th class="tc-game">Folded</th><th class="tc-game">Win%</th><th class="tc-game">Loss%</th></tr></thead><tbody>';
+  html += '<thead><tr><th class="tc-name">Player</th><th class="tc-game">Played</th><th class="tc-game">$Fold</th><th class="tc-game">Win%</th><th class="tc-game">Loss%</th><th class="tc-game">Streak</th></tr></thead><tbody>';
   rows.forEach(r => {
     const cls = r.isWinner ? 'tr-leader' : '';
     const style = r.eliminated ? ' style="opacity:0.55;"' : '';
     const statusBadge = r.isWinner ? ' 🏆' : r.eliminated ? ' <span style="opacity:0.5;font-size:0.85em;">(busted)</span>' : '';
+    const streakText = r.streakType ? `${r.streakType}${r.streakCount}` : '—';
+    const streakColor = r.streakType === 'W' ? '#d4af37' : r.streakType === 'L' ? '#ff6b6b' : 'inherit';
     html += `<tr class="${cls}"${style}>`;
     html += `<td class="tc-name">${r.name}${statusBadge}</td>`;
     html += `<td class="tc-pts">${r.played}</td>`;
-    html += `<td class="tc-pts">${r.won}</td>`;
     html += `<td class="tc-pts">${r.folded}</td>`;
     html += `<td class="tc-pts">${r.winPct !== null ? r.winPct + '%' : '—'}</td>`;
     html += `<td class="tc-pts">${r.lossPct !== null ? r.lossPct + '%' : '—'}</td>`;
+    html += `<td class="tc-pts" style="color:${streakColor};font-weight:800;">${streakText}</td>`;
     html += '</tr>';
   });
   html += '</tbody></table></div>';
