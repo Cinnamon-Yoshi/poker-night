@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.26.1';
+const VERSION = '3.27.1';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -54,6 +54,8 @@ let currentGameEliminations=[];  // player names in elimination order (earliest 
 let sessionHandsPlayed=0;        // total hands dealt this session — for Stats context/percentages, resets on New Game
 let sessionStartTime=null;       // Date.now() when New Game started — drives the session clock
 let sessionInfo={buyIn:0,playersToCash:0,blindsStart:'',blindsIncrease:''}; // host-entered placeholders, resets on New Game
+let gameSetupPhase=null; // null | 'buyIn' | 'confirming' — the pre-game flow between seating confirmation and dealer selection
+let lastGameSnapshot=null; // frozen stats from the most recently completed game, shown on Stats below the live table
 
 function freshDeck(){
   const d=[];
@@ -386,6 +388,8 @@ function publicState(){
     sessionHandsPlayed,
     sessionStartTime,
     sessionInfo,
+    gameSetupPhase,
+    lastGameSnapshot,
     players:players.map((p,i)=>({
       name:p.name, connected:p.connected, folded:p.folded,
       allIn:p.allIn, sittingOut:p.sittingOut||p.eliminated, eliminated:p.eliminated, action:p.action,
@@ -393,6 +397,7 @@ function publicState(){
       isCurrent:i===nextActor,
       statsPlayed:p.statsPlayed||0, statsWon:p.statsWon||0, statsFolded:p.statsFolded||0, statsDecided:p.statsDecided||0,
       statsRaised:p.statsRaised||0, statsCalled:p.statsCalled||0, statsAllIn:p.statsAllIn||0,
+      confirmedTerms:!!p.confirmedTerms,
       streakType:p.streakType||null, streakCount:p.streakCount||0
     }))
   };
@@ -420,7 +425,7 @@ io.on('connection',socket=>{
       ex.id=socket.id; ex.connected=true;
       socket.emit('joined',{id:socket.id,reconnected:true});
     } else {
-      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,eliminated:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,statsRaised:0,statsCalled:0,statsAllIn:0,streakType:null,streakCount:0,hadMoneyInPot:false});
+      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,eliminated:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,statsRaised:0,statsCalled:0,statsAllIn:0,streakType:null,streakCount:0,hadMoneyInPot:false,confirmedTerms:false});
       socket.emit('joined',{id:socket.id});
       addLog(name+' joined the game');
     }
@@ -459,13 +464,28 @@ io.on('connection',socket=>{
   });
 
   socket.on('startNewGame',()=>{
+    if(sessionHandsPlayed>0){
+      lastGameSnapshot={
+        sessionHandsPlayed,
+        sessionDuration: sessionStartTime ? Date.now()-sessionStartTime : null,
+        sessionInfo: {...sessionInfo},
+        eliminationOrder: [...currentGameEliminations],
+        players: players.map(p=>({
+          name:p.name,
+          statsPlayed:p.statsPlayed||0, statsWon:p.statsWon||0, statsFolded:p.statsFolded||0, statsDecided:p.statsDecided||0,
+          statsRaised:p.statsRaised||0, statsCalled:p.statsCalled||0, statsAllIn:p.statsAllIn||0,
+          streakType:p.streakType||null, streakCount:p.streakCount||0,
+          eliminated:p.eliminated,
+        })),
+      };
+    }
     // Reset all player states first — bringing eliminated players back in
-    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=false;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.hadMoneyInPot=false;});
+    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=false;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.hadMoneyInPot=false;p.confirmedTerms=false;});
     const eligible=players; // everyone is back in after reset
     if(eligible.length<2) return;
     // Commit state changes
     board=[];holeCards={};actingQueue=[];
-    pendingDealerAnimation=true; // consumed immediately below by dealHand()
+    pendingDealerAnimation=true; // consumed once dealHand() finally runs, after setup/confirmation
     hasRaiseThisStreet=false;undoState=null;lastHandResult=null;
     stage='idle';
     actionLog=['=== New Game Started ==='];
@@ -474,15 +494,48 @@ io.on('connection',socket=>{
     firstHandDealt=false;
     currentGameEliminations=[];
     sessionHandsPlayed=0;
-    sessionStartTime=Date.now();
     sessionInfo={buyIn:0,playersToCash:0,blindsStart:'',blindsIncrease:''};
+    gameSetupPhase='buyIn'; // host fills in buy-in/blinds/payout next, then players confirm
 
     players.forEach(p=>io.to(p.id).emit('yourCards',[]));
     broadcast();
-    dealHand(); // go straight into dealer selection + first hand — no extra Deal press needed
+  });
+
+  // Host submits buy-in/blinds/payout, moving everyone to the confirmation screen
+  socket.on('submitGameSetup',info=>{
+    if(gameSetupPhase!=='buyIn') return;
+    if(info&&typeof info==='object'){
+      sessionInfo={
+        buyIn: Math.max(0, Number(info.buyIn)||0),
+        playersToCash: Math.max(0, Math.floor(Number(info.playersToCash)||0)),
+        blindsStart: String(info.blindsStart||'').slice(0,40),
+        blindsIncrease: String(info.blindsIncrease||'').slice(0,40),
+      };
+    }
+    gameSetupPhase='confirming';
+    players.forEach(p=>{ p.confirmedTerms=false; });
+    broadcast();
+  });
+
+  // A player taps I Agree on the confirmation screen
+  socket.on('confirmSessionTerms',()=>{
+    if(gameSetupPhase!=='confirming') return;
+    const p=players.find(pl=>pl.id===socket.id);
+    if(p){ p.confirmedTerms=true; broadcast(); }
+  });
+
+  // Host taps Continue once everyone has confirmed — go straight into dealer
+  // selection + first hand, same as the seating-confirmation flow already does
+  socket.on('proceedPastConfirmation',()=>{
+    if(gameSetupPhase!=='confirming') return;
+    if(!players.every(p=>p.confirmedTerms)) return;
+    gameSetupPhase=null;
+    sessionStartTime=Date.now(); // session clock starts when actual play begins, not during setup
+    dealHand();
   });
 
   socket.on('removePlayer',name=>{
+
     // If the removed player is the blind-reminder anchor, advance to next active player
     if(name===initialDealerName){
       const idx=players.findIndex(p=>p.name===name);
