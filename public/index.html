@@ -61,18 +61,15 @@
   </div>
 </div>
 
-<!-- Tournament Standings modal -->
-<div id="tournamentModal" class="full-modal" style="display:none;">
+<!-- Stats modal -->
+<div id="statsModal" class="full-modal" style="display:none;">
   <div class="full-modal-inner">
     <div class="full-modal-hdr">
-      <span class="full-modal-title">🏆 Tournament Standings</span>
-      <button id="tournCloseBtn" class="full-modal-close">✕</button>
+      <span class="full-modal-title">📊 Stats</span>
+      <button id="statsCloseBtn" class="full-modal-close">✕</button>
     </div>
-    <div class="tourn-subtitle">Lower score wins (penalty points)</div>
-    <div id="tournTableWrap"></div>
-    <div id="tournHostControls" style="display:none; margin-top:16px;">
-      <button id="tournClearBtn" class="secondary" style="width:100%;">🗑 Clear Tournament Log</button>
-    </div>
+    <div class="tourn-subtitle">This session only — resets on New Game</div>
+    <div id="statsTableWrap"></div>
   </div>
 </div>
 
@@ -85,41 +82,6 @@
     <button id="seatConfirmBtn">✓ Seating is Correct — Start New Game</button>
     <button id="seatConfirmBack" class="secondary ng-cancel-btn" style="margin-top:8px;">← Back to Adjust Seats</button>
   </div>
-</div>
-
-<!-- Game Results overlay (shown to all when End Game is pressed) -->
-<div id="gameResultsOverlay" class="full-modal" style="display:none;">
-  <div class="full-modal-inner">
-    <div class="full-modal-hdr">
-      <span class="full-modal-title">🏆 Game Results</span>
-      <button id="grClose" class="full-modal-close">✕</button>
-    </div>
-    <div id="grList" style="margin-bottom:16px;"></div>
-    <div id="grHostSave" style="display:none;">
-      <div id="grSavePrompt" style="display:none;">
-        <div style="font-size:0.9em;opacity:0.7;margin-bottom:10px;">Save <strong id="grSaveLabel"></strong> to the tournament log?</div>
-        <button id="grSaveYes" style="width:100%;margin-bottom:8px;">✓ Yes — Save &amp; Start New Game</button>
-        <button id="grSaveNo" class="secondary" style="width:100%;margin-bottom:8px;">✗ No — Start New Game</button>
-      </div>
-      <button id="grStartOnly" style="display:none;width:100%;">🃏 Start New Game</button>
-    </div>
-  </div>
-</div>
-
-<!-- New Game save-to-tournament modal -->
-<div id="ngSaveModal" class="full-modal" style="display:none;">
-  <div class="full-modal-inner ng-save-inner">
-    <div class="ng-save-title">🃏 Start New Game</div>
-    <div class="ng-save-q">Save <strong id="ngSaveLabel"></strong> to the tournament log?</div>
-    <button id="ngSaveYes">✓ Yes — Save to Tournament</button>
-    <button id="ngSaveNo" class="secondary">✗ No — Don't Save</button>
-    <button id="ngSaveCancel" class="ng-cancel-btn">Cancel</button>
-  </div>
-</div>
-
-<!-- New Game save confirmation flash -->
-<div id="ngSaveConfirm" style="display:none;">
-  <div id="ngSaveConfirmMsg"></div>
 </div>
 
 <!-- New Game Starting notification (all players) -->
@@ -268,7 +230,7 @@
     <!-- Button row: Rankings + Tournament + Host Controls -->
     <div class="btn-row">
       <button class="secondary" id="cheatToggle">&#128203; Card Ranks</button>
-      <button class="secondary" id="tournamentBtn">&#127942; Tournament</button>
+      <button class="secondary" id="statsBtn">&#128202; Stats</button>
       <button class="secondary" id="hostToggle">&#128274; Host</button>
     </div>
 
@@ -291,9 +253,8 @@
           <button class="hbtn" id="hbtnN" onclick="doNext()" style="background:#d4af37;color:#111;"><span class="bl">&#9654;</span><span class="bs">DEAL</span></button>
         </div>
         <div class="host-btn-row">
-          <button class="secondary" id="clearLogBtn">&#128465; Clear Log</button>
           <button class="secondary" id="changeDeckBtn">&#127183; Deck</button>
-          <button class="secondary" id="newGameBtn">&#128683; End Game</button>
+          <button class="secondary" id="newGameBtn">&#128260; New</button>
           <button class="secondary" id="toggleSeatsBtn">&#129489; Seats &#9660;</button>
         </div>
         <div id="seatSection" style="margin-top:14px;display:none;">
@@ -736,8 +697,6 @@ let _ngStartTime = 0;
 const _NG_MS = 2500;
 socket.on('newGameStarting', () => {
   _ngStartTime = Date.now();
-  // Auto-close game results overlay for all players when new game starts
-  document.getElementById('gameResultsOverlay').style.display = 'none';
   const ov = document.getElementById('newGameStartingOverlay');
   ov.classList.add('active');
   setTimeout(() => ov.classList.remove('active'), _NG_MS);
@@ -1379,9 +1338,6 @@ function renderPlayerActionBar(state){
   }
   bar.classList.remove('player-action-hidden');
 }
-document.getElementById('clearLogBtn').onclick=()=>{
-  if(confirm('Clear the entire action log? This cannot be undone.')) socket.emit('clearLog');
-};
 document.getElementById('cheatToggle').onclick=()=>{
   const el=document.getElementById('cheatSheet');
   el.style.display=el.style.display==='none'?'block':'none';
@@ -1389,6 +1345,16 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.23', date:'July 2026',
+    changes:[
+      'Tournament feature completely reworked — removed cross-game/cross-day tracking and file persistence entirely',
+      'Tournament button renamed Stats — shows a live table of hands played, won, folded, win %, and loss % for the current session, available anytime to all players',
+      'End Game and New Game consolidated into a single New button that goes straight to the existing seating confirmation screen — no more results recap or save-to-tournament prompts',
+      'Removed the Clear Log button — New Game already resets the log, so a separate destructive mid-game clear had no real purpose',
+      'Win % calculated as wins divided by hands not folded — folding is not counted as a losing attempt to win',
+    ]
+  },
   {
     v:'3.22.3', date:'July 2026',
     changes:[
@@ -2004,120 +1970,74 @@ document.getElementById('toggleSeatsBtn').onclick=()=>{
   sec.style.display=hidden?'block':'none';
   btn.innerHTML=hidden?'&#129489; Seats &#9660;':'&#129489; Seats &#9658;';
 };
-// ── Tournament ────────────────────────────────────────────────────────
-document.getElementById('tournamentBtn').onclick = () => {
-  socket.emit('getTournament', data => {
-    renderTournamentTable(data);
-    document.getElementById('tournHostControls').style.display = isHost ? 'block' : 'none';
-    document.getElementById('tournamentModal').style.display = 'flex';
-  });
+// ── Stats ────────────────────────────────────────────────────────────
+document.getElementById('statsBtn').onclick = () => {
+  if (lastState) renderStatsTable(lastState);
+  document.getElementById('statsModal').style.display = 'flex';
 };
-document.getElementById('tournCloseBtn').onclick = () => {
-  document.getElementById('tournamentModal').style.display = 'none';
-};
-document.getElementById('tournClearBtn').onclick = () => {
-  if (!confirm('Clear ALL tournament records? This cannot be undone.')) return;
-  socket.emit('clearTournament', () => {
-    renderTournamentTable({games:[]});
-  });
+document.getElementById('statsCloseBtn').onclick = () => {
+  document.getElementById('statsModal').style.display = 'none';
 };
 
-socket.on('tournamentUpdated', data => {
-  // Refresh table if modal is open
-  if (document.getElementById('tournamentModal').style.display !== 'none') {
-    renderTournamentTable(data);
-  }
-});
+function computeStatsRows(state) {
+  const players = state.players || [];
+  const elimOrder = state.eliminationOrder || [];
+  const active = players.filter(p => !p.eliminated);
+  const isOver = active.length === 1 && players.length > 1;
+  const bustedRank = {};
+  [...elimOrder].reverse().forEach((name, i) => { bustedRank[name] = i; }); // 0 = most recently busted
+  const rows = players.map(p => {
+    const played = p.statsPlayed || 0;
+    const folded = p.statsFolded || 0;
+    const won = p.statsWon || 0;
+    const decided = played - folded; // hands where they didn't fold — folding isn't a losing attempt to win
+    const winPct = decided > 0 ? Math.round(won / decided * 100) : null;
+    const lossPct = decided > 0 ? Math.round((decided - won) / decided * 100) : null;
+    return { name: p.name, played, won, folded, winPct, lossPct, eliminated: p.eliminated, isWinner: isOver && !p.eliminated };
+  });
+  rows.sort((a, b) => {
+    if (a.isWinner && !b.isWinner) return -1;
+    if (!a.isWinner && b.isWinner) return 1;
+    if (!a.eliminated && b.eliminated) return -1;
+    if (a.eliminated && !b.eliminated) return 1;
+    if (!a.eliminated && !b.eliminated) return (b.winPct ?? -1) - (a.winPct ?? -1);
+    return (bustedRank[a.name] ?? 999) - (bustedRank[b.name] ?? 999);
+  });
+  return rows;
+}
 
-function renderTournamentTable(data) {
-  const games = data.games || [];
-  const wrap = document.getElementById('tournTableWrap');
-  if (games.length === 0) {
-    wrap.innerHTML = '<div class="tourn-empty">No games saved yet.<br>Press <em>End Game</em> and choose <em>Yes — Save</em> after each session.</div>';
+function renderStatsTable(state) {
+  const wrap = document.getElementById('statsTableWrap');
+  const players = state.players || [];
+  if (players.length === 0) {
+    wrap.innerHTML = '<div class="tourn-empty">No players yet.</div>';
     return;
   }
-  // Collect all players and their points per session
-  const playerMap = {};
-  games.forEach(g => g.results.forEach(r => {
-    if (!playerMap[r.name]) playerMap[r.name] = {};
-    playerMap[r.name][g.sessionLabel] = r.points;
-  }));
-  const labels = games.map(g => g.sessionLabel);
-  const rows = Object.keys(playerMap).map(name => {
-    const pts = labels.map(l => playerMap[name][l] ?? null);
-    const total = pts.reduce((s, p) => s + (p ?? 0), 0);
-    return {name, pts, total};
-  }).sort((a,b) => a.total - b.total);
-
+  const rows = computeStatsRows(state);
   let html = '<div class="tourn-scroll"><table class="tourn-table">';
-  html += '<thead><tr><th class="tc-name">Player</th>';
-  labels.forEach(l => html += `<th class="tc-game">${l}</th>`);
-  html += '<th class="tc-total">Total</th></tr></thead><tbody>';
-  rows.forEach((r, i) => {
-    const leader = i === 0;
-    html += `<tr class="${leader ? 'tr-leader' : ''}">`;
-    html += `<td class="tc-name">${r.name}</td>`;
-    r.pts.forEach(p => html += `<td class="tc-pts">${p !== null ? p : '—'}</td>`);
-    html += `<td class="tc-total">${r.total}</td></tr>`;
+  html += '<thead><tr><th class="tc-name">Player</th><th class="tc-game">Played</th><th class="tc-game">Won</th><th class="tc-game">Folded</th><th class="tc-game">Win%</th><th class="tc-game">Loss%</th></tr></thead><tbody>';
+  rows.forEach(r => {
+    const cls = r.isWinner ? 'tr-leader' : '';
+    const style = r.eliminated ? ' style="opacity:0.55;"' : '';
+    const statusBadge = r.isWinner ? ' 🏆' : r.eliminated ? ' <span style="opacity:0.5;font-size:0.85em;">(busted)</span>' : '';
+    html += `<tr class="${cls}"${style}>`;
+    html += `<td class="tc-name">${r.name}${statusBadge}</td>`;
+    html += `<td class="tc-pts">${r.played}</td>`;
+    html += `<td class="tc-pts">${r.won}</td>`;
+    html += `<td class="tc-pts">${r.folded}</td>`;
+    html += `<td class="tc-pts">${r.winPct !== null ? r.winPct + '%' : '—'}</td>`;
+    html += `<td class="tc-pts">${r.lossPct !== null ? r.lossPct + '%' : '—'}</td>`;
+    html += '</tr>';
   });
   html += '</tbody></table></div>';
   wrap.innerHTML = html;
 }
 
-// ── End Game button ───────────────────────────────────────────────────
+
+// ── New Game button — straight to the seating confirmation screen ─────
 document.getElementById('newGameBtn').onclick = () => {
-  socket.emit('endGame'); // server will broadcast gameResults to all OTHER players
-  // Show overlay immediately on this device without waiting for socket roundtrip
-  if (lastState) showGameResults({
-    results: buildGameResultsList(lastState),
-    sessionLabel: lastState.currentSessionLabel,
-    canSave: !!(lastState.currentSessionLabel && lastState.currentEliminationCount > 0)
-  });
+  showSeatingConfirmation();
 };
-
-function buildGameResultsList(state) {
-  // Winners first (not eliminated), then busted players last-out first
-  const winners = (state.players || []).filter(p => !p.eliminated);
-  const busted  = (state.players || []).filter(p =>  p.eliminated).reverse();
-  return [
-    ...winners.map(p => ({name:p.name, isWinner:true})),
-    ...busted.map(p  => ({name:p.name, isWinner:false}))
-  ];
-}
-
-function showGameResults(data) {
-  const ov   = document.getElementById('gameResultsOverlay');
-  const list = document.getElementById('grList');
-  if (!ov || !list) return;
-  list.innerHTML = '';
-  (data.results || []).forEach((p, i) => {
-    const div = document.createElement('div');
-    div.className = 'gr-row' + (p.isWinner ? ' gr-winner' : '');
-    const winnerCount = (data.results || []).filter(x => x.isWinner).length;
-    const place = p.isWinner ? (winnerCount > 1 ? '🤝' : '🏆') : `${i + 1}`;
-    div.innerHTML = `<span class="gr-place">${place}</span><span class="gr-name">${p.name}</span>`;
-    list.appendChild(div);
-  });
-  const hostSave = document.getElementById('grHostSave');
-  const saveLabel = document.getElementById('grSaveLabel');
-  if (isHost) {
-    hostSave.style.display = 'block';
-    if (data.canSave) {
-      document.getElementById('grSavePrompt').style.display = 'block';
-      document.getElementById('grStartOnly').style.display = 'none';
-      if (saveLabel) saveLabel.textContent = data.sessionLabel || '';
-    } else {
-      document.getElementById('grSavePrompt').style.display = 'none';
-      document.getElementById('grStartOnly').style.display = 'block';
-    }
-  } else {
-    hostSave.style.display = 'none';
-  }
-  ov.style.display = 'flex';
-}
-
-// Also handle server broadcast for all other players
-socket.on('gameResults', data => showGameResults(data));
 
 // ── Seating confirmation (shown before dealer selection) ─────────────
 function showSeatingConfirmation() {
@@ -2139,49 +2059,6 @@ document.getElementById('seatConfirmBtn').onclick = () => {
 };
 document.getElementById('seatConfirmBack').onclick = () => {
   document.getElementById('seatConfirmModal').style.display = 'none';
-};
-
-document.getElementById('grClose').onclick = () => {
-  document.getElementById('gameResultsOverlay').style.display = 'none';
-};
-document.getElementById('grSaveYes').onclick = () => {
-  document.getElementById('gameResultsOverlay').style.display = 'none';
-  socket.emit('saveTournamentGame', result => {
-    ngSaveConfirmFlash(result.success ? '✓ Saved to tournament!' : '— Save failed.', showSeatingConfirmation);
-  });
-};
-document.getElementById('grSaveNo').onclick = () => {
-  document.getElementById('gameResultsOverlay').style.display = 'none';
-  ngSaveConfirmFlash('— Not saved to tournament.', showSeatingConfirmation);
-};
-document.getElementById('grStartOnly').onclick = () => {
-  document.getElementById('gameResultsOverlay').style.display = 'none';
-  showSeatingConfirmation();
-};
-
-
-function ngSaveConfirmFlash(msg, then) {
-  const el = document.getElementById('ngSaveConfirm');
-  document.getElementById('ngSaveConfirmMsg').textContent = msg;
-  el.style.display = 'flex';
-  setTimeout(() => { el.style.display = 'none'; then(); }, 1800);
-}
-
-document.getElementById('ngSaveYes').onclick = () => {
-  document.getElementById('ngSaveModal').style.display = 'none';
-  socket.emit('saveTournamentGame', result => {
-    ngSaveConfirmFlash(
-      result.success ? '✓ Game saved to tournament log!' : '— Save failed (not enough data).',
-      () => socket.emit('startNewGame')
-    );
-  });
-};
-document.getElementById('ngSaveNo').onclick = () => {
-  document.getElementById('ngSaveModal').style.display = 'none';
-  ngSaveConfirmFlash('— Session not saved to tournament.', () => socket.emit('startNewGame'));
-};
-document.getElementById('ngSaveCancel').onclick = () => {
-  document.getElementById('ngSaveModal').style.display = 'none';
 };
 
 // dealer animation in openNewGameModalWithData / animateDealer
