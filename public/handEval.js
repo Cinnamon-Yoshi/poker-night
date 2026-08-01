@@ -120,23 +120,65 @@ function findDecidingKicker(winEval, losingEvals) {
   return null; // split pot
 }
 
+function describeEvalNoKicker(ev) {
+  // Same as describeEval but never appends kicker text — used when no tie
+  // actually requires one
+  if (!ev) return null;
+  const tb = ev.tiebreak;
+  const S = RANK_SINGULAR, P = RANK_PLURAL;
+  switch (ev.rank) {
+    case 0: return 'High Card \u2014 '+S[tb[0]];
+    case 1: return 'Pair of '+P[tb[0]];
+    case 2: return 'Two Pair \u2014 '+P[tb[0]]+' & '+P[tb[1]];
+    case 3: return 'Three of a Kind \u2014 '+P[tb[0]];
+    case 4: return 'Straight \u2014 '+S[tb[0]]+' High';
+    case 5: return 'Flush \u2014 '+S[tb[0]]+' High';
+    case 6: return 'Full House \u2014 '+P[tb[0]]+' Full of '+P[tb[1]];
+    case 7: return 'Four of a Kind \u2014 '+P[tb[0]];
+    case 8: return tb[0]===14 ? 'Royal Flush!' : 'Straight Flush \u2014 '+S[tb[0]]+' High';
+    default: return ev.name;
+  }
+}
+
 function describeEvalKicker(ev, decidingPos) {
-  // Like describeEval but uses the DECIDING kicker position for winner display
-  if (decidingPos === null || decidingPos === undefined) return describeEval(ev);
+  // Like describeEvalNoKicker but uses the DECIDING kicker position, only
+  // adding kicker text when decidingPos actually points at a true kicker
+  // (not the pair/trips/quads rank itself, which lives at tiebreak index 0)
+  if (decidingPos === null || decidingPos === undefined) return describeEvalNoKicker(ev);
   const tb = ev.tiebreak;
   const S = RANK_SINGULAR, P = RANK_PLURAL;
   const dk = S[tb[decidingPos]] || '?';
   switch (ev.rank) {
     case 0: return 'High Card \u2014 ' + dk;
-    case 1: return 'Pair of ' + P[tb[0]] + ' \u2014 ' + dk + ' kicker';
+    case 1: return decidingPos >= 1 ? 'Pair of ' + P[tb[0]] + ' \u2014 ' + dk + ' kicker' : 'Pair of ' + P[tb[0]];
     case 2:
       if (decidingPos <= 1) return 'Two Pair \u2014 ' + P[tb[0]] + ' & ' + P[tb[1]];
       return 'Two Pair \u2014 ' + P[tb[0]] + ' & ' + P[tb[1]] + ', ' + dk + ' kicker';
     case 3: return 'Three of a Kind \u2014 ' + P[tb[0]] + (decidingPos >= 1 ? ', ' + dk + ' kicker' : '');
     case 5: return 'Flush \u2014 ' + dk + ' High';
     case 7: return 'Four of a Kind \u2014 ' + P[tb[0]] + (decidingPos >= 1 ? ', ' + dk + ' kicker' : '');
-    default: return describeEval(ev);
+    default: return describeEvalNoKicker(ev);
   }
+}
+
+function computeDecidingPos(playerEval, peerEvals) {
+  // For a given player, finds the deepest tiebreak index needed to
+  // distinguish them from every OTHER same-hand-rank peer they aren't fully
+  // tied with. Returns null if no peer shares their hand rank (no kicker
+  // needed at all) or if the only peers are fully identical (a real split).
+  if (!playerEval) return null;
+  let maxPos = null;
+  (peerEvals || []).forEach(pe => {
+    if (!pe || pe.rank !== playerEval.rank) return;
+    for (let i = 0; i < playerEval.tiebreak.length; i++) {
+      if ((pe.tiebreak[i] || 0) !== (playerEval.tiebreak[i] || 0)) {
+        if (maxPos === null || i > maxPos) maxPos = i;
+        return;
+      }
+    }
+    // fully tied with this peer — contributes no additional requirement
+  });
+  return maxPos;
 }
 
 
@@ -148,5 +190,5 @@ function describeHand(holeCards, board) {
   return {madeHand:best, draws, label: best ? describeEval(best) : 'Unknown'};
 }
 
-return { cardLabel, coloredCardHtml, cardKey, describeEval, describeEvalKicker, findDecidingKicker, evaluateBest, compareEval, describeHand, findDraws, RANK_NAMES, SUIT_SYMBOLS, SUIT_NAMES };
+return { cardLabel, coloredCardHtml, cardKey, describeEval, describeEvalKicker, describeEvalNoKicker, findDecidingKicker, computeDecidingPos, evaluateBest, compareEval, describeHand, findDraws, RANK_NAMES, SUIT_SYMBOLS, SUIT_NAMES };
 });

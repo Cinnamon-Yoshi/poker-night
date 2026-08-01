@@ -1059,7 +1059,7 @@ function showRunoutResults(runout) {
     const nameEl = document.createElement('div'); nameEl.className = 'aio-name';
     nameEl.textContent = p.name; info.appendChild(nameEl);
     const handEl = document.createElement('div'); handEl.className = 'aio-hand';
-    handEl.textContent = p.handDesc||''; info.appendChild(handEl);
+    handEl.textContent = compactDesc(p.handDesc||''); info.appendChild(handEl);
     const status = document.createElement('div'); status.className = 'aio-odds';
     status.textContent = labels[idx]; info.appendChild(status);
     top.appendChild(info);
@@ -1339,6 +1339,14 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.26.1', date:'July 2026',
+    changes:[
+      'Fixed a real hand-description bug: for a Pair, the deciding-kicker logic could label the pair rank itself as a kicker (e.g. Pair of Sixes wrongly showing 6 kicker instead of no kicker at all, or the actual kicker if one was needed) — Two Pair/Trips/Quads already handled this correctly, Pair was the one case that did not',
+      'Kickers on the Results screen now only show when actually needed to break a tie with another player at the same hand rank, for every player, not just the winner',
+      'Fixed the on-screen hand description text on the Results screen still using full words (Sixes, Six kicker) instead of compact notation (6s, 6 kicker) — this was already fixed in the action log a while back but missed here',
+    ]
+  },
   {
     v:'3.26', date:'July 2026',
     changes:[
