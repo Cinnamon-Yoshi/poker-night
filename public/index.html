@@ -65,7 +65,7 @@
 <div id="statsModal" class="full-modal" style="display:none;">
   <div class="full-modal-inner">
     <div class="full-modal-hdr">
-      <span class="full-modal-title">📊 Stats</span>
+      <span class="full-modal-title">Stats</span>
       <button id="statsCloseBtn" class="full-modal-close">✕</button>
     </div>
     <div class="tourn-subtitle">This session only — resets on New Game</div>
@@ -81,14 +81,6 @@
     <div id="seatConfirmList" style="margin-bottom:18px;"></div>
     <button id="seatConfirmBtn">✓ Seating is Correct — Start New Game</button>
     <button id="seatConfirmBack" class="secondary ng-cancel-btn" style="margin-top:8px;">← Back to Adjust Seats</button>
-  </div>
-</div>
-
-<!-- New Game Starting notification (all players) -->
-<div id="newGameStartingOverlay" class="ngstart-overlay">
-  <div class="ngstart-box">
-    <div class="ngstart-icon">🃏</div>
-    <div class="ngstart-msg">New game starting…</div>
   </div>
 </div>
 
@@ -230,7 +222,7 @@
     <!-- Button row: Rankings + Tournament + Host Controls -->
     <div class="btn-row">
       <button class="secondary" id="cheatToggle">&#128203; Card Ranks</button>
-      <button class="secondary" id="statsBtn">&#128202; Stats</button>
+      <button class="secondary" id="statsBtn">Stats</button>
       <button class="secondary" id="hostToggle">&#128274; Host</button>
     </div>
 
@@ -692,28 +684,13 @@ socket.on('youWereRenamed',newName=>{
 });
 
 // ── New Game animation shown on ALL screens simultaneously ────────────
-// ── New Game Starting — brief popup on ALL player screens ────────────
-let _ngStartTime = 0;
-const _NG_MS = 2500;
-socket.on('newGameStarting', () => {
-  _ngStartTime = Date.now();
-  const ov = document.getElementById('newGameStartingOverlay');
-  ov.classList.add('active');
-  setTimeout(() => ov.classList.remove('active'), _NG_MS);
-});
-
 socket.on('newGameAnimate', data => {
-  const elapsed = Date.now() - _ngStartTime;
-  const wait = Math.max(0, _NG_MS - elapsed);
   dealerAnimActive = true; // module-level flag — queues shuffle behind animation
-  setTimeout(() => {
-    document.getElementById('newGameStartingOverlay').classList.remove('active');
-    openNewGameModalWithData(data.eligible, data.winner, () => {
-      dealerAnimActive = false;
-      // Flush any shuffle that arrived while animation was playing
-      if (pendingShuffleData) { doShowShuffle(pendingShuffleData); pendingShuffleData = null; }
-    });
-  }, wait);
+  openNewGameModalWithData(data.eligible, data.winner, () => {
+    dealerAnimActive = false;
+    // Flush any shuffle that arrived while animation was playing
+    if (pendingShuffleData) { doShowShuffle(pendingShuffleData); pendingShuffleData = null; }
+  });
 });
 
 // ── Blinds reminder popup (fires before shuffle when dealer rotates back) ──
@@ -1345,6 +1322,14 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.23.1', date:'July 2026',
+    changes:[
+      'Removed the New Game Starting popup — it was only adding an artificial pause before the dealer selection animation',
+      'Confirming seating now goes straight into the dealer selection animation and deals the first hand automatically — no more landing back on the home screen and needing to press Deal',
+      'Removed the chart icon from the Stats button and modal title',
+    ]
+  },
   {
     v:'3.23', date:'July 2026',
     changes:[
