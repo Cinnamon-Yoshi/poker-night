@@ -1,7 +1,7 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const { evaluateBest, compareEval, cardLabel, describeEval, describeEvalKicker, findDecidingKicker, RANK_NAMES } = require('./public/handEval.js');
+const { evaluateBest, compareEval, cardLabel, describeEval, describeEvalKicker, findDecidingKicker, computeDecidingPos, RANK_NAMES } = require('./public/handEval.js');
 
 // Pre-flop hole card description (pocket pair, suited connectors, etc.)
 function describeHoleCards(cards){
@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.26';
+const VERSION = '3.26.1';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -816,18 +816,14 @@ io.on('connection',socket=>{
       act.filter(r=>compareEval(r._eval,bev)===0).forEach(r=>r.winner=true);
     }
 
-    // Find deciding kicker (comparing winner vs non-winner active players)
-    const winnerR=results.filter(r=>r.winner&&r._eval);
-    const loserR=results.filter(r=>!r.winner&&!r.folded&&!r.sittingOut&&r._eval);
-    let decidingPos=null;
-    if(winnerR.length===1&&loserR.length>0){
-      decidingPos=findDecidingKicker(winnerR[0]._eval,loserR.map(r=>r._eval));
-    }
-
-    // Generate descriptions
+    // Generate descriptions — each player only gets kicker text when a
+    // same-hand-rank peer actually requires one to distinguish them
+    const showdownPlayers=results.filter(r=>!r.folded&&!r.sittingOut&&r._eval);
     results.forEach(r=>{
       if(!r._eval) return;
-      r.handDesc=r.winner&&decidingPos!==null ? describeEvalKicker(r._eval,decidingPos) : describeEval(r._eval);
+      const peerEvals=showdownPlayers.filter(o=>o!==r).map(o=>o._eval);
+      const pos=computeDecidingPos(r._eval,peerEvals);
+      r.handDesc=describeEvalKicker(r._eval,pos);
     });
 
     // Compute winner info (logged last, so it lands at the top since the client
