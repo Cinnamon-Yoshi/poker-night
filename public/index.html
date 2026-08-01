@@ -64,9 +64,9 @@
 <!-- Stats modal -->
 <div id="statsModal" class="full-modal" style="display:none;">
   <div class="full-modal-inner">
+    <button id="statsCloseBtn" style="width:100%;margin-bottom:12px;">Close</button>
     <div class="full-modal-hdr">
       <span class="full-modal-title">Stats</span>
-      <button id="statsCloseBtn" class="full-modal-close">✕</button>
     </div>
     <div class="tourn-subtitle">This session only — resets on New Game. Played/$Fold/Win%/Loss% only count hands where you had money in (blind posted, called, or raised) — a fold with money in counts as a loss.</div>
     <div id="statsClockLine" style="font-size:0.85em;opacity:0.75;margin:10px 0;"></div>
@@ -87,6 +87,7 @@
     </div>
 
     <div id="statsTableWrap"></div>
+    <div id="prevGameWrap"></div>
   </div>
 </div>
 
@@ -98,6 +99,42 @@
     <div id="seatConfirmList" style="margin-bottom:18px;"></div>
     <button id="seatConfirmBtn">✓ Seating is Correct — Start New Game</button>
     <button id="seatConfirmBack" class="secondary ng-cancel-btn" style="margin-top:8px;">← Back to Adjust Seats</button>
+  </div>
+</div>
+
+<!-- Game Setup: host enters buy-in/blinds/payout once, before players confirm -->
+<div id="gameSetupModal" class="full-modal" style="display:none;">
+  <div class="full-modal-inner ng-save-inner">
+    <div class="ng-save-title">🎲 Game Setup</div>
+    <div id="gameSetupHostForm" style="display:none;">
+      <div style="font-size:0.85em;opacity:0.65;margin-bottom:14px;">Enter the details for this session. You can edit these later from Stats if needed.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+        <div><label style="font-size:0.75em;opacity:0.6;display:block;margin-bottom:4px;">Buy-in ($)</label><input type="number" id="gsBuyIn" min="0" style="width:100%;padding:10px;border-radius:8px;border:none;background:#1a1a1a;color:#fff;"></div>
+        <div><label style="font-size:0.75em;opacity:0.6;display:block;margin-bottom:4px;">Players to Cash</label><input type="number" id="gsPlayersToCash" min="0" style="width:100%;padding:10px;border-radius:8px;border:none;background:#1a1a1a;color:#fff;"></div>
+        <div><label style="font-size:0.75em;opacity:0.6;display:block;margin-bottom:4px;">Blinds Start</label><input type="text" id="gsBlindsStart" placeholder="e.g. 5/10" style="width:100%;padding:10px;border-radius:8px;border:none;background:#1a1a1a;color:#fff;"></div>
+        <div><label style="font-size:0.75em;opacity:0.6;display:block;margin-bottom:4px;">Blinds Increase</label><input type="text" id="gsBlindsIncrease" placeholder="e.g. every 20 min" style="width:100%;padding:10px;border-radius:8px;border:none;background:#1a1a1a;color:#fff;"></div>
+      </div>
+      <button id="gsSubmitBtn">Continue to Player Confirmation →</button>
+    </div>
+    <div id="gameSetupWaiting" style="display:none;text-align:center;opacity:0.7;padding:30px 0;">
+      Waiting for the host to enter the game details…
+    </div>
+  </div>
+</div>
+
+<!-- Terms Confirmation: every player must tap I Agree before the host can continue -->
+<div id="termsConfirmModal" class="full-modal" style="display:none;">
+  <div class="full-modal-inner ng-save-inner">
+    <div class="ng-save-title">📋 Confirm Game Terms</div>
+    <div id="termsSummary" style="font-size:0.9em;line-height:1.8;margin-bottom:18px;"></div>
+    <button id="agreeTermsBtn" style="display:none;">✓ I Agree — Let's Play</button>
+    <div id="agreedFlag" style="display:none;text-align:center;color:#d4af37;font-weight:700;padding:10px 0;">✓ You've confirmed — waiting on other players…</div>
+
+    <div id="hostConfirmPanel" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);">
+      <div style="font-size:0.78em;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Player Confirmations</div>
+      <div id="hostConfirmList" style="margin-bottom:16px;"></div>
+      <button id="hostProceedBtn" disabled style="width:100%;">Continue to Dealer Selection →</button>
+    </div>
   </div>
 </div>
 
@@ -1170,6 +1207,7 @@ socket.on('state',state=>{
   lastState=state;
   if(state.cardBackStyle) applyCardBack(state.cardBackStyle);
   tryShowPendingResults();
+  updateGameSetupScreens(state);
   // Detect when it becomes THIS player's turn (defer if shuffle overlay is showing)
   const meInState=state.players.find(p=>p.name===myName);
   const isMeCurrent=!!(meInState&&meInState.isCurrent);
@@ -1339,6 +1377,23 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.27.1', date:'July 2026',
+    changes:[
+      'Added a Place column to Stats — the first player eliminated from an N-player game finishes Nth, the last one out finishes 2nd, the sole remaining player finishes 1st',
+      'Stats now shows a frozen Previous Game snapshot below the live table once a new game starts — the final numbers from the game that just ended, untouched by the new sessions live stats',
+    ]
+  },
+  {
+    v:'3.27', date:'July 2026',
+    changes:[
+      'New pre-game flow: after seating is confirmed, the host enters Buy-in/Blinds/Payout once on its own screen, then every player must tap I Agree on a terms summary before the host can continue',
+      'Host sees live confirmation status per player during this step, with a Bounce button to remove anyone stuck or unresponsive',
+      'Session clock now starts once actual play begins (after confirmation), not during setup',
+      'Game Info can still be freely edited later from Stats at any time, same as before — this new screen is just for the initial entry',
+      'Stats modal now has a full-width yellow Close button instead of the small X icon',
+    ]
+  },
   {
     v:'3.26.1', date:'July 2026',
     changes:[
@@ -2078,9 +2133,15 @@ document.getElementById('statsCloseBtn').onclick = () => {
   statsClockInterval = null;
 };
 
+function ordinal(n) {
+  const s = ['th','st','nd','rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
 function computeStatsRows(state) {
   const players = state.players || [];
   const elimOrder = state.eliminationOrder || [];
+  const totalPlayers = players.length;
   const active = players.filter(p => !p.eliminated);
   const isOver = active.length === 1 && players.length > 1;
   const bustedRank = {};
@@ -2101,9 +2162,18 @@ function computeStatsRows(state) {
     const raisePct = played > 0 ? Math.round(raised / played * 100) : null;
     const callPct = played > 0 ? Math.round(called / played * 100) : null;
     const allInPct = played > 0 ? Math.round(allIn / played * 100) : null;
+    // Exit place — first player eliminated in an N-player game finishes Nth,
+    // last one out finishes 2nd, the sole remaining player finishes 1st
+    let place = null;
+    if (p.eliminated) {
+      const idx = elimOrder.indexOf(p.name);
+      if (idx >= 0) place = totalPlayers - idx;
+    } else if (isOver) {
+      place = 1;
+    }
     return {
       name: p.name, played, won, folded, decided, winPct, lossPct, playedPct, foldPct,
-      raised, called, allIn, raisePct, callPct, allInPct,
+      raised, called, allIn, raisePct, callPct, allInPct, place,
       streakType: p.streakType || null, streakCount: p.streakCount || 0,
       eliminated: p.eliminated, isWinner: isOver && !p.eliminated
     };
@@ -2119,18 +2189,9 @@ function computeStatsRows(state) {
   return rows;
 }
 
-function renderStatsTable(state) {
-  const wrap = document.getElementById('statsTableWrap');
-  const players = state.players || [];
-  if (players.length === 0) {
-    wrap.innerHTML = '<div class="tourn-empty">No players yet.</div>';
-    return;
-  }
-  const totalHands = state.sessionHandsPlayed || 0;
-  const rows = computeStatsRows(state);
-  let html = `<div style="font-size:0.8em;opacity:0.6;margin-bottom:8px;">${totalHands} hand${totalHands === 1 ? '' : 's'} played this session</div>`;
-  html += '<div class="tourn-scroll"><table class="tourn-table">';
-  html += '<thead><tr><th class="tc-name">Player</th><th class="tc-game">Played</th><th class="tc-game">$Fold</th><th class="tc-game">Win%</th><th class="tc-game">Loss%</th><th class="tc-game">Streak</th><th class="tc-game">Raise%</th><th class="tc-game">Call%</th><th class="tc-game">All-In%</th></tr></thead><tbody>';
+function buildStatsTableHtml(rows) {
+  let html = '<div class="tourn-scroll"><table class="tourn-table">';
+  html += '<thead><tr><th class="tc-name">Player</th><th class="tc-game">Place</th><th class="tc-game">Played</th><th class="tc-game">$Fold</th><th class="tc-game">Win%</th><th class="tc-game">Loss%</th><th class="tc-game">Streak</th><th class="tc-game">Raise%</th><th class="tc-game">Call%</th><th class="tc-game">All-In%</th></tr></thead><tbody>';
   rows.forEach(r => {
     const cls = r.isWinner ? 'tr-leader' : '';
     const style = r.eliminated ? ' style="opacity:0.55;"' : '';
@@ -2141,8 +2202,10 @@ function renderStatsTable(state) {
     const foldCell = r.foldPct !== null ? `${r.folded} (${r.foldPct}%)` : `${r.folded}`;
     const winCell = r.winPct !== null ? `${r.won} (${r.winPct}%)` : '—';
     const lossCell = r.lossPct !== null ? `${r.decided - r.won} (${r.lossPct}%)` : '—';
+    const placeCell = r.place !== null ? ordinal(r.place) : '—';
     html += `<tr class="${cls}"${style}>`;
     html += `<td class="tc-name">${r.name}${statusBadge}</td>`;
+    html += `<td class="tc-pts">${placeCell}</td>`;
     html += `<td class="tc-pts">${playedCell}</td>`;
     html += `<td class="tc-pts">${foldCell}</td>`;
     html += `<td class="tc-pts">${winCell}</td>`;
@@ -2154,6 +2217,34 @@ function renderStatsTable(state) {
     html += '</tr>';
   });
   html += '</tbody></table></div>';
+  return html;
+}
+
+function renderStatsTable(state) {
+  const wrap = document.getElementById('statsTableWrap');
+  const players = state.players || [];
+  if (players.length === 0) {
+    wrap.innerHTML = '<div class="tourn-empty">No players yet.</div>';
+    renderPrevGameSnapshot(state);
+    return;
+  }
+  const totalHands = state.sessionHandsPlayed || 0;
+  const rows = computeStatsRows(state);
+  let html = `<div style="font-size:0.8em;opacity:0.6;margin-bottom:8px;">${totalHands} hand${totalHands === 1 ? '' : 's'} played this session</div>`;
+  html += buildStatsTableHtml(rows);
+  wrap.innerHTML = html;
+  renderPrevGameSnapshot(state);
+}
+
+function renderPrevGameSnapshot(state) {
+  const wrap = document.getElementById('prevGameWrap');
+  const snap = state.lastGameSnapshot;
+  if (!snap || !snap.players || snap.players.length === 0) { wrap.innerHTML = ''; return; }
+  const rows = computeStatsRows(snap);
+  const durationText = snap.sessionDuration != null ? formatElapsed(snap.sessionDuration) : null;
+  let html = '<div style="font-size:0.78em;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin:18px 0 8px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.08);">Previous Game</div>';
+  html += `<div style="font-size:0.8em;opacity:0.6;margin-bottom:8px;">${snap.sessionHandsPlayed || 0} hand${snap.sessionHandsPlayed === 1 ? '' : 's'}${durationText ? ' · ' + durationText : ''}</div>`;
+  html += buildStatsTableHtml(rows);
   wrap.innerHTML = html;
 }
 
@@ -2183,6 +2274,92 @@ document.getElementById('seatConfirmBtn').onclick = () => {
 };
 document.getElementById('seatConfirmBack').onclick = () => {
   document.getElementById('seatConfirmModal').style.display = 'none';
+};
+
+// ── Game Setup (buy-in) + Terms Confirmation — shown reactively based on
+// server state so every player sees the right screen automatically ────────
+function updateGameSetupScreens(state) {
+  const setupModal = document.getElementById('gameSetupModal');
+  const termsModal = document.getElementById('termsConfirmModal');
+  if (state.gameSetupPhase === 'buyIn') {
+    setupModal.style.display = 'flex';
+    termsModal.style.display = 'none';
+    document.getElementById('gameSetupHostForm').style.display = isHost ? 'block' : 'none';
+    document.getElementById('gameSetupWaiting').style.display = isHost ? 'none' : 'block';
+  } else if (state.gameSetupPhase === 'confirming') {
+    setupModal.style.display = 'none';
+    termsModal.style.display = 'flex';
+    renderTermsConfirmScreen(state);
+  } else {
+    setupModal.style.display = 'none';
+    termsModal.style.display = 'none';
+  }
+}
+
+function renderTermsConfirmScreen(state) {
+  const info = state.sessionInfo || {};
+  const totalPlayers = (state.players || []).length;
+  const totalPot = (info.buyIn || 0) * totalPlayers;
+  const fmtMoney = n => '$' + (Math.round(n * 100) / 100).toString();
+  const summary = document.getElementById('termsSummary');
+  let html = '';
+  html += `<div>Buy-in: ${info.buyIn > 0 ? fmtMoney(info.buyIn) : '—'}</div>`;
+  html += `<div>Total Pot: ${info.buyIn > 0 ? fmtMoney(totalPot) + ` (${totalPlayers} players)` : '—'}</div>`;
+  html += `<div>Players to Cash: ${info.playersToCash > 0 ? info.playersToCash : '—'}</div>`;
+  html += `<div>Blinds Start: ${info.blindsStart || '—'}</div>`;
+  html += `<div>Blinds Increase: ${info.blindsIncrease || '—'}</div>`;
+  summary.innerHTML = html;
+
+  const me = (state.players || []).find(p => p.name === myName);
+  const iConfirmed = me ? !!me.confirmedTerms : false;
+  document.getElementById('agreeTermsBtn').style.display = iConfirmed ? 'none' : 'block';
+  document.getElementById('agreedFlag').style.display = iConfirmed ? 'block' : 'none';
+
+  const hostPanel = document.getElementById('hostConfirmPanel');
+  hostPanel.style.display = isHost ? 'block' : 'none';
+  if (isHost) {
+    const list = document.getElementById('hostConfirmList');
+    list.innerHTML = '';
+    (state.players || []).forEach(p => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);';
+      const nameEl = document.createElement('span');
+      nameEl.style.fontWeight = '700';
+      nameEl.textContent = p.name;
+      const right = document.createElement('span');
+      right.style.cssText = 'display:flex;align-items:center;gap:10px;';
+      const status = document.createElement('span');
+      if (p.confirmedTerms) { status.style.cssText = 'color:#2a7a4a;font-weight:700;'; status.textContent = '✓ Confirmed'; }
+      else { status.style.opacity = '0.5'; status.textContent = 'Waiting…'; }
+      right.appendChild(status);
+      if (!p.confirmedTerms) {
+        const bounceBtn = document.createElement('button');
+        bounceBtn.className = 'secondary';
+        bounceBtn.style.cssText = 'width:auto;padding:4px 10px;font-size:0.75em;margin-bottom:0;';
+        bounceBtn.textContent = 'Bounce';
+        bounceBtn.onclick = () => socket.emit('removePlayer', p.name);
+        right.appendChild(bounceBtn);
+      }
+      row.appendChild(nameEl); row.appendChild(right);
+      list.appendChild(row);
+    });
+    document.getElementById('hostProceedBtn').disabled = !(state.players || []).every(p => p.confirmedTerms);
+  }
+}
+
+document.getElementById('gsSubmitBtn').onclick = () => {
+  socket.emit('submitGameSetup', {
+    buyIn: document.getElementById('gsBuyIn').value,
+    playersToCash: document.getElementById('gsPlayersToCash').value,
+    blindsStart: document.getElementById('gsBlindsStart').value,
+    blindsIncrease: document.getElementById('gsBlindsIncrease').value,
+  });
+};
+document.getElementById('agreeTermsBtn').onclick = () => {
+  socket.emit('confirmSessionTerms');
+};
+document.getElementById('hostProceedBtn').onclick = () => {
+  socket.emit('proceedPastConfirmation');
 };
 
 // dealer animation in openNewGameModalWithData / animateDealer
