@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.28.2';
+const VERSION = '3.29';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -117,6 +117,18 @@ function currentHandLog(){
 // so the log reads the same notation as the Hands Revealed / Results screens.
 // Tracks each player's current win/loss streak (e.g. W3, L2) — resets to 1
 // of the new type whenever the result flips
+function formatClockTime(){
+  const d=new Date();
+  let h=d.getHours(); const m=String(d.getMinutes()).padStart(2,'0');
+  const ampm=h>=12?'PM':'AM'; h=h%12; if(h===0) h=12;
+  return h+':'+m+' '+ampm;
+}
+function formatDurationHM(ms){
+  const totalMin=Math.max(0,Math.floor(ms/60000));
+  const h=Math.floor(totalMin/60), m=totalMin%60;
+  return h>0 ? h+'h '+m+'m' : m+'m';
+}
+
 function recordStreak(p,won){
   const type=won?'W':'L';
   p.streakCount=(p.streakType===type)?(p.streakCount||0)+1:1;
@@ -490,11 +502,32 @@ io.on('connection',socket=>{
   socket.on('endLiveGame',()=>{
     if(!gameLive) return;
     captureGameSnapshot();
+
+    // Log final placements one more time, worst to best — winner logged last
+    // so it lands on top since the client shows newest entries first
+    const totalPlayers=players.length;
+    const ordinals=['1st','2nd','3rd','4th','5th','6th','7th','8th','9th'];
+    const placedPlayers=players.map(p=>{
+      let place;
+      if(p.eliminated){
+        const idx=currentGameEliminations.indexOf(p.name);
+        place = idx>=0 ? totalPlayers-idx : totalPlayers;
+      } else {
+        place = 1; // sole remaining player
+      }
+      return {name:p.name, place};
+    }).sort((a,b)=>b.place-a.place);
+    placedPlayers.forEach(pp=>{
+      addLog((ordinals[pp.place-1]||(pp.place+'th'))+' '+pp.name);
+    });
+
+    const durationText = sessionStartTime ? formatDurationHM(Date.now()-sessionStartTime) : null;
+    addLog('=== GAME ENDED'+(durationText?' ('+durationText+')':'')+' ===');
+
     gameLive=false;
     sessionHandsPlayed=0;
     sessionStartTime=null;
     players.forEach(p=>{p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.hadMoneyInPot=false;});
-    addLog('=== Game Ended ===');
     broadcast();
   });
 
@@ -552,7 +585,15 @@ io.on('connection',socket=>{
     gameSetupPhase=null;
     gameLive=true;
     sessionStartTime=Date.now(); // session clock starts when actual play begins, not during setup
+    addLog('=== GAME BEGINS ('+formatClockTime()+') ===');
     dealHand();
+  });
+
+  socket.on('backToGameSetup',()=>{
+    if(gameSetupPhase!=='confirming') return;
+    gameSetupPhase='buyIn';
+    players.forEach(p=>{ p.confirmedTerms=false; }); // details may change, everyone re-confirms
+    broadcast();
   });
 
   socket.on('removePlayer',name=>{
