@@ -102,6 +102,16 @@
   </div>
 </div>
 
+<!-- End Game confirmation — locks in final results/stats, cannot be undone -->
+<div id="endGameModal" class="full-modal" style="display:none;">
+  <div class="full-modal-inner ng-save-inner">
+    <div class="ng-save-title">🛑 End Game?</div>
+    <div style="font-size:0.9em;opacity:0.7;margin-bottom:20px;">This locks in the final results and stats for this game and cannot be undone.</div>
+    <button id="endGameConfirmBtn">✓ End Game</button>
+    <button id="endGameCancelBtn" class="secondary ng-cancel-btn" style="margin-top:8px;">Cancel</button>
+  </div>
+</div>
+
 <!-- Game Setup: host enters buy-in/blinds/payout once, before players confirm -->
 <div id="gameSetupModal" class="full-modal" style="display:none;">
   <div class="full-modal-inner ng-save-inner">
@@ -215,7 +225,7 @@
   <!-- JOIN -->
   <div id="joinScreen">
     <h1>&#9824; Roatan Poker Club</h1>
-    <p style="text-align:center;opacity:0.65;margin:4px 0 20px;font-size:0.95em;">Enter your name to join</p>
+    <p id="joinSubtitle" style="text-align:center;opacity:0.65;margin:4px 0 20px;font-size:0.95em;">Enter your name to join</p>
     <input type="text" id="nameInput" placeholder="Your name" maxlength="20" autocomplete="off" autocapitalize="words">
     <button id="joinBtn">Join Game</button>
     <p id="joinErr" style="color:#f88;text-align:center;display:none;margin-top:4px;font-size:0.9em;">Please enter your name</p>
@@ -300,7 +310,7 @@
         </div>
         <div class="host-btn-row">
           <button class="secondary" id="changeDeckBtn">&#127183; Deck</button>
-          <button class="secondary" id="newGameBtn">&#128260; New</button>
+          <button class="secondary" id="newGameBtn">&#128260; GAME</button>
           <button class="secondary" id="toggleSeatsBtn">&#129489; Seats &#9660;</button>
         </div>
         <div id="seatSection" style="margin-top:14px;display:none;">
@@ -1134,6 +1144,19 @@ function doJoin(){
   myName=name; localStorage.setItem('pokerPlayerName',name);
   socket.emit('join',name);
 }
+function updateJoinScreenForGameLive(state){
+  if(myId) return; // already joined — irrelevant
+  const subtitle=document.getElementById('joinSubtitle');
+  if(!subtitle) return;
+  subtitle.textContent = state.gameLive
+    ? 'A game is in progress — enter your existing name to reconnect.'
+    : 'Enter your name to join';
+}
+socket.on('joinBlocked', data => {
+  const err = document.getElementById('joinErr');
+  err.textContent = (data && data.reason) || 'Unable to join right now.';
+  err.style.display = 'block';
+});
 socket.on('joined',info=>{
   myId=info.id;
   document.getElementById('joinScreen').style.display='none';
@@ -1208,6 +1231,7 @@ socket.on('state',state=>{
   if(state.cardBackStyle) applyCardBack(state.cardBackStyle);
   tryShowPendingResults();
   updateGameSetupScreens(state);
+  updateJoinScreenForGameLive(state);
   // Detect when it becomes THIS player's turn (defer if shuffle overlay is showing)
   const meInState=state.players.find(p=>p.name===myName);
   const isMeCurrent=!!(meInState&&meInState.isCurrent);
@@ -1377,6 +1401,14 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.28', date:'July 2026',
+    changes:[
+      'New button renamed GAME. While no game is live, it works exactly as before (seating confirmation, setup, terms). While a game is live, it instead asks the host to confirm ending the game',
+      'Ending a game locks in the final stats snapshot (moved here from New Game) and blocks new players from joining',
+      'New (non-reconnect) players cannot join while a game is live — the join screen shows A game is in progress instead. Reconnecting with an existing name always still works',
+    ]
+  },
   {
     v:'3.27.1', date:'July 2026',
     changes:[
@@ -2249,9 +2281,20 @@ function renderPrevGameSnapshot(state) {
 }
 
 
-// ── New Game button — straight to the seating confirmation screen ─────
+// ── GAME button — starts a new game, or confirms ending the live one ──
 document.getElementById('newGameBtn').onclick = () => {
-  showSeatingConfirmation();
+  if (lastState && lastState.gameLive) {
+    document.getElementById('endGameModal').style.display = 'flex';
+  } else {
+    showSeatingConfirmation();
+  }
+};
+document.getElementById('endGameConfirmBtn').onclick = () => {
+  document.getElementById('endGameModal').style.display = 'none';
+  socket.emit('endLiveGame');
+};
+document.getElementById('endGameCancelBtn').onclick = () => {
+  document.getElementById('endGameModal').style.display = 'none';
 };
 
 // ── Seating confirmation (shown before dealer selection) ─────────────
