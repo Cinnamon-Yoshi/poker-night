@@ -68,7 +68,6 @@
     <div class="full-modal-hdr">
       <span class="full-modal-title">Stats</span>
     </div>
-    <div class="tourn-subtitle">This session only — resets on New Game. Played/$Fold/Win%/Loss% only count hands where you had money in (blind posted, called, or raised) — a fold with money in counts as a loss.</div>
     <div id="statsClockLine" style="font-size:0.85em;opacity:0.75;margin:10px 0;"></div>
 
     <div id="sessionInfoBox" style="margin-bottom:16px;padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;">
@@ -86,6 +85,7 @@
       <button id="siEditToggleBtn" class="secondary" style="width:100%;margin-top:8px;display:none;">Edit Game Info</button>
     </div>
 
+    <div class="tourn-subtitle">This session only — resets on New Game. Played/$Fold/Win%/Loss% only count hands where you had money in (blind posted, called, or raised) — a fold with money in counts as a loss.</div>
     <div id="statsTableWrap"></div>
     <div id="prevGameWrap"></div>
   </div>
@@ -117,7 +117,7 @@
   <div class="full-modal-inner ng-save-inner">
     <div class="ng-save-title">🚪 Leave?</div>
     <div id="exitConfirmMsg" style="font-size:0.9em;opacity:0.75;margin-bottom:20px;"></div>
-    <button id="exitConfirmBtn" style="background:#8b2222;">Yes, Leave</button>
+    <button id="exitConfirmBtn" style="background:#8b2222;color:#fff;">Yes, Leave</button>
     <button id="exitCancelBtn" class="secondary ng-cancel-btn" style="margin-top:8px;">Cancel</button>
   </div>
 </div>
@@ -247,7 +247,7 @@
   <!-- GAME -->
   <div id="gameScreen" style="display:none;">
     <div class="app-header">
-      <button id="exitBtn" aria-label="Leave game" style="position:absolute;top:2px;right:0;padding:3px 8px;border-radius:20px;border:none;background:#5c2020;color:#d9a3a3;font-size:0.6em;font-weight:800;letter-spacing:0.5px;line-height:1;cursor:pointer;">EXIT</button>
+      <button id="exitBtn" aria-label="Leave game" style="position:absolute;top:2px;right:0;width:auto;margin-bottom:0;padding:3px 8px;border-radius:20px;border:none;background:#5c2020;color:#d9a3a3;font-size:0.6em;font-weight:800;letter-spacing:0.5px;line-height:1;cursor:pointer;">EXIT</button>
       <div class="app-title">&#9824; Roatan Poker Club</div>
       <div id="myNameLabel" class="player-name-header"></div>
       <div id="gameOffNotice" style="display:none;text-align:center;font-size:0.72em;font-weight:800;color:#e01010;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">Game Off</div>
@@ -1259,7 +1259,11 @@ socket.on('state',state=>{
   // Detect when it becomes THIS player's turn (defer if shuffle overlay is showing)
   const meInState=state.players.find(p=>p.name===myName);
   const exitBtnEl = document.getElementById('exitBtn');
-  if (exitBtnEl) exitBtnEl.style.display = (state.gameLive && meInState && meInState.eliminated) ? 'none' : 'block';
+  if (exitBtnEl) {
+    const isSpectating = !!(state.gameLive && meInState && meInState.eliminated);
+    exitBtnEl.textContent = isSpectating ? 'LEAVE' : 'EXIT';
+    exitBtnEl.style.display = 'block';
+  }
   const isMeCurrent=!!(meInState&&meInState.isCurrent);
   if(isMeCurrent&&!wasMyCurrent){
     if(shuffleActive||streetAnimActive) pendingMyTurn=true;
@@ -1427,6 +1431,17 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.30.1', date:'July 2026',
+    changes:[
+      'Fixed EXIT button stretching full width — a global button style was leaking through, same class of bug as an earlier button fix',
+      'Yes, Leave button text is now white instead of hard to read on the dark red background',
+      'EXIT button is now two-stage — first tap busts out with a placement, second tap (once already spectating) returns you to the lobby. Label switches from EXIT to LEAVE once spectating',
+      'Bust-out and self-leave log messages now read Nth place instead of place N',
+      'Stats page subtitle moved to between Game Info and the stats table',
+      'Game Info and the live stats table now go blank when no game is live — Previous Game still shows correctly',
+    ]
+  },
   {
     v:'3.30', date:'July 2026',
     changes:[
@@ -2186,6 +2201,9 @@ function updateStatsClock() {
   el.textContent = `Session time: ${formatElapsed(Date.now() - lastState.sessionStartTime, true)}`;
 }
 function renderSessionInfo(state) {
+  const box = document.getElementById('sessionInfoBox');
+  if (!state.gameLive) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
   const info = state.sessionInfo || {buyIn:0,playersToCash:0,blindsStart:'',blindsIncrease:''};
   const totalPlayers = (state.players || []).length;
   const totalPot = (info.buyIn || 0) * totalPlayers;
@@ -2320,6 +2338,11 @@ function buildStatsTableHtml(rows) {
 
 function renderStatsTable(state) {
   const wrap = document.getElementById('statsTableWrap');
+  if (!state.gameLive) {
+    wrap.innerHTML = '';
+    renderPrevGameSnapshot(state);
+    return;
+  }
   const players = state.players || [];
   if (players.length === 0) {
     wrap.innerHTML = '<div class="tourn-empty">No players yet.</div>';
@@ -2367,7 +2390,11 @@ document.getElementById('endGameCancelBtn').onclick = () => {
 document.getElementById('exitBtn').onclick = () => {
   if (!lastState) return;
   const msgEl = document.getElementById('exitConfirmMsg');
-  if (lastState.gameLive) {
+  const me = (lastState.players || []).find(p => p.name === myName);
+  const isSpectating = !!(lastState.gameLive && me && me.eliminated);
+  if (isSpectating) {
+    msgEl.textContent = `Return to the lobby? You won't be able to rejoin this game.`;
+  } else if (lastState.gameLive) {
     const totalPlayers = (lastState.players || []).length;
     const elimCount = (lastState.eliminationOrder || []).length;
     const predictedPlace = totalPlayers - elimCount;
@@ -2382,7 +2409,10 @@ document.getElementById('exitCancelBtn').onclick = () => {
 };
 document.getElementById('exitConfirmBtn').onclick = () => {
   document.getElementById('exitConfirmModal').style.display = 'none';
-  if (lastState && lastState.gameLive) socket.emit('leaveGameLive');
+  const me = lastState ? (lastState.players || []).find(p => p.name === myName) : null;
+  const isSpectating = !!(lastState && lastState.gameLive && me && me.eliminated);
+  if (isSpectating) socket.emit('leaveLobby');
+  else if (lastState && lastState.gameLive) socket.emit('leaveGameLive');
   else socket.emit('leaveLobby');
 };
 socket.on('youLeft', () => {
