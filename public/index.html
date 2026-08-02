@@ -951,11 +951,14 @@ socket.on('winnerAnnounce',data=>{
   tryShowPendingResults();
 });
 
-socket.on('foldWinnerRevealed', data => {
-  const container = document.getElementById('fwHiddenCards');
+function fwCardsId(name) {
+  return 'fwCards-' + String(name).replace(/[^a-zA-Z0-9]/g, '_');
+}
+
+socket.on('handRevealedFoldWin', data => {
+  const container = document.getElementById(fwCardsId(data.name));
   if (container) {
     container.innerHTML = '';
-    container.removeAttribute('id');
     (data.cards||[]).forEach((c, i) => {
       const wrap = document.createElement('div'); wrap.className = 'flip-wrap fw-flip';
       const flipper = document.createElement('div'); flipper.className = 'flipper';
@@ -967,7 +970,7 @@ socket.on('foldWinnerRevealed', data => {
       setTimeout(() => flipper.classList.add('flipped'), 150 + i*300);
     });
   }
-  // Refresh the visible This Hand log so the "shown" line appears right away
+  // Refresh the visible This Hand log so the new line appears right away
   renderLogInto(document.getElementById('aioHandLog'), data.handLog);
 });
 
@@ -1101,8 +1104,8 @@ function showRunoutResults(runout) {
         if (ev2 && ev2.bestCards) myUsedKeys = new Set(ev2.bestCards.map(c => c.r+''+c.s));
       }
     }
-    if (runout.foldWin && p.winner) {
-      cardsDiv.id = 'fwHiddenCards';
+    if (runout.foldWin) {
+      cardsDiv.id = fwCardsId(p.name);
       cardsDiv.appendChild(makeCardBack());
       cardsDiv.appendChild(makeCardBack());
     } else {
@@ -1125,11 +1128,11 @@ function showRunoutResults(runout) {
     const status = document.createElement('div'); status.className = 'aio-odds';
     status.textContent = labels[idx]; info.appendChild(status);
     top.appendChild(info);
-    if (runout.foldWin && p.winner && myName === p.name) {
+    if (runout.foldWin && myName === p.name) {
       const showBtn = document.createElement('button');
       showBtn.className = 'fw-show-hand-btn';
       showBtn.textContent = 'Show Hand';
-      showBtn.onclick = () => { socket.emit('revealFoldWinnerHand'); showBtn.remove(); };
+      showBtn.onclick = () => { socket.emit('revealHandFoldWin'); showBtn.remove(); };
       top.appendChild(showBtn);
     }
     row.appendChild(top); pl.appendChild(row);
@@ -1377,6 +1380,20 @@ function renderPlayerActionBar(state){
   const btns = document.getElementById('playerActionBtns');
   const me = state.players.find(p => p.name === myName);
 
+  // Fold-win: host can declare the winner now, or play out remaining
+  // streets first purely for show — the winner never changes either way
+  if (isHost && state.foldWinner) {
+    document.getElementById('playerActionLabel').style.display = 'none';
+    let html = `<button class="pab-btn" onclick="socket.emit('declareFoldWinner')" style="background:#d4af37;color:#111;font-size:1.05em;width:100%;margin-bottom:8px;">🏆 Declare ${state.foldWinner} Winner</button>`;
+    if (state.stage !== 'idle' && state.stage !== 'river') {
+      const nextStreetLabel = state.stage === 'preflop' ? 'Flop' : state.stage === 'flop' ? 'Turn' : 'River';
+      html += `<button class="pab-btn secondary" onclick="socket.emit('foldWinPlayOutStreet')" style="width:100%;">▶ Deal the ${nextStreetLabel} (play it out)</button>`;
+    }
+    btns.innerHTML = html;
+    bar.classList.remove('player-action-hidden');
+    return;
+  }
+
   // Host proceed button — shown inline in action bar
   if (isHost && !state.foldWinner) {
     if (state.stage === 'idle' && state.playerCount >= 2) {
@@ -1431,6 +1448,14 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.31', date:'July 2026',
+    changes:[
+      'Fold-win hands: host now gets a choice — declare the winner immediately, or deal out the remaining streets one at a time purely for show before declaring. The winner never changes, this is just to see how the hand would have played out',
+      'Show Hand is no longer winner-only on a fold-win Results screen — any player from that hand, folded or not, can choose to reveal their own cards',
+      'Folded players now show card-backs on the fold-win Results screen instead of nothing at all, matching the winner row',
+    ]
+  },
   {
     v:'3.30.2', date:'July 2026',
     changes:[
