@@ -66,7 +66,7 @@
   <div class="full-modal-inner">
     <button id="statsCloseBtn" style="width:100%;margin-bottom:12px;">Close</button>
     <div class="full-modal-hdr">
-      <span class="full-modal-title">Stats</span>
+      <span class="full-modal-title">📊 Stats</span>
     </div>
     <div id="statsClockLine" style="font-size:0.85em;opacity:0.75;margin:10px 0;"></div>
 
@@ -301,7 +301,7 @@
     <!-- Button row: Rankings + Tournament + Host Controls -->
     <div class="btn-row">
       <button class="secondary" id="cheatToggle">&#128203; Card Ranks</button>
-      <button class="secondary" id="statsBtn">Stats</button>
+      <button class="secondary" id="statsBtn">&#128202; Stats</button>
       <button class="secondary" id="hostToggle">&#128274; Host</button>
     </div>
 
@@ -1432,6 +1432,15 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.30.2', date:'July 2026',
+    changes:[
+      'Added chart icon back to the Stats button and modal title',
+      'Fixed placement math using the live (shrinking) player count instead of a fixed roster size locked in at game start — this caused two players to both show 1st place once someone had fully left mid-game',
+      'Fixed a player who returns to the lobby mid-game losing their stats/placement entirely — their record is now kept (marked departed) until the game formally ends, so Stats and the final placement recap still show them correctly',
+      'Departed players no longer show in At the Table or the host Seats list, but their history survives for that games Stats and Previous Game snapshot',
+    ]
+  },
+  {
     v:'3.30.1', date:'July 2026',
     changes:[
       'Fixed EXIT button stretching full width — a global button style was leaking through, same class of bug as an earlier button fix',
@@ -2112,6 +2121,7 @@ function renderHostControls(state){
   const sl=document.getElementById('hostSeatList');
   sl.innerHTML='';
   state.players.forEach((p,i)=>{
+    if(p.departed) return; // skip rendering, but keep the correct index for reorder buttons below
     const row=document.createElement('div');
     row.className='player-row';
     const nameEl=document.createElement('span');
@@ -2257,7 +2267,7 @@ function ordinal(n) {
 function computeStatsRows(state) {
   const players = state.players || [];
   const elimOrder = state.eliminationOrder || [];
-  const totalPlayers = players.length;
+  const totalPlayers = state.gameTotalPlayers || players.length;
   const active = players.filter(p => !p.eliminated);
   const isOver = active.length === 1 && players.length > 1;
   const bustedRank = {};
@@ -2688,7 +2698,7 @@ function renderPlayerList(players){
   const list=document.getElementById('playerList');list.innerHTML='';
   const ac={F:'fold',C:'call',R:'raise',A:'allin',X:'check'};
   const al={F:'FOLD',C:'CALL',R:'RAISE',A:'ALL IN',X:'CHECK'};
-  players.forEach((p,i)=>{
+  players.filter(p=>!p.departed).forEach((p,i)=>{
     const row=document.createElement('div');row.className='player-row';
     const name=document.createElement('span');
     name.className='player-name'+(p.folded&&!p.eliminated?' folded':p.eliminated?' folded':'');
