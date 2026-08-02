@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.30';
+const VERSION = '3.30.1';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -123,6 +123,9 @@ function formatClockTime(){
   const ampm=h>=12?'PM':'AM'; h=h%12; if(h===0) h=12;
   return h+':'+m+' '+ampm;
 }
+const ORDINAL_WORDS=['1st','2nd','3rd','4th','5th','6th','7th','8th','9th'];
+function ordinalWord(n){ return ORDINAL_WORDS[n-1]||(n+'th'); }
+
 function formatDurationHM(ms){
   const totalMin=Math.max(0,Math.floor(ms/60000));
   const h=Math.floor(totalMin/60), m=totalMin%60;
@@ -611,11 +614,13 @@ io.on('connection',socket=>{
     addLog(name+' removed from game'); broadcast();
   });
 
-  // Self-service leave, lobby (no game live) — plain removal, no placement to record
+  // Self-service leave, lobby OR an already-eliminated spectator returning
+  // to the lobby mid-game — plain removal, no placement to record (their
+  // placement was already recorded when they busted out or used EXIT)
   socket.on('leaveLobby',()=>{
-    if(gameLive) return;
     const p=players.find(pl=>pl.id===socket.id);
     if(!p) return;
+    if(gameLive&&!p.eliminated) return; // still actively playing — must leaveGameLive first
     const name=p.name;
     if(name===initialDealerName){
       const idx=players.findIndex(pl=>pl.name===name);
@@ -641,7 +646,7 @@ io.on('connection',socket=>{
     currentGameEliminations.push(p.name);
     io.to(p.id).emit('yourCards',[]);
     const place=players.length-(currentGameEliminations.length-1);
-    addLog('\uD83D\uDEAA '+p.name+' left the game (place '+place+')');
+    addLog('\uD83D\uDEAA '+p.name+' left the game ('+ordinalWord(place)+' place)');
     broadcast();
   });
 
@@ -653,7 +658,7 @@ io.on('connection',socket=>{
       currentGameEliminations.push(name);
       io.to(p.id).emit('yourCards',[]); // clear their cards immediately
       const place=players.length-(currentGameEliminations.length-1);
-      addLog('\u2620\uFE0F '+name+' busted out (place '+place+')');
+      addLog('\u2620\uFE0F '+name+' busted out ('+ordinalWord(place)+' place)');
     } else {
       // Undo (host mistake recovery) — removes from elimination list
       p.eliminated=false; p.sittingOut=false;
