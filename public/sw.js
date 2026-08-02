@@ -1,4 +1,4 @@
-const CACHE = 'poker-club-v3.29';
+const CACHE = 'poker-club-v3.30';
 const STATIC = [
   '/',
   '/style.css',

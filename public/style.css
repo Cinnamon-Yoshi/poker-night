@@ -325,7 +325,7 @@ button.gold { background:#d4af37; color:#111; }
 }
 
 /* ── App header (change 6) ── */
-.app-header { text-align:center; margin:10px 0 10px; }
+.app-header { text-align:center; margin:10px 0 10px; position:relative; }
 .app-title { font-size:1.2em; font-weight:700; }
 .player-name-header {
   font-size:1.2em; font-weight:700; color:#d4af37;

@@ -112,6 +112,16 @@
   </div>
 </div>
 
+<!-- Exit confirmation — message set dynamically based on whether a game is live -->
+<div id="exitConfirmModal" class="full-modal" style="display:none;">
+  <div class="full-modal-inner ng-save-inner">
+    <div class="ng-save-title">🚪 Leave?</div>
+    <div id="exitConfirmMsg" style="font-size:0.9em;opacity:0.75;margin-bottom:20px;"></div>
+    <button id="exitConfirmBtn" style="background:#8b2222;">Yes, Leave</button>
+    <button id="exitCancelBtn" class="secondary ng-cancel-btn" style="margin-top:8px;">Cancel</button>
+  </div>
+</div>
+
 <!-- Game Setup: host enters buy-in/blinds/payout once, before players confirm -->
 <div id="gameSetupModal" class="full-modal" style="display:none;">
   <div class="full-modal-inner ng-save-inner">
@@ -237,6 +247,7 @@
   <!-- GAME -->
   <div id="gameScreen" style="display:none;">
     <div class="app-header">
+      <button id="exitBtn" aria-label="Leave game" style="position:absolute;top:2px;right:0;padding:3px 8px;border-radius:20px;border:none;background:#5c2020;color:#d9a3a3;font-size:0.6em;font-weight:800;letter-spacing:0.5px;line-height:1;cursor:pointer;">EXIT</button>
       <div class="app-title">&#9824; Roatan Poker Club</div>
       <div id="myNameLabel" class="player-name-header"></div>
       <div id="gameOffNotice" style="display:none;text-align:center;font-size:0.72em;font-weight:800;color:#e01010;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">Game Off</div>
@@ -1130,10 +1141,14 @@ function showRunoutResults(runout) {
 }
 
 // ── Auto-rejoin ──────────────────────────────────────────────────────
+let hasJoinedThisPageLoad=false; // true once we've successfully joined at least once this page load
 socket.on('connect',()=>{
   const saved=localStorage.getItem('pokerPlayerName');
   if(!myName&&saved) myName=saved;
-  if(myName) socket.emit('join',myName);
+  // Only auto-rejoin silently if this is a reconnect after a dropped
+  // connection mid-session — a true fresh page load always shows the join
+  // screen first, giving a chance to confirm or change the name
+  if(hasJoinedThisPageLoad&&myName) socket.emit('join',myName);
 });
 const savedName=localStorage.getItem('pokerPlayerName');
 if(savedName) document.getElementById('nameInput').value=savedName;
@@ -1164,6 +1179,7 @@ socket.on('joinBlocked', data => {
   err.style.display = 'block';
 });
 socket.on('joined',info=>{
+  hasJoinedThisPageLoad=true;
   myId=info.id;
   document.getElementById('joinScreen').style.display='none';
   document.getElementById('gameScreen').style.display='block';
@@ -1242,6 +1258,8 @@ socket.on('state',state=>{
   if (gameOffEl) gameOffEl.style.display = (isHost && !state.gameLive) ? 'block' : 'none';
   // Detect when it becomes THIS player's turn (defer if shuffle overlay is showing)
   const meInState=state.players.find(p=>p.name===myName);
+  const exitBtnEl = document.getElementById('exitBtn');
+  if (exitBtnEl) exitBtnEl.style.display = (state.gameLive && meInState && meInState.eliminated) ? 'none' : 'block';
   const isMeCurrent=!!(meInState&&meInState.isCurrent);
   if(isMeCurrent&&!wasMyCurrent){
     if(shuffleActive||streetAnimActive) pendingMyTurn=true;
@@ -1409,6 +1427,21 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.30', date:'July 2026',
+    changes:[
+      'Added a self-service EXIT button in the header corner, small and out of the way',
+      'In the lobby (no game live), EXIT leaves the game entirely after a confirmation — no placement recorded',
+      'During a live game, EXIT records your current standing as a bust-out placement after a confirmation showing exactly what place youll get, same as a host-initiated bust-out',
+      'Fixed a pre-existing bug in bust-out placement numbering — the first player eliminated was logged as place 1 instead of last place, backwards from the Stats pages own placement math',
+    ]
+  },
+  {
+    v:'3.29.1', date:'July 2026',
+    changes:[
+      'A fresh page load now always shows the join screen with your saved name pre-filled, instead of silently auto-joining with no chance to confirm or change it. A network blip mid-session still reconnects silently, since youve already joined once that page load',
+    ]
+  },
   {
     v:'3.29', date:'July 2026',
     changes:[
@@ -2329,6 +2362,34 @@ document.getElementById('endGameConfirmBtn').onclick = () => {
 document.getElementById('endGameCancelBtn').onclick = () => {
   document.getElementById('endGameModal').style.display = 'none';
 };
+
+// ── EXIT (self-service leave) ──────────────────────────────────────
+document.getElementById('exitBtn').onclick = () => {
+  if (!lastState) return;
+  const msgEl = document.getElementById('exitConfirmMsg');
+  if (lastState.gameLive) {
+    const totalPlayers = (lastState.players || []).length;
+    const elimCount = (lastState.eliminationOrder || []).length;
+    const predictedPlace = totalPlayers - elimCount;
+    msgEl.textContent = `Leaving now will record you as busting out in ${ordinal(predictedPlace)} place. This cannot be undone.`;
+  } else {
+    msgEl.textContent = `You'll need to rejoin to play again.`;
+  }
+  document.getElementById('exitConfirmModal').style.display = 'flex';
+};
+document.getElementById('exitCancelBtn').onclick = () => {
+  document.getElementById('exitConfirmModal').style.display = 'none';
+};
+document.getElementById('exitConfirmBtn').onclick = () => {
+  document.getElementById('exitConfirmModal').style.display = 'none';
+  if (lastState && lastState.gameLive) socket.emit('leaveGameLive');
+  else socket.emit('leaveLobby');
+};
+socket.on('youLeft', () => {
+  myId = null;
+  document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('joinScreen').style.display = 'block';
+});
 
 // ── Seating confirmation (shown before dealer selection) ─────────────
 function showSeatingConfirmation() {
