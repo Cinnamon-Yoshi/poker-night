@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.29';
+const VERSION = '3.30';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -611,6 +611,40 @@ io.on('connection',socket=>{
     addLog(name+' removed from game'); broadcast();
   });
 
+  // Self-service leave, lobby (no game live) — plain removal, no placement to record
+  socket.on('leaveLobby',()=>{
+    if(gameLive) return;
+    const p=players.find(pl=>pl.id===socket.id);
+    if(!p) return;
+    const name=p.name;
+    if(name===initialDealerName){
+      const idx=players.findIndex(pl=>pl.name===name);
+      const rest=players.filter((pl,i)=>i!==idx&&!pl.sittingOut);
+      const after=players.slice(idx+1).find(pl=>!pl.sittingOut);
+      const before=players.slice(0,idx).find(pl=>!pl.sittingOut);
+      const next=after||before||rest[0]||null;
+      initialDealerName=next?next.name:null;
+    }
+    players=players.filter(pl=>pl.id!==socket.id);
+    addLog(name+' left the game');
+    socket.emit('youLeft');
+    broadcast();
+  });
+
+  // Self-service leave, live game — routes through the same elimination path
+  // as a host bust-out, so a real placement gets recorded
+  socket.on('leaveGameLive',()=>{
+    if(!gameLive) return;
+    const p=players.find(pl=>pl.id===socket.id);
+    if(!p||p.eliminated) return;
+    p.eliminated=true; p.sittingOut=true;
+    currentGameEliminations.push(p.name);
+    io.to(p.id).emit('yourCards',[]);
+    const place=players.length-(currentGameEliminations.length-1);
+    addLog('\uD83D\uDEAA '+p.name+' left the game (place '+place+')');
+    broadcast();
+  });
+
   socket.on('eliminatePlayer',name=>{
     const p=players.find(pl=>pl.name===name);
     if(!p) return;
@@ -618,7 +652,8 @@ io.on('connection',socket=>{
       p.eliminated=true; p.sittingOut=true;
       currentGameEliminations.push(name);
       io.to(p.id).emit('yourCards',[]); // clear their cards immediately
-      addLog('\u2620\uFE0F '+name+' busted out (place '+(currentGameEliminations.length)+')');
+      const place=players.length-(currentGameEliminations.length-1);
+      addLog('\u2620\uFE0F '+name+' busted out (place '+place+')');
     } else {
       // Undo (host mistake recovery) — removes from elimination list
       p.eliminated=false; p.sittingOut=false;
