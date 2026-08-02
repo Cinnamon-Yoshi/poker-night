@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.30.2';
+const VERSION = '3.31';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -42,7 +42,8 @@ let isRunoutSession=false; // true while an all-in runout is in progress; used f
 let handSBIdx=-1, handBBIdx=-1; // SB/BB player index locked at deal time — for badge display only.
                                  // getSB()/getBB() themselves stay fold-aware for actual game logic
                                  // (acting order), which needs to skip folded players; badges must not.
-let foldWinPending=null; // {name, cards} — set when a hand ends by fold, cleared once revealed or a new hand starts
+let foldWinWinnerName=null; // who won this hand by fold, for correct reveal log wording
+let foldWinRevealable=null; // array of player names still eligible to reveal their hand — cleared once revealed or a new hand starts
 let lastActionLogIdx={};   // player name -> actionLog index of their most recent action line, for this hand
 let allInCardsRevealed=false; // true once this hand's all-in cards have been logged
 let lastLeaderNames=[];    // leader(s) as of the last logged runout update, for this hand
@@ -717,7 +718,7 @@ io.on('connection',socket=>{
     const eligible=players.filter(p=>!p.sittingOut);
     if(stage!=='idle'||eligible.length<2) return;
     deck=freshDeck(); board=[]; holeCards={}; lastHandResult=null;
-    lastActionLogIdx={}; allInCardsRevealed=false; lastLeaderNames=[]; foldWinPending=null;
+    lastActionLogIdx={}; allInCardsRevealed=false; lastLeaderNames=[]; foldWinWinnerName=null; foldWinRevealable=null;
 
     // Reset non-sitting-out players; sitting-out treated as pre-folded
     players.forEach(p=>{
@@ -944,7 +945,8 @@ io.on('connection',socket=>{
       winner:p.name===winner.name,
       folded:p.folded,
     }));
-    foldWinPending={name:winner.name, cards:[...(holeCards[winner.id]||[])]};
+    foldWinWinnerName=winner.name;
+    foldWinRevealable=resultsPlayers.map(p=>p.name); // winner AND folded players can all choose to show their hand
     lastHandResult=null;
     stage='idle'; actingQueue=[]; bbCanCheck=false;
     hasRaiseThisStreet=false; undoState=null;
@@ -957,13 +959,49 @@ io.on('connection',socket=>{
     broadcast();
   });
 
-  socket.on('revealFoldWinnerHand',()=>{
-    if(!foldWinPending) return;
+  // Host can deal one more community card before declaring the winner, purely
+  // for show — no more betting happens, the fold-win outcome never changes.
+  // Lets folded players see whether their card would have paid off.
+  socket.on('foldWinPlayOutStreet',()=>{
+    const rem=active().filter(p=>!p.eliminated);
+    if(rem.length!==1||stage==='idle'||stage==='river') return;
+    dealPlayOutStreet();
+  });
+
+  function dealPlayOutStreet(){
+    if(stage==='preflop'){
+      deck.pop(); board.push(deck.pop(),deck.pop(),deck.pop()); stage='flop';
+      addLog('Flop: '+board.slice(0,3).map(c=>cardLabel(c)).join(' '));
+      io.emit('streetReveal',{street:'flop',label:'The Flop!',cards:board.slice(0,3)});
+    } else if(stage==='flop'){
+      deck.pop(); board.push(deck.pop()); stage='turn';
+      addLog('Turn: '+cardLabel(board[3]));
+      io.emit('streetReveal',{street:'turn',label:'The Turn',cards:[board[3]]});
+    } else if(stage==='turn'){
+      deck.pop(); board.push(deck.pop()); stage='river';
+      addLog('River: '+cardLabel(board[4]));
+      io.emit('streetReveal',{street:'river',label:'The River',cards:[board[4]]});
+    }
+    broadcast();
+  }
+
+  // Any player from this hand (winner or folded) can choose to reveal their
+  // own hand after a fold-win, to see how it stacked up
+  socket.on('revealHandFoldWin',()=>{
+    if(!foldWinRevealable) return;
     if(stage!=='idle') return; // window closed once the next hand starts dealing
-    const {name,cards}=foldWinPending;
-    addLog(name+' wins (everyone else folded) ('+cards.map(c=>cardLabel(c)).join(' ')+' shown)');
-    io.emit('foldWinnerRevealed',{name,cards,handLog:currentHandLog()});
-    foldWinPending=null;
+    const p=players.find(pl=>pl.id===socket.id);
+    if(!p||!foldWinRevealable.includes(p.name)) return;
+    const cards=holeCards[p.id]||[];
+    if(!cards.length) return;
+    foldWinRevealable=foldWinRevealable.filter(n=>n!==p.name);
+    const cardsStr=cards.map(c=>cardLabel(c)).join(' ');
+    if(p.name===foldWinWinnerName){
+      addLog(p.name+' wins (everyone else folded) ('+cardsStr+' shown)');
+    } else {
+      addLog(p.name+' shows ('+cardsStr+')');
+    }
+    io.emit('handRevealedFoldWin',{name:p.name,cards,handLog:currentHandLog()});
     broadcast();
   });
 
