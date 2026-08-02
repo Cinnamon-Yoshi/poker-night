@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.30.1';
+const VERSION = '3.30.2';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -57,6 +57,7 @@ let sessionInfo={buyIn:0,playersToCash:0,blindsStart:'',blindsIncrease:''}; // h
 let gameSetupPhase=null; // null | 'buyIn' | 'confirming' — the pre-game flow between seating confirmation and dealer selection
 let lastGameSnapshot=null; // frozen stats from the most recently completed game, shown on Stats below the live table
 let gameLive=false; // true once play actually begins (after confirmation), false again once the host formally ends the game — blocks new (non-reconnect) joins while true
+let gameTotalPlayers=0; // fixed roster size at the moment the game started — placement math uses this, not the live (shrinking) players.length
 
 function freshDeck(){
   const d=[];
@@ -407,6 +408,7 @@ function publicState(){
     gameSetupPhase,
     lastGameSnapshot,
     gameLive,
+    gameTotalPlayers,
     players:players.map((p,i)=>({
       name:p.name, connected:p.connected, folded:p.folded,
       allIn:p.allIn, sittingOut:p.sittingOut||p.eliminated, eliminated:p.eliminated, action:p.action,
@@ -415,6 +417,7 @@ function publicState(){
       statsPlayed:p.statsPlayed||0, statsWon:p.statsWon||0, statsFolded:p.statsFolded||0, statsDecided:p.statsDecided||0,
       statsRaised:p.statsRaised||0, statsCalled:p.statsCalled||0, statsAllIn:p.statsAllIn||0,
       confirmedTerms:!!p.confirmedTerms,
+      departed:!!p.departed,
       streakType:p.streakType||null, streakCount:p.streakCount||0
     }))
   };
@@ -447,7 +450,7 @@ io.on('connection',socket=>{
         socket.emit('joinBlocked',{reason:'A game is in progress. New players cannot join until the host ends the current game.'});
         return;
       }
-      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,eliminated:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,statsRaised:0,statsCalled:0,statsAllIn:0,streakType:null,streakCount:0,hadMoneyInPot:false,confirmedTerms:false});
+      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,eliminated:false,departed:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,statsRaised:0,statsCalled:0,statsAllIn:0,streakType:null,streakCount:0,hadMoneyInPot:false,confirmedTerms:false});
       socket.emit('joined',{id:socket.id});
       addLog(name+' joined the game');
     }
@@ -492,6 +495,7 @@ io.on('connection',socket=>{
       sessionDuration: sessionStartTime ? Date.now()-sessionStartTime : null,
       sessionInfo: {...sessionInfo},
       eliminationOrder: [...currentGameEliminations],
+      gameTotalPlayers,
       players: players.map(p=>({
         name:p.name,
         statsPlayed:p.statsPlayed||0, statsWon:p.statsWon||0, statsFolded:p.statsFolded||0, statsDecided:p.statsDecided||0,
@@ -508,7 +512,7 @@ io.on('connection',socket=>{
 
     // Log final placements one more time, worst to best — winner logged last
     // so it lands on top since the client shows newest entries first
-    const totalPlayers=players.length;
+    const totalPlayers=gameTotalPlayers;
     const ordinals=['1st','2nd','3rd','4th','5th','6th','7th','8th','9th'];
     const placedPlayers=players.map(p=>{
       let place;
@@ -526,6 +530,8 @@ io.on('connection',socket=>{
 
     const durationText = sessionStartTime ? formatDurationHM(Date.now()-sessionStartTime) : null;
     addLog('=== GAME ENDED'+(durationText?' ('+durationText+')':'')+' ===');
+
+    players=players.filter(p=>!p.departed); // their placement/stats are already logged and snapshotted above
 
     gameLive=false;
     sessionHandsPlayed=0;
@@ -587,6 +593,7 @@ io.on('connection',socket=>{
     if(!players.every(p=>p.confirmedTerms)) return;
     gameSetupPhase=null;
     gameLive=true;
+    gameTotalPlayers=players.length;
     sessionStartTime=Date.now(); // session clock starts when actual play begins, not during setup
     addLog('=== GAME BEGINS ('+formatClockTime()+') ===');
     dealHand();
@@ -630,7 +637,15 @@ io.on('connection',socket=>{
       const next=after||before||rest[0]||null;
       initialDealerName=next?next.name:null;
     }
-    players=players.filter(pl=>pl.id!==socket.id);
+    if(gameLive){
+      // Mid-game: keep the record (stats/placement already recorded) so it
+      // still shows correctly in Stats and the final placement recap —
+      // just mark them departed so they drop out of At the Table / Seats
+      p.departed=true;
+    } else {
+      // Pre-game: nothing to preserve, fully remove
+      players=players.filter(pl=>pl.id!==socket.id);
+    }
     addLog(name+' left the game');
     socket.emit('youLeft');
     broadcast();
@@ -645,7 +660,7 @@ io.on('connection',socket=>{
     p.eliminated=true; p.sittingOut=true;
     currentGameEliminations.push(p.name);
     io.to(p.id).emit('yourCards',[]);
-    const place=players.length-(currentGameEliminations.length-1);
+    const place=gameTotalPlayers-(currentGameEliminations.length-1);
     addLog('\uD83D\uDEAA '+p.name+' left the game ('+ordinalWord(place)+' place)');
     broadcast();
   });
@@ -657,7 +672,7 @@ io.on('connection',socket=>{
       p.eliminated=true; p.sittingOut=true;
       currentGameEliminations.push(name);
       io.to(p.id).emit('yourCards',[]); // clear their cards immediately
-      const place=players.length-(currentGameEliminations.length-1);
+      const place=gameTotalPlayers-(currentGameEliminations.length-1);
       addLog('\u2620\uFE0F '+name+' busted out ('+ordinalWord(place)+' place)');
     } else {
       // Undo (host mistake recovery) — removes from elimination list
