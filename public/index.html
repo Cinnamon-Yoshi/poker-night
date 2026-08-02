@@ -119,12 +119,13 @@
     <div id="gameSetupHostForm" style="display:none;">
       <div style="font-size:0.85em;opacity:0.65;margin-bottom:14px;">Enter the details for this session. You can edit these later from Stats if needed.</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-        <div><label style="font-size:0.75em;opacity:0.6;display:block;margin-bottom:4px;">Buy-in ($)</label><input type="number" id="gsBuyIn" min="0" style="width:100%;padding:10px;border-radius:8px;border:none;background:#1a1a1a;color:#fff;"></div>
+        <div><label id="gsBuyInLabel" style="font-size:0.75em;opacity:0.6;display:block;margin-bottom:4px;">Buy-in ($)</label><input type="number" id="gsBuyIn" min="0" style="width:100%;padding:10px;border-radius:8px;border:none;background:#1a1a1a;color:#fff;"></div>
         <div><label style="font-size:0.75em;opacity:0.6;display:block;margin-bottom:4px;">Players to Cash</label><input type="number" id="gsPlayersToCash" min="0" style="width:100%;padding:10px;border-radius:8px;border:none;background:#1a1a1a;color:#fff;"></div>
         <div><label style="font-size:0.75em;opacity:0.6;display:block;margin-bottom:4px;">Blinds Start</label><input type="text" id="gsBlindsStart" placeholder="e.g. 5/10" style="width:100%;padding:10px;border-radius:8px;border:none;background:#1a1a1a;color:#fff;"></div>
         <div><label style="font-size:0.75em;opacity:0.6;display:block;margin-bottom:4px;">Blinds Increase</label><input type="text" id="gsBlindsIncrease" placeholder="e.g. every 20 min" style="width:100%;padding:10px;border-radius:8px;border:none;background:#1a1a1a;color:#fff;"></div>
       </div>
       <button id="gsSubmitBtn">Continue to Player Confirmation →</button>
+      <button id="gsCancelBtn" class="secondary ng-cancel-btn" style="margin-top:8px;">← Cancel</button>
     </div>
     <div id="gameSetupWaiting" style="display:none;text-align:center;opacity:0.7;padding:30px 0;">
       Waiting for the host to enter the game details…
@@ -144,6 +145,7 @@
       <div style="font-size:0.78em;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Player Confirmations</div>
       <div id="hostConfirmList" style="margin-bottom:16px;"></div>
       <button id="hostProceedBtn" disabled style="width:100%;">Continue to Dealer Selection →</button>
+      <button id="hostBackToSetupBtn" class="secondary" style="width:100%;margin-top:8px;">← Back to Edit Details</button>
     </div>
   </div>
 </div>
@@ -225,6 +227,7 @@
   <!-- JOIN -->
   <div id="joinScreen">
     <h1>&#9824; Roatan Poker Club</h1>
+    <img src="/img/card-roatan.jpg" alt="Roatan Poker Club" style="display:block;width:75%;max-width:340px;margin:4px auto 20px;border-radius:18px;box-shadow:0 12px 32px rgba(0,0,0,0.55);">
     <p id="joinSubtitle" style="text-align:center;opacity:0.65;margin:4px 0 20px;font-size:0.95em;">Enter your name to join</p>
     <input type="text" id="nameInput" placeholder="Your name" maxlength="20" autocomplete="off" autocapitalize="words">
     <button id="joinBtn">Join Game</button>
@@ -236,6 +239,7 @@
     <div class="app-header">
       <div class="app-title">&#9824; Roatan Poker Club</div>
       <div id="myNameLabel" class="player-name-header"></div>
+      <div id="gameOffNotice" style="display:none;text-align:center;font-size:0.72em;font-weight:800;color:#e01010;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">Game Off</div>
     </div>
 
     <!-- Cards: Community above, Your Cards below -->
@@ -1148,9 +1152,11 @@ function updateJoinScreenForGameLive(state){
   if(myId) return; // already joined — irrelevant
   const subtitle=document.getElementById('joinSubtitle');
   if(!subtitle) return;
-  subtitle.textContent = state.gameLive
-    ? 'A game is in progress — enter your existing name to reconnect.'
-    : 'Enter your name to join';
+  if(state.gameLive){
+    subtitle.innerHTML = '<strong style="color:#d4af37;font-size:1.15em;">A game is in progress</strong><br><span style="font-size:0.9em;">Enter your existing name to reconnect.</span>';
+  } else {
+    subtitle.textContent = 'Enter your name to join';
+  }
 }
 socket.on('joinBlocked', data => {
   const err = document.getElementById('joinErr');
@@ -1232,6 +1238,8 @@ socket.on('state',state=>{
   tryShowPendingResults();
   updateGameSetupScreens(state);
   updateJoinScreenForGameLive(state);
+  const gameOffEl = document.getElementById('gameOffNotice');
+  if (gameOffEl) gameOffEl.style.display = (isHost && !state.gameLive) ? 'block' : 'none';
   // Detect when it becomes THIS player's turn (defer if shuffle overlay is showing)
   const meInState=state.players.find(p=>p.name===myName);
   const isMeCurrent=!!(meInState&&meInState.isCurrent);
@@ -1401,6 +1409,16 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.29', date:'July 2026',
+    changes:[
+      'Join screen now shows a large Roatan card graphic (reusing the existing card-back image asset), and the A game is in progress message is bigger and bolder',
+      'Game Off notation now shows for hosts at the top of the screen when no game is live',
+      'Game Setup Buy-in label now shows the live computed total, and has a Cancel button back to seating confirmation',
+      'Confirm Game Terms screen has a host-only Back to Edit Details button, and shows an OFFLINE flag next to any disconnected player',
+      'Action log now bookends a game with GAME BEGINS (with a timestamp) and GAME ENDED (with total duration), and re-lists every players final placement worst-to-best right before GAME ENDED',
+    ]
+  },
   {
     v:'3.28.2', date:'July 2026',
     changes:[
@@ -2336,6 +2354,7 @@ document.getElementById('seatConfirmBack').onclick = () => {
 
 // ── Game Setup (buy-in) + Terms Confirmation — shown reactively based on
 // server state so every player sees the right screen automatically ────────
+let lastGameSetupPhase; // tracks transitions so we only pre-fill fields once, not on every broadcast
 function updateGameSetupScreens(state) {
   const setupModal = document.getElementById('gameSetupModal');
   const termsModal = document.getElementById('termsConfirmModal');
@@ -2344,6 +2363,16 @@ function updateGameSetupScreens(state) {
     termsModal.style.display = 'none';
     document.getElementById('gameSetupHostForm').style.display = isHost ? 'block' : 'none';
     document.getElementById('gameSetupWaiting').style.display = isHost ? 'none' : 'block';
+    if (isHost) {
+      if (lastGameSetupPhase !== 'buyIn') {
+        const info = state.sessionInfo || {};
+        document.getElementById('gsBuyIn').value = info.buyIn || '';
+        document.getElementById('gsPlayersToCash').value = info.playersToCash || '';
+        document.getElementById('gsBlindsStart').value = info.blindsStart || '';
+        document.getElementById('gsBlindsIncrease').value = info.blindsIncrease || '';
+      }
+      updateGsBuyInLabel();
+    }
   } else if (state.gameSetupPhase === 'confirming') {
     setupModal.style.display = 'none';
     termsModal.style.display = 'flex';
@@ -2352,6 +2381,7 @@ function updateGameSetupScreens(state) {
     setupModal.style.display = 'none';
     termsModal.style.display = 'none';
   }
+  lastGameSetupPhase = state.gameSetupPhase;
 }
 
 function renderTermsConfirmScreen(state) {
@@ -2384,6 +2414,13 @@ function renderTermsConfirmScreen(state) {
       const nameEl = document.createElement('span');
       nameEl.style.fontWeight = '700';
       nameEl.textContent = p.name;
+      if (!p.connected) {
+        const discEl = document.createElement('span');
+        discEl.className = 'badge discon';
+        discEl.style.marginLeft = '6px';
+        discEl.textContent = 'OFFLINE';
+        nameEl.appendChild(discEl);
+      }
       const right = document.createElement('span');
       right.style.cssText = 'display:flex;align-items:center;gap:10px;';
       const status = document.createElement('span');
@@ -2405,6 +2442,17 @@ function renderTermsConfirmScreen(state) {
   }
 }
 
+function updateGsBuyInLabel() {
+  const label = document.getElementById('gsBuyInLabel');
+  if (!label) return;
+  const buyIn = Number(document.getElementById('gsBuyIn').value) || 0;
+  const totalPlayers = (lastState && lastState.players) ? lastState.players.length : 0;
+  label.textContent = buyIn > 0 && totalPlayers > 0
+    ? `Player Buy-in ($${buyIn * totalPlayers} total)`
+    : 'Buy-in ($)';
+}
+document.getElementById('gsBuyIn').addEventListener('input', updateGsBuyInLabel);
+
 document.getElementById('gsSubmitBtn').onclick = () => {
   socket.emit('submitGameSetup', {
     buyIn: document.getElementById('gsBuyIn').value,
@@ -2413,11 +2461,18 @@ document.getElementById('gsSubmitBtn').onclick = () => {
     blindsIncrease: document.getElementById('gsBlindsIncrease').value,
   });
 };
+document.getElementById('gsCancelBtn').onclick = () => {
+  document.getElementById('gameSetupModal').style.display = 'none';
+  showSeatingConfirmation();
+};
 document.getElementById('agreeTermsBtn').onclick = () => {
   socket.emit('confirmSessionTerms');
 };
 document.getElementById('hostProceedBtn').onclick = () => {
   socket.emit('proceedPastConfirmation');
+};
+document.getElementById('hostBackToSetupBtn').onclick = () => {
+  socket.emit('backToGameSetup');
 };
 
 // dealer animation in openNewGameModalWithData / animateDealer
