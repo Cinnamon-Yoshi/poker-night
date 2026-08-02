@@ -1402,6 +1402,19 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.28.2', date:'July 2026',
+    changes:[
+      'Session clock on the Stats screen now shows seconds and ticks live every second while the screen is open. Previous Game still shows duration rounded to the minute',
+    ]
+  },
+  {
+    v:'3.28.1', date:'July 2026',
+    changes:[
+      'Fixed live Stats table showing the just-ended games numbers until the next game actually started — ending a game now clears the live table immediately (Previous Game still shows the frozen snapshot correctly)',
+      'Fixed session clock continuing to count up after a game ended instead of clearing',
+    ]
+  },
+  {
     v:'3.28', date:'July 2026',
     changes:[
       'New button renamed GAME. While no game is live, it works exactly as before (seating confirmation, setup, terms). While a game is live, it instead asks the host to confirm ending the game',
@@ -2106,18 +2119,20 @@ document.getElementById('toggleSeatsBtn').onclick=()=>{
 };
 // ── Stats ────────────────────────────────────────────────────────────
 let statsClockInterval = null;
-function formatElapsed(ms) {
+function formatElapsed(ms, withSeconds) {
   if (ms < 0) ms = 0;
-  const totalMin = Math.floor(ms / 60000);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (withSeconds) return h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`;
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 function updateStatsClock() {
   const el = document.getElementById('statsClockLine');
   if (!el) return;
   if (!lastState || !lastState.sessionStartTime) { el.textContent = ''; return; }
-  el.textContent = `Session time: ${formatElapsed(Date.now() - lastState.sessionStartTime)}`;
+  el.textContent = `Session time: ${formatElapsed(Date.now() - lastState.sessionStartTime, true)}`;
 }
 function renderSessionInfo(state) {
   const info = state.sessionInfo || {buyIn:0,playersToCash:0,blindsStart:'',blindsIncrease:''};
@@ -2157,7 +2172,7 @@ document.getElementById('statsBtn').onclick = () => {
   if (lastState) { renderStatsTable(lastState); renderSessionInfo(lastState); updateStatsClock(); }
   document.getElementById('statsModal').style.display = 'flex';
   clearInterval(statsClockInterval);
-  statsClockInterval = setInterval(updateStatsClock, 30000);
+  statsClockInterval = setInterval(updateStatsClock, 1000);
 };
 document.getElementById('statsCloseBtn').onclick = () => {
   document.getElementById('statsModal').style.display = 'none';
