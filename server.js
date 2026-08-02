@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.27.1';
+const VERSION = '3.28';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -56,6 +56,7 @@ let sessionStartTime=null;       // Date.now() when New Game started — drives 
 let sessionInfo={buyIn:0,playersToCash:0,blindsStart:'',blindsIncrease:''}; // host-entered placeholders, resets on New Game
 let gameSetupPhase=null; // null | 'buyIn' | 'confirming' — the pre-game flow between seating confirmation and dealer selection
 let lastGameSnapshot=null; // frozen stats from the most recently completed game, shown on Stats below the live table
+let gameLive=false; // true once play actually begins (after confirmation), false again once the host formally ends the game — blocks new (non-reconnect) joins while true
 
 function freshDeck(){
   const d=[];
@@ -390,6 +391,7 @@ function publicState(){
     sessionInfo,
     gameSetupPhase,
     lastGameSnapshot,
+    gameLive,
     players:players.map((p,i)=>({
       name:p.name, connected:p.connected, folded:p.folded,
       allIn:p.allIn, sittingOut:p.sittingOut||p.eliminated, eliminated:p.eliminated, action:p.action,
@@ -414,6 +416,7 @@ function saveUndo(logEntry){
 }
 
 io.on('connection',socket=>{
+  socket.emit('state',publicState());
 
   socket.on('checkPin',(pin,cb)=>{if(typeof cb==='function') cb(pin===HOST_PIN);});
 
@@ -425,6 +428,10 @@ io.on('connection',socket=>{
       ex.id=socket.id; ex.connected=true;
       socket.emit('joined',{id:socket.id,reconnected:true});
     } else {
+      if(gameLive){
+        socket.emit('joinBlocked',{reason:'A game is in progress. New players cannot join until the host ends the current game.'});
+        return;
+      }
       players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,eliminated:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,statsRaised:0,statsCalled:0,statsAllIn:0,streakType:null,streakCount:0,hadMoneyInPot:false,confirmedTerms:false});
       socket.emit('joined',{id:socket.id});
       addLog(name+' joined the game');
@@ -463,22 +470,32 @@ io.on('connection',socket=>{
     broadcast();
   });
 
+  function captureGameSnapshot(){
+    if(sessionHandsPlayed<=0) return;
+    lastGameSnapshot={
+      sessionHandsPlayed,
+      sessionDuration: sessionStartTime ? Date.now()-sessionStartTime : null,
+      sessionInfo: {...sessionInfo},
+      eliminationOrder: [...currentGameEliminations],
+      players: players.map(p=>({
+        name:p.name,
+        statsPlayed:p.statsPlayed||0, statsWon:p.statsWon||0, statsFolded:p.statsFolded||0, statsDecided:p.statsDecided||0,
+        statsRaised:p.statsRaised||0, statsCalled:p.statsCalled||0, statsAllIn:p.statsAllIn||0,
+        streakType:p.streakType||null, streakCount:p.streakCount||0,
+        eliminated:p.eliminated,
+      })),
+    };
+  }
+
+  socket.on('endLiveGame',()=>{
+    if(!gameLive) return;
+    captureGameSnapshot();
+    gameLive=false;
+    addLog('=== Game Ended ===');
+    broadcast();
+  });
+
   socket.on('startNewGame',()=>{
-    if(sessionHandsPlayed>0){
-      lastGameSnapshot={
-        sessionHandsPlayed,
-        sessionDuration: sessionStartTime ? Date.now()-sessionStartTime : null,
-        sessionInfo: {...sessionInfo},
-        eliminationOrder: [...currentGameEliminations],
-        players: players.map(p=>({
-          name:p.name,
-          statsPlayed:p.statsPlayed||0, statsWon:p.statsWon||0, statsFolded:p.statsFolded||0, statsDecided:p.statsDecided||0,
-          statsRaised:p.statsRaised||0, statsCalled:p.statsCalled||0, statsAllIn:p.statsAllIn||0,
-          streakType:p.streakType||null, streakCount:p.streakCount||0,
-          eliminated:p.eliminated,
-        })),
-      };
-    }
     // Reset all player states first — bringing eliminated players back in
     players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=false;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.hadMoneyInPot=false;p.confirmedTerms=false;});
     const eligible=players; // everyone is back in after reset
@@ -530,6 +547,7 @@ io.on('connection',socket=>{
     if(gameSetupPhase!=='confirming') return;
     if(!players.every(p=>p.confirmedTerms)) return;
     gameSetupPhase=null;
+    gameLive=true;
     sessionStartTime=Date.now(); // session clock starts when actual play begins, not during setup
     dealHand();
   });
