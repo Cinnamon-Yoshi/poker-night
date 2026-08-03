@@ -979,8 +979,7 @@ document.getElementById('foldWinDealNextBtn').onclick = () => {
   socket.emit('foldWinDealNextStreet');
 };
 socket.on('foldWinBoardUpdated', data => {
-  // The streetReveal animation plays on top of this same overlay, so this
-  // just refreshes what's underneath — it'll be visible once that clears
+  // Board updates instantly on the Results screen — no flip animation here
   if (data && data.runoutResults) showRunoutResults(data.runoutResults);
 });
 
@@ -1471,6 +1470,13 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.31.2', date:'July 2026',
+    changes:[
+      'Fixed the Flop/Turn/River button on the Results screen stretching full-width over the title — same recurring global button-style bug as a couple of earlier fixes, now overridden correctly. Button is now small and sits in the corner as intended',
+      'Removed the flip animation when dealing out a street from the Results screen — the community card now just appears instantly instead',
+    ]
+  },
   {
     v:'3.31.1', date:'July 2026',
     changes:[
