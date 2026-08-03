@@ -1,7 +1,7 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const { evaluateBest, compareEval, cardLabel, describeEval, describeEvalKicker, findDecidingKicker, computeDecidingPos, RANK_NAMES } = require('./public/handEval.js');
+const { evaluateBest, compareEval, cardLabel, describeEval, describeEvalKicker, describeEvalNoKicker, findDecidingKicker, computeDecidingPos, RANK_NAMES } = require('./public/handEval.js');
 
 // Pre-flop hole card description (pocket pair, suited connectors, etc.)
 function describeHoleCards(cards){
@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.32';
+const VERSION = '3.32.1';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -121,7 +121,7 @@ function currentHandLog(){
 // of the new type whenever the result flips
 function normalizeSessionInfo(info){
   if(!info||typeof info!=='object') return sessionInfo;
-  const playersToCash=Math.min(4,Math.max(0,Math.floor(Number(info.playersToCash)||0)));
+  const playersToCash=Math.min(4,players.length,Math.max(0,Math.floor(Number(info.playersToCash)||0)));
   const rawPayouts=Array.isArray(info.payouts)?info.payouts:[];
   const payouts=[];
   for(let i=0;i<playersToCash;i++) payouts[i]=Math.max(0,Number(rawPayouts[i])||0);
@@ -1036,6 +1036,28 @@ io.on('connection',socket=>{
       addLog(p.name+' wins (everyone else folded) ('+cardsStr+' shown)');
     } else {
       addLog(p.name+' shows ('+cardsStr+')');
+    }
+    // If the full board played out, show what their hand would have been —
+    // and once everyone from the hand has revealed, who would have won
+    if(board.length===5){
+      const myEval=evaluateBest([...cards,...board]);
+      if(myEval) addLog(p.name+' would have had: '+compactDesc(describeEvalNoKicker(myEval)));
+      if(foldWinRevealable.length===0){
+        const evals=players.filter(pl=>!pl.sittingOut&&!pl.eliminated).map(pl=>({
+          name:pl.name, eval:evaluateBest([...(holeCards[pl.id]||[]),...board]),
+        })).filter(e=>e.eval);
+        if(evals.length>0){
+          let best=[evals[0]];
+          for(let i=1;i<evals.length;i++){
+            const cmp=compareEval(evals[i].eval,best[0].eval);
+            if(cmp>0) best=[evals[i]];
+            else if(cmp===0) best.push(evals[i]);
+          }
+          const handDesc=compactDesc(describeEvalNoKicker(best[0].eval));
+          if(best.length>1) addLog('🏆 '+best.map(b=>b.name).join(' & ')+' would have tied with '+handDesc+'!');
+          else addLog('🏆 '+best[0].name+' would have won with '+handDesc+'!');
+        }
+      }
     }
     io.emit('handRevealedFoldWin',{name:p.name,cards,handLog:currentHandLog()});
     broadcast();
