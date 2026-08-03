@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.34.1';
+const VERSION = '3.35';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -190,6 +190,10 @@ function recordStreak(p,won){
   const type=won?'W':'L';
   p.streakCount=(p.streakType===type)?(p.streakCount||0)+1:1;
   p.streakType=type;
+  // Session-long maximums for display — unlike streakCount above, these
+  // never decrease once set, even if the current streak later resets
+  if(type==='W') p.maxWinStreak=Math.max(p.maxWinStreak||0,p.streakCount);
+  else p.maxLossStreak=Math.max(p.maxLossStreak||0,p.streakCount);
 }
 
 function compactDesc(str){
@@ -471,7 +475,8 @@ function publicState(){
       statsRaised:p.statsRaised||0, statsCalled:p.statsCalled||0, statsAllIn:p.statsAllIn||0,
       confirmedTerms:!!p.confirmedTerms,
       departed:!!p.departed,
-      streakType:p.streakType||null, streakCount:p.streakCount||0
+      streakType:p.streakType||null, streakCount:p.streakCount||0,
+      maxWinStreak:p.maxWinStreak||0, maxLossStreak:p.maxLossStreak||0
     }))
   };
 }
@@ -503,7 +508,7 @@ io.on('connection',socket=>{
         socket.emit('joinBlocked',{reason:'A game is in progress. New players cannot join until the host ends the current game.'});
         return;
       }
-      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,eliminated:false,departed:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,statsRaised:0,statsCalled:0,statsAllIn:0,streakType:null,streakCount:0,hadMoneyInPot:false,confirmedTerms:false});
+      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,eliminated:false,departed:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,statsRaised:0,statsCalled:0,statsAllIn:0,streakType:null,streakCount:0,maxWinStreak:0,maxLossStreak:0,hadMoneyInPot:false,confirmedTerms:false});
       socket.emit('joined',{id:socket.id});
       addLog(name+' joined the game');
     }
@@ -554,6 +559,7 @@ io.on('connection',socket=>{
         statsPlayed:p.statsPlayed||0, statsWon:p.statsWon||0, statsFolded:p.statsFolded||0, statsDecided:p.statsDecided||0,
         statsRaised:p.statsRaised||0, statsCalled:p.statsCalled||0, statsAllIn:p.statsAllIn||0,
         streakType:p.streakType||null, streakCount:p.streakCount||0,
+        maxWinStreak:p.maxWinStreak||0, maxLossStreak:p.maxLossStreak||0,
         eliminated:p.eliminated,
       })),
     };
@@ -590,14 +596,14 @@ io.on('connection',socket=>{
     sessionHandsPlayed=0;
     sessionStartTime=null;
     lastBlindReminderAt=null;
-    players.forEach(p=>{p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.hadMoneyInPot=false;});
+    players.forEach(p=>{p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.maxWinStreak=0;p.maxLossStreak=0;p.hadMoneyInPot=false;});
     broadcast();
     io.emit('gameEnded');
   });
 
   socket.on('startNewGame',()=>{
     // Reset all player states first — bringing eliminated players back in
-    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=false;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.hadMoneyInPot=false;p.confirmedTerms=false;});
+    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=false;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.maxWinStreak=0;p.maxLossStreak=0;p.hadMoneyInPot=false;p.confirmedTerms=false;});
     const eligible=players; // everyone is back in after reset
     if(eligible.length<2) return;
     // Commit state changes
