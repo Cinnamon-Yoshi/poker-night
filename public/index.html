@@ -303,7 +303,6 @@
     <div class="app-header">
       <div id="sessionInfoCorner" style="display:none;position:absolute;top:2px;left:0;text-align:left;font-size:0.62em;line-height:1.35;opacity:0.7;">
         <div id="sessionClockCorner"></div>
-        <div id="blindsModeCorner"></div>
       </div>
       <button id="exitBtn" aria-label="Leave game" style="position:absolute;top:2px;right:0;width:auto;margin-bottom:0;padding:3px 8px;border-radius:20px;border:none;background:#5c2020;color:#d9a3a3;font-size:0.6em;font-weight:800;letter-spacing:0.5px;line-height:1;cursor:pointer;">EXIT</button>
       <div class="app-title">&#9824; Roatan Poker Club</div>
@@ -1275,6 +1274,12 @@ function showRunoutResults(runout) {
       const stack = document.createElement('div');
       stack.className = 'fw-btn-stack';
 
+      const showBtn = document.createElement('button');
+      showBtn.className = 'fw-show-hand-btn';
+      showBtn.textContent = 'Show';
+      showBtn.onclick = () => { socket.emit('revealHandFoldWin'); stack.remove(); };
+      stack.appendChild(showBtn);
+
       const peekBtn = document.createElement('button');
       peekBtn.className = 'fw-peek-btn';
       peekBtn.textContent = 'Peek';
@@ -1294,12 +1299,6 @@ function showRunoutResults(runout) {
       peekBtn.addEventListener('touchend', hidePeek);
       peekBtn.addEventListener('mouseleave', hidePeek);
       stack.appendChild(peekBtn);
-
-      const showBtn = document.createElement('button');
-      showBtn.className = 'fw-show-hand-btn';
-      showBtn.textContent = 'Show';
-      showBtn.onclick = () => { socket.emit('revealHandFoldWin'); stack.remove(); };
-      stack.appendChild(showBtn);
 
       top.appendChild(stack);
     }
@@ -1612,6 +1611,13 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.34.1', date:'July 2026',
+    changes:[
+      'Peek and Show buttons on the Results screen are now full-height (matching the card row) and side by side instead of small stacked pills — Show on the inside, Peek on the outside',
+      'Removed the Every X blinds-increase text from the home screen corner — it now lives only in the At the Table header, no more duplication',
+    ]
+  },
   {
     v:'3.34', date:'July 2026',
     changes:[
@@ -2498,8 +2504,6 @@ function updateHomeScreenSessionInfo() {
   const modeLabel = info.blindsIncreaseMode === 'minutes' ? `Every ${info.blindsIncreaseValue}m`
                    : info.blindsIncreaseMode === 'hands' ? `Every ${info.blindsIncreaseValue} hands`
                    : 'Same Dealer';
-  const modeEl = document.getElementById('blindsModeCorner');
-  modeEl.textContent = modeLabel;
   if (tableBlindsEl) {
     tableBlindsEl.textContent = info.blindsSB > 0 ? `SB ${info.blindsSB}, BB ${info.blindsBB} · Increase: ${modeLabel}` : '';
   }
