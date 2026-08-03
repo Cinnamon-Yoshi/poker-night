@@ -1527,6 +1527,12 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.32.3', date:'July 2026',
+    changes:[
+      'Removed None from the Players to Cash dropdown — minimum is now 1, since someone always wins the cash',
+    ]
+  },
+  {
     v:'3.32.2', date:'July 2026',
     changes:[
       'Fixed would have had lines not appearing when a player revealed before all streets had played out — now logged retroactively once the board completes, regardless of reveal order',
@@ -2814,10 +2820,10 @@ function populatePlayersToCashOptions(prefix) {
   if (!sel) return;
   const maxCash = Math.min(4, (lastState && lastState.players) ? lastState.players.length : 4);
   const prevValue = sel.value;
-  let html = '<option value="0">None</option>';
+  let html = '';
   for (let i = 1; i <= maxCash; i++) html += `<option value="${i}">${i}</option>`;
   sel.innerHTML = html;
-  if (Number(prevValue) <= maxCash) sel.value = prevValue;
+  if (Number(prevValue) >= 1 && Number(prevValue) <= maxCash) sel.value = prevValue;
 }
 
 function fillSessionInfoForm(prefix, info) {
@@ -2832,7 +2838,7 @@ function fillSessionInfoForm(prefix, info) {
   document.getElementById(prefix + 'BlindsHands').value = mode === 'hands' ? (info.blindsIncreaseValue || '') : '';
   updateBlindsModeInputs(prefix);
   populatePlayersToCashOptions(prefix);
-  document.getElementById(prefix + 'PlayersToCash').value = info.playersToCash || '0';
+  document.getElementById(prefix + 'PlayersToCash').value = info.playersToCash || '1';
   renderPayoutFields(prefix);
   (info.payouts || []).forEach((amt, i) => {
     if (i === 0) return; // 1st place is always computed
