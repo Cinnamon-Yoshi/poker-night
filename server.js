@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.32.4';
+const VERSION = '3.32.6';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -1034,13 +1034,20 @@ io.on('connection',socket=>{
   // own hand after a fold-win, to see how it stacked up
   // Logs what a single player's hand would have been — only meaningful once
   // the full board is known
+  function getFoldWinAllEvals(){
+    return players.filter(pl=>!pl.sittingOut&&!pl.eliminated).map(pl=>({
+      name:pl.name, eval:evaluateBest([...(holeCards[pl.id]||[]),...board]),
+    })).filter(e=>e.eval);
+  }
+
   function logFoldWinWouldHaveHad(name){
-    const pl=players.find(p=>p.name===name);
-    if(!pl) return;
-    const cards=holeCards[pl.id]||[];
-    if(!cards.length||board.length!==5) return;
-    const ev=evaluateBest([...cards,...board]);
-    if(ev) addLog(name+' would have had: '+compactDesc(describeEvalNoKicker(ev)));
+    if(board.length!==5) return;
+    const evals=getFoldWinAllEvals();
+    const mine=evals.find(e=>e.name===name);
+    if(!mine) return;
+    const peers=evals.filter(e=>e.name!==name).map(e=>e.eval);
+    const pos=computeDecidingPos(mine.eval,peers);
+    addLog(name+' would have had: '+compactDesc(describeEvalKicker(mine.eval,pos)));
   }
 
   // Once the board is fully out AND everyone from the hand has revealed,
@@ -1049,9 +1056,7 @@ io.on('connection',socket=>{
   function maybeLogFoldWinWouldHaveWon(){
     if(!foldWinWinnerName||board.length!==5) return;
     if(!foldWinRevealable||foldWinRevealable.length!==0) return;
-    const evals=players.filter(pl=>!pl.sittingOut&&!pl.eliminated).map(pl=>({
-      name:pl.name, eval:evaluateBest([...(holeCards[pl.id]||[]),...board]),
-    })).filter(e=>e.eval);
+    const evals=getFoldWinAllEvals();
     if(evals.length===0) return;
     let best=[evals[0]];
     for(let i=1;i<evals.length;i++){
@@ -1059,8 +1064,14 @@ io.on('connection',socket=>{
       if(cmp>0) best=[evals[i]];
       else if(cmp===0) best.push(evals[i]);
     }
-    const handDesc=compactDesc(describeEvalNoKicker(best[0].eval));
+    // Compare against everyone NOT in the winning group, so a deciding
+    // kicker (e.g. an Ace beating a Jack with the same two pair) actually
+    // shows up instead of making genuinely different hands look identical
+    const peers=evals.filter(e=>!best.includes(e)).map(e=>e.eval);
+    const pos=computeDecidingPos(best[0].eval,peers);
+    const handDesc=compactDesc(describeEvalKicker(best[0].eval,pos));
     if(best.length>1) addLog(best.map(b=>b.name).join(' & ')+' would have tied with '+handDesc+'!');
+    else if(best[0].name===foldWinWinnerName) addLog(best[0].name+' STILL would have won with '+handDesc+'!');
     else addLog(best[0].name+' would have won with '+handDesc+'!');
   }
 
