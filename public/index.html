@@ -206,7 +206,6 @@
     <div id="hostConfirmPanel" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);">
       <div style="font-size:0.78em;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Player Confirmations</div>
       <div id="hostConfirmList" style="margin-bottom:16px;"></div>
-      <button id="hostProceedBtn" disabled style="width:100%;">Continue to Dealer Selection →</button>
       <button id="hostBackToSetupBtn" class="secondary" style="width:100%;margin-top:8px;">← Back to Edit Details</button>
     </div>
   </div>
@@ -1548,6 +1547,13 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.33.1', date:'July 2026',
+    changes:[
+      'Confirm Game Terms screen: renamed Buy-in to Player Buy-in, and moved Payouts to right below Total Pot',
+      'Game now starts instantly the moment the last player confirms the terms — the host no longer needs to tap Continue to Dealer Selection, that button is gone',
+    ]
+  },
+  {
     v:'3.33', date:'July 2026',
     changes:[
       'Fold-win Results: the winner now gets the same Would have had line as everyone else once the board is complete and they reveal — was only showing for folded players before',
@@ -2719,14 +2725,9 @@ function renderTermsConfirmScreen(state) {
   const fmtMoney = n => '$' + (Math.round(n * 100) / 100).toString();
   const summary = document.getElementById('termsSummary');
   let html = '';
-  html += `<div>Buy-in: ${info.buyIn > 0 ? fmtMoney(info.buyIn) : '—'}</div>`;
+  html += `<div>Player Buy-in: ${info.buyIn > 0 ? fmtMoney(info.buyIn) : '—'}</div>`;
   html += `<div>Starting Chips: ${info.startingChips ? info.startingChips : '—'}</div>`;
   html += `<div>Total Pot: ${info.buyIn > 0 ? fmtMoney(totalPot) + ` (${totalPlayers} players)` : '—'}</div>`;
-  html += `<div>Blinds: ${info.blindsSB > 0 ? fmtMoney(info.blindsSB) + ' / ' + fmtMoney(info.blindsBB) : '—'}</div>`;
-  const modeLabel = info.blindsIncreaseMode === 'minutes' ? `Every ${info.blindsIncreaseValue} min`
-                   : info.blindsIncreaseMode === 'hands' ? `Every ${info.blindsIncreaseValue} hands`
-                   : 'Same Dealer';
-  html += `<div>Blinds Increase: ${modeLabel}</div>`;
   if (info.playersToCash > 0 && info.payouts && info.payouts.length) {
     const ordinalLabels = ['1st', '2nd', '3rd', '4th'];
     const lines = info.payouts.map((amt, i) => `${ordinalLabels[i]}: ${fmtMoney(amt || 0)}`).join(' · ');
@@ -2734,6 +2735,11 @@ function renderTermsConfirmScreen(state) {
   } else {
     html += `<div>Players to Cash: —</div>`;
   }
+  html += `<div>Blinds: ${info.blindsSB > 0 ? fmtMoney(info.blindsSB) + ' / ' + fmtMoney(info.blindsBB) : '—'}</div>`;
+  const modeLabel = info.blindsIncreaseMode === 'minutes' ? `Every ${info.blindsIncreaseValue} min`
+                   : info.blindsIncreaseMode === 'hands' ? `Every ${info.blindsIncreaseValue} hands`
+                   : 'Same Dealer';
+  html += `<div>Blinds Increase: ${modeLabel}</div>`;
   summary.innerHTML = html;
 
   const me = (state.players || []).find(p => p.name === myName);
@@ -2776,7 +2782,6 @@ function renderTermsConfirmScreen(state) {
       row.appendChild(nameEl); row.appendChild(right);
       list.appendChild(row);
     });
-    document.getElementById('hostProceedBtn').disabled = !(state.players || []).every(p => p.confirmedTerms);
   }
 }
 
@@ -2907,9 +2912,6 @@ document.getElementById('gsCancelBtn').onclick = () => {
 };
 document.getElementById('agreeTermsBtn').onclick = () => {
   socket.emit('confirmSessionTerms');
-};
-document.getElementById('hostProceedBtn').onclick = () => {
-  socket.emit('proceedPastConfirmation');
 };
 document.getElementById('hostBackToSetupBtn').onclick = () => {
   socket.emit('backToGameSetup');
