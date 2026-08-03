@@ -106,7 +106,7 @@
       <button id="siEditToggleBtn" class="secondary" style="width:100%;margin-top:8px;display:none;">Edit Game Info</button>
     </div>
 
-    <div class="tourn-subtitle">This session only — resets on New Game. Played/$Fold/Win%/Loss% only count hands where you had money in (blind posted, called, or raised) — a fold with money in counts as a loss.</div>
+    <div class="tourn-subtitle">This session only — resets on New Game. Folded/Won/Lost only count hands where you had money in (blind posted, called, or raised) — a fold with money in counts as a loss.</div>
     <div id="statsTableWrap"></div>
     <div id="prevGameWrap"></div>
   </div>
@@ -1612,6 +1612,15 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.35', date:'July 2026',
+    changes:[
+      'Stats table redesigned: removed Played and Call%, renamed $Fold/Win%/Loss%/Raise%/All-in% to Folded/Won/Lost/Raised/All-in',
+      'New column order: Player, Place, Folded, Raised, All-in, Won, Lost, Streak',
+      'Streak column now shows session-long best streaks in one field (e.g. W3/L4) instead of just the current live streak — these numbers only ever go up over the course of a session, never reset back down',
+      'Place column now shows the players $ payout underneath their placement, when that place actually cashes',
+    ]
+  },
+  {
     v:'3.34.1', date:'July 2026',
     changes:[
       'Peek and Show buttons on the Results screen are now full-height (matching the card row) and side by side instead of small stacked pills — Show on the inside, Peek on the outside',
@@ -2613,7 +2622,7 @@ function computeStatsRows(state) {
   const isOver = active.length === 1 && players.length > 1;
   const bustedRank = {};
   [...elimOrder].reverse().forEach((name, i) => { bustedRank[name] = i; }); // 0 = most recently busted
-  const totalHands = state.sessionHandsPlayed || 0;
+  const info = state.sessionInfo || {};
   const rows = players.map(p => {
     const played = p.statsPlayed || 0;
     const folded = p.statsFolded || 0;
@@ -2621,13 +2630,10 @@ function computeStatsRows(state) {
     const decided = p.statsDecided || 0; // only hands actually resolved (won or lost at showdown) — not folds, not hands still in progress
     const winPct = decided > 0 ? Math.round(won / decided * 100) : null;
     const lossPct = decided > 0 ? Math.round((decided - won) / decided * 100) : null;
-    const playedPct = totalHands > 0 ? Math.round(played / totalHands * 100) : null;
     const foldPct = played > 0 ? Math.round(folded / played * 100) : null;
     const raised = p.statsRaised || 0;
-    const called = p.statsCalled || 0;
     const allIn = p.statsAllIn || 0;
     const raisePct = played > 0 ? Math.round(raised / played * 100) : null;
-    const callPct = played > 0 ? Math.round(called / played * 100) : null;
     const allInPct = played > 0 ? Math.round(allIn / played * 100) : null;
     // Exit place — first player eliminated in an N-player game finishes Nth,
     // last one out finishes 2nd, the sole remaining player finishes 1st
@@ -2638,10 +2644,11 @@ function computeStatsRows(state) {
     } else if (isOver) {
       place = 1;
     }
+    const payout = (place !== null && info.payouts && place <= info.payouts.length) ? info.payouts[place - 1] : null;
     return {
-      name: p.name, played, won, folded, decided, winPct, lossPct, playedPct, foldPct,
-      raised, called, allIn, raisePct, callPct, allInPct, place,
-      streakType: p.streakType || null, streakCount: p.streakCount || 0,
+      name: p.name, played, won, folded, decided, winPct, lossPct, foldPct,
+      raised, allIn, raisePct, allInPct, place, payout,
+      maxWinStreak: p.maxWinStreak || 0, maxLossStreak: p.maxLossStreak || 0,
       eliminated: p.eliminated, isWinner: isOver && !p.eliminated
     };
   });
@@ -2658,29 +2665,27 @@ function computeStatsRows(state) {
 
 function buildStatsTableHtml(rows) {
   let html = '<div class="tourn-scroll"><table class="tourn-table">';
-  html += '<thead><tr><th class="tc-name">Player</th><th class="tc-game">Place</th><th class="tc-game">Played</th><th class="tc-game">$Fold</th><th class="tc-game">Win%</th><th class="tc-game">Loss%</th><th class="tc-game">Streak</th><th class="tc-game">Raise%</th><th class="tc-game">Call%</th><th class="tc-game">All-In%</th></tr></thead><tbody>';
+  html += '<thead><tr><th class="tc-name">Player</th><th class="tc-game">Place</th><th class="tc-game">Folded</th><th class="tc-game">Raised</th><th class="tc-game">All-in</th><th class="tc-game">Won</th><th class="tc-game">Lost</th><th class="tc-game">Streak</th></tr></thead><tbody>';
   rows.forEach(r => {
     const cls = r.isWinner ? 'tr-leader' : '';
     const style = r.eliminated ? ' style="opacity:0.55;"' : '';
     const statusBadge = r.isWinner ? ' 🏆' : r.eliminated ? ' <span style="opacity:0.5;font-size:0.85em;">(busted)</span>' : '';
-    const streakText = r.streakType ? `${r.streakType}${r.streakCount}` : '—';
-    const streakColor = r.streakType === 'W' ? '#d4af37' : r.streakType === 'L' ? '#ff6b6b' : 'inherit';
-    const playedCell = r.playedPct !== null ? `${r.played} (${r.playedPct}%)` : `${r.played}`;
+    const streakText = (r.maxWinStreak || r.maxLossStreak) ? `W${r.maxWinStreak}/L${r.maxLossStreak}` : '—';
     const foldCell = r.foldPct !== null ? `${r.folded} (${r.foldPct}%)` : `${r.folded}`;
     const winCell = r.winPct !== null ? `${r.won} (${r.winPct}%)` : '—';
     const lossCell = r.lossPct !== null ? `${r.decided - r.won} (${r.lossPct}%)` : '—';
-    const placeCell = r.place !== null ? ordinal(r.place) : '—';
+    const placeCell = r.place !== null
+      ? `${ordinal(r.place)}${r.payout != null ? `<br><span style="font-size:0.75em;opacity:0.75;color:#d4af37;">$${r.payout}</span>` : ''}`
+      : '—';
     html += `<tr class="${cls}"${style}>`;
     html += `<td class="tc-name">${r.name}${statusBadge}</td>`;
     html += `<td class="tc-pts">${placeCell}</td>`;
-    html += `<td class="tc-pts">${playedCell}</td>`;
     html += `<td class="tc-pts">${foldCell}</td>`;
+    html += `<td class="tc-pts">${r.raisePct !== null ? r.raisePct + '%' : '—'}</td>`;
+    html += `<td class="tc-pts">${r.allInPct !== null ? r.allInPct + '%' : '—'}</td>`;
     html += `<td class="tc-pts">${winCell}</td>`;
     html += `<td class="tc-pts">${lossCell}</td>`;
-    html += `<td class="tc-pts" style="color:${streakColor};font-weight:800;">${streakText}</td>`;
-    html += `<td class="tc-pts">${r.raisePct !== null ? r.raisePct + '%' : '—'}</td>`;
-    html += `<td class="tc-pts">${r.callPct !== null ? r.callPct + '%' : '—'}</td>`;
-    html += `<td class="tc-pts">${r.allInPct !== null ? r.allInPct + '%' : '—'}</td>`;
+    html += `<td class="tc-pts" style="font-weight:800;">${streakText}</td>`;
     html += '</tr>';
   });
   html += '</tbody></table></div>';
