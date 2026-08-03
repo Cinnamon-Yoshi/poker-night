@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.32.1';
+const VERSION = '3.32.2';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -1008,6 +1008,14 @@ io.on('connection',socket=>{
       deck.pop(); board.push(deck.pop());
       addLog('River: '+cardLabel(board[4]));
     }
+    if(board.length===5){
+      // Board just completed — retroactively log would-have-had for anyone
+      // who already revealed earlier, before the board was finished
+      players.filter(pl=>!pl.sittingOut&&!pl.eliminated&&foldWinRevealable&&!foldWinRevealable.includes(pl.name)).forEach(pl=>{
+        logFoldWinWouldHaveHad(pl.name);
+      });
+      maybeLogFoldWinWouldHaveWon();
+    }
     // Re-send the results payload with the updated board — preserve any
     // hands already individually revealed rather than hiding them again
     const resultsPlayers=players.filter(p=>!p.sittingOut&&!p.eliminated).map(p=>({
@@ -1023,6 +1031,38 @@ io.on('connection',socket=>{
 
   // Any player from this hand (winner or folded) can choose to reveal their
   // own hand after a fold-win, to see how it stacked up
+  // Logs what a single player's hand would have been — only meaningful once
+  // the full board is known
+  function logFoldWinWouldHaveHad(name){
+    const pl=players.find(p=>p.name===name);
+    if(!pl) return;
+    const cards=holeCards[pl.id]||[];
+    if(!cards.length||board.length!==5) return;
+    const ev=evaluateBest([...cards,...board]);
+    if(ev) addLog(name+' would have had: '+compactDesc(describeEvalNoKicker(ev)));
+  }
+
+  // Once the board is fully out AND everyone from the hand has revealed,
+  // logs who actually had the best hand — no trophy emoji, so this renders
+  // in plain white rather than the gold highlight color
+  function maybeLogFoldWinWouldHaveWon(){
+    if(!foldWinWinnerName||board.length!==5) return;
+    if(!foldWinRevealable||foldWinRevealable.length!==0) return;
+    const evals=players.filter(pl=>!pl.sittingOut&&!pl.eliminated).map(pl=>({
+      name:pl.name, eval:evaluateBest([...(holeCards[pl.id]||[]),...board]),
+    })).filter(e=>e.eval);
+    if(evals.length===0) return;
+    let best=[evals[0]];
+    for(let i=1;i<evals.length;i++){
+      const cmp=compareEval(evals[i].eval,best[0].eval);
+      if(cmp>0) best=[evals[i]];
+      else if(cmp===0) best.push(evals[i]);
+    }
+    const handDesc=compactDesc(describeEvalNoKicker(best[0].eval));
+    if(best.length>1) addLog(best.map(b=>b.name).join(' & ')+' would have tied with '+handDesc+'!');
+    else addLog(best[0].name+' would have won with '+handDesc+'!');
+  }
+
   socket.on('revealHandFoldWin',()=>{
     if(!foldWinRevealable) return;
     if(stage!=='idle') return; // window closed once the next hand starts dealing
@@ -1032,33 +1072,9 @@ io.on('connection',socket=>{
     if(!cards.length) return;
     foldWinRevealable=foldWinRevealable.filter(n=>n!==p.name);
     const cardsStr=cards.map(c=>cardLabel(c)).join(' ');
-    if(p.name===foldWinWinnerName){
-      addLog(p.name+' wins (everyone else folded) ('+cardsStr+' shown)');
-    } else {
-      addLog(p.name+' shows ('+cardsStr+')');
-    }
-    // If the full board played out, show what their hand would have been —
-    // and once everyone from the hand has revealed, who would have won
-    if(board.length===5){
-      const myEval=evaluateBest([...cards,...board]);
-      if(myEval) addLog(p.name+' would have had: '+compactDesc(describeEvalNoKicker(myEval)));
-      if(foldWinRevealable.length===0){
-        const evals=players.filter(pl=>!pl.sittingOut&&!pl.eliminated).map(pl=>({
-          name:pl.name, eval:evaluateBest([...(holeCards[pl.id]||[]),...board]),
-        })).filter(e=>e.eval);
-        if(evals.length>0){
-          let best=[evals[0]];
-          for(let i=1;i<evals.length;i++){
-            const cmp=compareEval(evals[i].eval,best[0].eval);
-            if(cmp>0) best=[evals[i]];
-            else if(cmp===0) best.push(evals[i]);
-          }
-          const handDesc=compactDesc(describeEvalNoKicker(best[0].eval));
-          if(best.length>1) addLog('🏆 '+best.map(b=>b.name).join(' & ')+' would have tied with '+handDesc+'!');
-          else addLog('🏆 '+best[0].name+' would have won with '+handDesc+'!');
-        }
-      }
-    }
+    addLog(p.name+' shows ('+cardsStr+')');
+    logFoldWinWouldHaveHad(p.name); // no-op if board isn't complete yet
+    maybeLogFoldWinWouldHaveWon();
     io.emit('handRevealedFoldWin',{name:p.name,cards,handLog:currentHandLog()});
     broadcast();
   });
