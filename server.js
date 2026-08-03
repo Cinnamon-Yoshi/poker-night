@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.31.2';
+const VERSION = '3.32';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -54,7 +54,7 @@ let firstHandDealt=false;
 let currentGameEliminations=[];  // player names in elimination order (earliest first) — used for Stats display order
 let sessionHandsPlayed=0;        // total hands dealt this session — for Stats context/percentages, resets on New Game
 let sessionStartTime=null;       // Date.now() when New Game started — drives the session clock
-let sessionInfo={buyIn:0,playersToCash:0,blindsStart:'',blindsIncrease:''}; // host-entered placeholders, resets on New Game
+let sessionInfo={buyIn:0,playersToCash:0,payouts:[],blindsSB:0,blindsBB:0,blindsIncreaseMode:'dealer',blindsIncreaseValue:0,startingChips:2000}; // host-entered placeholders, resets on New Game
 let gameSetupPhase=null; // null | 'buyIn' | 'confirming' — the pre-game flow between seating confirmation and dealer selection
 let lastGameSnapshot=null; // frozen stats from the most recently completed game, shown on Stats below the live table
 let gameLive=false; // true once play actually begins (after confirmation), false again once the host formally ends the game — blocks new (non-reconnect) joins while true
@@ -119,6 +119,41 @@ function currentHandLog(){
 // so the log reads the same notation as the Hands Revealed / Results screens.
 // Tracks each player's current win/loss streak (e.g. W3, L2) — resets to 1
 // of the new type whenever the result flips
+function normalizeSessionInfo(info){
+  if(!info||typeof info!=='object') return sessionInfo;
+  const playersToCash=Math.min(4,Math.max(0,Math.floor(Number(info.playersToCash)||0)));
+  const rawPayouts=Array.isArray(info.payouts)?info.payouts:[];
+  const payouts=[];
+  for(let i=0;i<playersToCash;i++) payouts[i]=Math.max(0,Number(rawPayouts[i])||0);
+  const blindsSB=Math.max(0,Number(info.blindsSB)||0);
+  const mode=['dealer','minutes','hands'].includes(info.blindsIncreaseMode)?info.blindsIncreaseMode:'dealer';
+  return {
+    buyIn: Math.max(0, Number(info.buyIn)||0),
+    playersToCash, payouts,
+    blindsSB, blindsBB: blindsSB*2,
+    blindsIncreaseMode: mode,
+    blindsIncreaseValue: Math.max(0, Math.floor(Number(info.blindsIncreaseValue)||0)),
+    startingChips: Math.max(0, Math.floor(Number(info.startingChips)||0)) || 2000,
+  };
+}
+
+// Automated blind-increase reminders for the Minutes / # of Hands styles —
+// Same Dealer already has its own mechanism further down
+let lastBlindReminderAt=null;   // Date.now() of the last reminder (minutes mode) or game start
+let handsSinceBlindReminder=0;  // hands dealt since the last reminder (hands mode)
+function checkTimedBlindReminder(){
+  if(!gameLive) return;
+  if(sessionInfo.blindsIncreaseMode!=='minutes'||sessionInfo.blindsIncreaseValue<=0) return;
+  if(!lastBlindReminderAt) return;
+  const dueMs=sessionInfo.blindsIncreaseValue*60000;
+  if(Date.now()-lastBlindReminderAt>=dueMs){
+    lastBlindReminderAt=Date.now();
+    addLog('⏰ Blinds reminder — '+sessionInfo.blindsIncreaseValue+' minute'+(sessionInfo.blindsIncreaseValue===1?'':'s')+' elapsed');
+    broadcast();
+  }
+}
+setInterval(checkTimedBlindReminder,15000);
+
 function formatClockTime(){
   const d=new Date();
   let h=d.getHours(); const m=String(d.getMinutes()).padStart(2,'0');
@@ -537,6 +572,7 @@ io.on('connection',socket=>{
     gameLive=false;
     sessionHandsPlayed=0;
     sessionStartTime=null;
+    lastBlindReminderAt=null;
     players.forEach(p=>{p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.hadMoneyInPot=false;});
     broadcast();
   });
@@ -557,7 +593,8 @@ io.on('connection',socket=>{
     firstHandDealt=false;
     currentGameEliminations=[];
     sessionHandsPlayed=0;
-    sessionInfo={buyIn:0,playersToCash:0,blindsStart:'',blindsIncrease:''};
+    sessionInfo={buyIn:0,playersToCash:0,payouts:[],blindsSB:0,blindsBB:0,blindsIncreaseMode:'dealer',blindsIncreaseValue:0,startingChips:2000};
+    handsSinceBlindReminder=0;
     gameSetupPhase='buyIn'; // host fills in buy-in/blinds/payout next, then players confirm
 
     players.forEach(p=>io.to(p.id).emit('yourCards',[]));
@@ -567,14 +604,7 @@ io.on('connection',socket=>{
   // Host submits buy-in/blinds/payout, moving everyone to the confirmation screen
   socket.on('submitGameSetup',info=>{
     if(gameSetupPhase!=='buyIn') return;
-    if(info&&typeof info==='object'){
-      sessionInfo={
-        buyIn: Math.max(0, Number(info.buyIn)||0),
-        playersToCash: Math.max(0, Math.floor(Number(info.playersToCash)||0)),
-        blindsStart: String(info.blindsStart||'').slice(0,40),
-        blindsIncrease: String(info.blindsIncrease||'').slice(0,40),
-      };
-    }
+    sessionInfo=normalizeSessionInfo(info);
     gameSetupPhase='confirming';
     players.forEach(p=>{ p.confirmedTerms=false; });
     broadcast();
@@ -596,6 +626,8 @@ io.on('connection',socket=>{
     gameLive=true;
     gameTotalPlayers=players.length;
     sessionStartTime=Date.now(); // session clock starts when actual play begins, not during setup
+    lastBlindReminderAt=Date.now();
+    handsSinceBlindReminder=0;
     addLog('=== GAME BEGINS ('+formatClockTime()+') ===');
     dealHand();
   });
@@ -691,13 +723,7 @@ io.on('connection',socket=>{
   });
 
   socket.on('setSessionInfo',info=>{
-    if(!info||typeof info!=='object') return;
-    sessionInfo={
-      buyIn: Math.max(0, Number(info.buyIn)||0),
-      playersToCash: Math.max(0, Math.floor(Number(info.playersToCash)||0)),
-      blindsStart: String(info.blindsStart||'').slice(0,40),
-      blindsIncrease: String(info.blindsIncrease||'').slice(0,40),
-    };
+    sessionInfo=normalizeSessionInfo(info);
     broadcast();
   });
 
@@ -759,6 +785,13 @@ io.on('connection',socket=>{
     hasRaiseThisStreet=true;  // pre-flop: blinds already out = there's a bet to call
     bbCanCheck=true;           // BB gets free check option if no one raises
     sessionHandsPlayed++;
+    if(sessionInfo.blindsIncreaseMode==='hands'&&sessionInfo.blindsIncreaseValue>0){
+      handsSinceBlindReminder++;
+      if(handsSinceBlindReminder>=sessionInfo.blindsIncreaseValue){
+        handsSinceBlindReminder=0;
+        addLog('⏰ Blinds reminder — '+sessionInfo.blindsIncreaseValue+' hand'+(sessionInfo.blindsIncreaseValue===1?'':'s')+' played');
+      }
+    }
     addLog('--- New hand. Dealer: '+players[dealerIdx].name+' ---');
     const sbIdx=getSB(), bbIdx=getBB();
     handSBIdx=sbIdx; handBBIdx=bbIdx;
@@ -984,8 +1017,8 @@ io.on('connection',socket=>{
       winner:p.name===foldWinWinnerName,
       folded:p.folded,
     }));
-    io.emit('foldWinBoardUpdated',{runoutResults:{players:resultsPlayers, board:[...board], foldWin:true}});
     broadcast();
+    io.emit('foldWinBoardUpdated',{runoutResults:{players:resultsPlayers, board:[...board], foldWin:true}});
   });
 
   // Any player from this hand (winner or folded) can choose to reveal their
