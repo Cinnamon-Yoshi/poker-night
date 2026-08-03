@@ -835,7 +835,7 @@ let pendingShuffleData = null;
 
 socket.on('blindsReminder', data => {
   blindsOverlayActive = true;
-  document.getElementById('blindsDealerMsg').textContent = data.dealerName + ' is the dealer again.';
+  document.getElementById('blindsDealerMsg').textContent = data.message || '';
   document.getElementById('blindsOverlay').classList.add('active');
   setTimeout(() => {
     document.getElementById('blindsOverlay').classList.remove('active');
@@ -1215,7 +1215,7 @@ function showRunoutResults(runout) {
     const nameEl = document.createElement('div'); nameEl.className = 'aio-name';
     nameEl.textContent = p.name; info.appendChild(nameEl);
     const handEl = document.createElement('div'); handEl.className = 'aio-hand';
-    if (runout.foldWin && p.folded && alreadyRevealed && (runout.board || []).length === 5) {
+    if (runout.foldWin && alreadyRevealed && (runout.board || []).length === 5) {
       const mine = knownEvals.find(e => e.name === p.name);
       if (mine) {
         const peers = knownEvals.filter(e => e.name !== p.name).map(e => e.eval);
@@ -1547,6 +1547,15 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.33', date:'July 2026',
+    changes:[
+      'Fold-win Results: the winner now gets the same Would have had line as everyone else once the board is complete and they reveal — was only showing for folded players before',
+      'Fixed the Same Dealer blinds reminder breaking permanently if the tracked dealer busted out mid-game (it already handled a dealer leaving/being removed, but not a normal bust-out) — now correctly moves to the next active player in all four cases',
+      'All three blinds-increase styles now show the same popup notification, not just Same Dealer',
+      'The Minutes-based reminder now waits until the current hand actually finishes before firing, instead of potentially interrupting active play mid-hand — Same Dealer and # of Hands were already naturally timed between hands',
+    ]
+  },
   {
     v:'3.32.6', date:'July 2026',
     changes:[
