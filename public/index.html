@@ -1527,6 +1527,13 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.32.4', date:'July 2026',
+    changes:[
+      'Fixed the old Same Dealer blinds reminder still firing even when Minutes or # of Hands was selected instead — it was never gated to only fire for its own mode',
+      'Raised the action log cap from 120 to 3000 entries — 120 was getting exhausted within a handful of hands, silently dropping older entries including GAME BEGINS and earlier hands',
+    ]
+  },
+  {
     v:'3.32.3', date:'July 2026',
     changes:[
       'Removed None from the Players to Cash dropdown — minimum is now 1, since someone always wins the cash',
