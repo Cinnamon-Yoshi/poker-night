@@ -48,6 +48,7 @@
   <div class="aio-header">
     <div class="aio-title">ALL-IN — Hands Revealed</div>
     <button id="aioProceedBtn">Proceed ▶</button>
+    <button id="foldWinDealNextBtn">Flop ▶</button>
   </div>
   <button id="aioCloseBtn" class="secondary" style="display:none;width:100%;margin-bottom:8px;" onclick="closeResultsOverlay()">Close</button>
   <div class="aio-community-wrap">
@@ -974,6 +975,15 @@ socket.on('handRevealedFoldWin', data => {
   renderLogInto(document.getElementById('aioHandLog'), data.handLog);
 });
 
+document.getElementById('foldWinDealNextBtn').onclick = () => {
+  socket.emit('foldWinDealNextStreet');
+};
+socket.on('foldWinBoardUpdated', data => {
+  // The streetReveal animation plays on top of this same overlay, so this
+  // just refreshes what's underneath — it'll be visible once that clears
+  if (data && data.runoutResults) showRunoutResults(data.runoutResults);
+});
+
 // Parse hand rank from description string as sort fallback
 function handRankFromDesc(desc) {
   if (!desc || desc === 'Folded') return 0;
@@ -1024,14 +1034,29 @@ function buildResultsData() {
   };
 }
 
+let currentRunoutResults = null;
+
 function showRunoutResults(runout) {
   inAllInRunout = false;
+  currentRunoutResults = runout;
   const ov = document.getElementById('allInOverlay');
   const titleEl = ov.querySelector('.aio-title');
   if (titleEl) titleEl.textContent = 'Results';
   document.getElementById('aioProceedBtn').style.display = 'none';
   let closeBtn = document.getElementById('aioCloseBtn');
   if (closeBtn) closeBtn.style.display = 'block';
+
+  const dealNextBtn = document.getElementById('foldWinDealNextBtn');
+  if (dealNextBtn) {
+    const boardLen = (runout.board||[]).length;
+    if (runout.foldWin && isHost && boardLen < 5) {
+      const label = boardLen === 0 ? 'Flop' : boardLen === 3 ? 'Turn' : 'River';
+      dealNextBtn.textContent = label + ' ▶';
+      dealNextBtn.style.display = 'block';
+    } else {
+      dealNextBtn.style.display = 'none';
+    }
+  }
 
   // Determine which community cards are part of the winning hand, to
   // slightly dim the ones that weren't used
@@ -1104,7 +1129,10 @@ function showRunoutResults(runout) {
         if (ev2 && ev2.bestCards) myUsedKeys = new Set(ev2.bestCards.map(c => c.r+''+c.s));
       }
     }
-    if (runout.foldWin) {
+    const alreadyRevealed = runout.foldWin && p.cards && p.cards.length > 0;
+    if (runout.foldWin && alreadyRevealed) {
+      p.cards.forEach(c => cardsDiv.appendChild(makeCard(c)));
+    } else if (runout.foldWin) {
       cardsDiv.id = fwCardsId(p.name);
       cardsDiv.appendChild(makeCardBack());
       cardsDiv.appendChild(makeCardBack());
@@ -1128,7 +1156,7 @@ function showRunoutResults(runout) {
     const status = document.createElement('div'); status.className = 'aio-odds';
     status.textContent = labels[idx]; info.appendChild(status);
     top.appendChild(info);
-    if (runout.foldWin && myName === p.name) {
+    if (runout.foldWin && myName === p.name && !alreadyRevealed) {
       const showBtn = document.createElement('button');
       showBtn.className = 'fw-show-hand-btn';
       showBtn.textContent = 'Show Hand';
@@ -1380,16 +1408,11 @@ function renderPlayerActionBar(state){
   const btns = document.getElementById('playerActionBtns');
   const me = state.players.find(p => p.name === myName);
 
-  // Fold-win: host can declare the winner now, or play out remaining
-  // streets first purely for show — the winner never changes either way
+  // Fold-win: host declares the winner — playing out remaining streets now
+  // happens from the Results screen itself, after the winner is declared
   if (isHost && state.foldWinner) {
     document.getElementById('playerActionLabel').style.display = 'none';
-    let html = `<button class="pab-btn" onclick="socket.emit('declareFoldWinner')" style="background:#d4af37;color:#111;font-size:1.05em;width:100%;margin-bottom:8px;">🏆 Declare ${state.foldWinner} Winner</button>`;
-    if (state.stage !== 'idle' && state.stage !== 'river') {
-      const nextStreetLabel = state.stage === 'preflop' ? 'Flop' : state.stage === 'flop' ? 'Turn' : 'River';
-      html += `<button class="pab-btn secondary" onclick="socket.emit('foldWinPlayOutStreet')" style="width:100%;">▶ Deal the ${nextStreetLabel} (play it out)</button>`;
-    }
-    btns.innerHTML = html;
+    btns.innerHTML = `<button class="pab-btn" onclick="socket.emit('declareFoldWinner')" style="background:#d4af37;color:#111;font-size:1.05em;width:100%;">🏆 Winner</button>`;
     bar.classList.remove('player-action-hidden');
     return;
   }
@@ -1448,6 +1471,14 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.31.1', date:'July 2026',
+    changes:[
+      'Moved fold-win play-it-out from the home screen to the Results screen — home screen now shows a single Winner button again',
+      'Results screen now has a small Flop/Turn/River button in the top-right corner (host only) that deals the next street and updates the same Results screen once the animation clears',
+      'Already-revealed hands stay revealed when the board updates from dealing another street — no longer flips back to hidden',
+    ]
+  },
   {
     v:'3.31', date:'July 2026',
     changes:[
