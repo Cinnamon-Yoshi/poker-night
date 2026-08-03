@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.33';
+const VERSION = '3.33.1';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -628,17 +628,7 @@ io.on('connection',socket=>{
   });
 
   // A player taps I Agree on the confirmation screen
-  socket.on('confirmSessionTerms',()=>{
-    if(gameSetupPhase!=='confirming') return;
-    const p=players.find(pl=>pl.id===socket.id);
-    if(p){ p.confirmedTerms=true; broadcast(); }
-  });
-
-  // Host taps Continue once everyone has confirmed — go straight into dealer
-  // selection + first hand, same as the seating-confirmation flow already does
-  socket.on('proceedPastConfirmation',()=>{
-    if(gameSetupPhase!=='confirming') return;
-    if(!players.every(p=>p.confirmedTerms)) return;
+  function beginLiveGameAfterConfirmation(){
     gameSetupPhase=null;
     gameLive=true;
     gameTotalPlayers=players.length;
@@ -647,6 +637,26 @@ io.on('connection',socket=>{
     handsSinceBlindReminder=0;
     addLog('=== GAME BEGINS ('+formatClockTime()+') ===');
     dealHand();
+  }
+
+  socket.on('confirmSessionTerms',()=>{
+    if(gameSetupPhase!=='confirming') return;
+    const p=players.find(pl=>pl.id===socket.id);
+    if(!p) return;
+    p.confirmedTerms=true;
+    if(players.every(pl=>pl.confirmedTerms)){
+      beginLiveGameAfterConfirmation(); // instantly starts the game once everyone's in
+    } else {
+      broadcast();
+    }
+  });
+
+  // Host taps Continue once everyone has confirmed — go straight into dealer
+  // selection + first hand, same as the seating-confirmation flow already does
+  socket.on('proceedPastConfirmation',()=>{
+    if(gameSetupPhase!=='confirming') return;
+    if(!players.every(p=>p.confirmedTerms)) return;
+    beginLiveGameAfterConfirmation();
   });
 
   socket.on('backToGameSetup',()=>{
