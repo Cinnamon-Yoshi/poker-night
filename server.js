@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.33.1';
+const VERSION = '3.34';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -592,6 +592,7 @@ io.on('connection',socket=>{
     lastBlindReminderAt=null;
     players.forEach(p=>{p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.hadMoneyInPot=false;});
     broadcast();
+    io.emit('gameEnded');
   });
 
   socket.on('startNewGame',()=>{
@@ -1102,7 +1103,17 @@ io.on('connection',socket=>{
     addLog(p.name+' shows ('+cardsStr+')');
     logFoldWinWouldHaveHad(p.name); // no-op if board isn't complete yet
     maybeLogFoldWinWouldHaveWon();
-    io.emit('handRevealedFoldWin',{name:p.name,cards,handLog:currentHandLog()});
+    // Full updated payload — the targeted flip animation alone doesn't
+    // refresh the would-have-had labels on other rows, so send the whole
+    // picture and let the client re-render once the animation settles
+    const resultsPlayers=players.filter(pl=>!pl.sittingOut&&!pl.eliminated).map(pl=>({
+      name:pl.name,
+      cards: (foldWinRevealable&&foldWinRevealable.includes(pl.name)) ? [] : [...(holeCards[pl.id]||[])],
+      handDesc:pl.folded?'Folded':'',
+      winner:pl.name===foldWinWinnerName,
+      folded:pl.folded,
+    }));
+    io.emit('handRevealedFoldWin',{name:p.name,cards,handLog:currentHandLog(),runoutResults:{players:resultsPlayers,board:[...board],foldWin:true}});
     broadcast();
   });
 
