@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.32.3';
+const VERSION = '3.32.4';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -67,7 +67,7 @@ function freshDeck(){
   return d;
 }
 
-function addLog(msg){actionLog.push(msg);if(actionLog.length>120)actionLog.shift();}
+function addLog(msg){actionLog.push(msg);if(actionLog.length>3000)actionLog.shift();}
 
 function nextActive(from){
   const n=players.length; if(!n) return -1;
@@ -801,8 +801,9 @@ io.on('connection',socket=>{
       if(p&&!p.hadMoneyInPot){ p.hadMoneyInPot=true; p.statsPlayed=(p.statsPlayed||0)+1; }
     });
     const currentDealerName=players[dealerIdx]?players[dealerIdx].name:null;
-    // Blind reminder: fires when dealer wraps back to the initial dealer
-    if(firstHandDealt && currentDealerName && currentDealerName===initialDealerName){
+    // Blind reminder: fires when dealer wraps back to the initial dealer —
+    // only when Same Dealer is the selected blinds-increase style
+    if(sessionInfo.blindsIncreaseMode==='dealer'&&firstHandDealt&&currentDealerName&&currentDealerName===initialDealerName){
       addLog('[Blinds reminder fired for '+currentDealerName+']');
       io.emit('blindsReminder',{dealerName:currentDealerName});
     }
