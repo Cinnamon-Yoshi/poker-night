@@ -435,10 +435,17 @@ button.gold { background:#d4af37; color:#111; }
 .flip-wrap.fw-flip .flipper { width:var(--card-w); height:var(--card-h); transition-duration:0.6s; }
 .flip-wrap.fw-flip .flip-face .card .card-rank { font-size:calc(var(--card-w) * 0.607); }
 .flip-wrap.fw-flip .flip-face .card .card-suit { font-size:calc(var(--card-w) * 0.679); }
-.fw-show-hand-btn {
-  width:auto; margin-left:auto; margin-bottom:0; flex-shrink:0;
+.fw-btn-stack { display:flex; flex-direction:column; gap:6px; margin-left:auto; flex-shrink:0; }
+.fw-peek-btn {
+  width:auto; margin-bottom:0;
   background:#d4af37; color:#111; font-weight:800;
-  border:none; border-radius:8px; padding:8px 14px; font-size:0.8em;
+  border:none; border-radius:8px; padding:6px 14px; font-size:0.75em;
+  cursor:pointer; white-space:nowrap; user-select:none;
+}
+.fw-show-hand-btn {
+  width:auto; margin-bottom:0; flex-shrink:0;
+  background:#5c2020; color:#d9a3a3; font-weight:800;
+  border:none; border-radius:8px; padding:6px 14px; font-size:0.75em;
   cursor:pointer; white-space:nowrap;
 }
 
@@ -628,11 +635,6 @@ button.gold { background:#d4af37; color:#111; }
   position:absolute; right:0;
   background:#d4af37; color:#111; border:none; border-radius:8px;
   padding:9px 14px; font-weight:800; font-size:0.85em; cursor:pointer; display:none;
-}
-#foldWinDealNextBtn {
-  position:absolute; right:0; width:auto; margin-bottom:0;
-  background:#2a5d46; color:#fff; border:none; border-radius:8px;
-  padding:5px 10px; font-weight:800; font-size:0.68em; cursor:pointer; display:none;
 }
 
 .aio-community-wrap { flex-shrink:0; }

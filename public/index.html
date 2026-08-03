@@ -48,9 +48,11 @@
   <div class="aio-header">
     <div class="aio-title">ALL-IN — Hands Revealed</div>
     <button id="aioProceedBtn">Proceed ▶</button>
-    <button id="foldWinDealNextBtn">Flop ▶</button>
   </div>
-  <button id="aioCloseBtn" class="secondary" style="display:none;width:100%;margin-bottom:8px;" onclick="closeResultsOverlay()">Close</button>
+  <div style="display:flex;gap:8px;margin-bottom:8px;">
+    <button id="aioCloseBtn" class="secondary" style="display:none;flex:1;margin-bottom:0;" onclick="closeResultsOverlay()">Close</button>
+    <button id="foldWinDealNextBtn" style="display:none;flex:0 0 auto;margin-bottom:0;">Flop ▶</button>
+  </div>
   <div class="aio-community-wrap">
     <div class="aio-community-label">Community Cards</div>
     <div class="aio-community" id="aioCommunity"></div>
@@ -125,6 +127,7 @@
 <div id="endGameModal" class="full-modal" style="display:none;">
   <div class="full-modal-inner ng-save-inner">
     <div class="ng-save-title">🛑 End Game?</div>
+    <div id="endGameWarning" style="display:none;font-size:0.9em;color:#ffb347;background:rgba(255,179,71,0.1);border:1px solid rgba(255,179,71,0.3);border-radius:8px;padding:10px;margin-bottom:14px;"></div>
     <div style="font-size:0.9em;opacity:0.7;margin-bottom:20px;">This locks in the final results and stats for this game and cannot be undone.</div>
     <button id="endGameConfirmBtn">✓ End Game</button>
     <button id="endGameCancelBtn" class="secondary ng-cancel-btn" style="margin-top:8px;">Cancel</button>
@@ -322,7 +325,7 @@
         <div class="hole-cards-row" id="holeCardsWrap">
           <div class="cards-row" id="holeCardsRow"></div>
           <div id="handNameInline" class="hand-name-inline"></div>
-          <button class="view-btn" id="viewCardsBtn" style="display:none;">&#128065;<br>View</button>
+          <button class="view-btn" id="viewCardsBtn" style="display:none;">&#128065;<br>Peek</button>
         </div>
       </div>
     </div>
@@ -335,7 +338,10 @@
 
     <!-- Players at Table -->
     <div class="section">
-      <div class="label">At the Table</div>
+      <div class="label" style="display:flex;justify-content:space-between;align-items:baseline;">
+        <span>At the Table</span>
+        <span id="tableBlindsInfo" style="font-size:0.75em;font-weight:normal;opacity:0.65;text-transform:none;letter-spacing:normal;"></span>
+      </div>
       <div id="playerList"></div>
     </div>
 
@@ -670,6 +676,8 @@ function showAllInOverlay(data) {
   const pb = document.getElementById('aioProceedBtn');
   // Only host sees Proceed button
   if (pb) pb.style.display = isHost ? 'block' : 'none';
+  const dealNextBtnLive = document.getElementById('foldWinDealNextBtn');
+  if (dealNextBtnLive) dealNextBtnLive.style.display = 'none'; // this button only belongs on the post-hand Results screen
 
   // Community cards (always 5 slots)
   const comm = document.getElementById('aioCommunity');
@@ -943,7 +951,8 @@ function startResultsAutoClose(){
   // Only auto-close the post-hand Results view, not the mid-runout "hands revealed" view
   if (!ov.classList.contains('active') || !btn || (proceedBtn && proceedBtn.style.display !== 'none')) return;
   if (resultsAutoCloseTimer) clearInterval(resultsAutoCloseTimer);
-  let secondsLeft = 10;
+  document.querySelectorAll('.fw-btn-stack').forEach(b => b.remove());
+  let secondsLeft = 5;
   btn.textContent = `Closing in ${secondsLeft}s`;
   resultsAutoCloseTimer = setInterval(() => {
     secondsLeft--;
@@ -952,9 +961,35 @@ function startResultsAutoClose(){
   }, 1000);
 }
 
+let statsAutoCloseTimer = null;
+
+function closeStatsOverlay(){
+  if (statsAutoCloseTimer) { clearInterval(statsAutoCloseTimer); statsAutoCloseTimer = null; }
+  document.getElementById('statsModal').style.display = 'none';
+  clearInterval(statsClockInterval);
+  statsClockInterval = null;
+  const btn = document.getElementById('statsCloseBtn');
+  if (btn) btn.textContent = 'Close';
+}
+
+function startStatsAutoClose(){
+  const modal = document.getElementById('statsModal');
+  const btn = document.getElementById('statsCloseBtn');
+  if (!modal || modal.style.display === 'none' || !btn) return;
+  if (statsAutoCloseTimer) clearInterval(statsAutoCloseTimer);
+  let secondsLeft = 5;
+  btn.textContent = `Closing in ${secondsLeft}s`;
+  statsAutoCloseTimer = setInterval(() => {
+    secondsLeft--;
+    if (secondsLeft <= 0) { closeStatsOverlay(); return; }
+    btn.textContent = `Closing in ${secondsLeft}s`;
+  }, 1000);
+}
+
 function doShowShuffle(data) {
   inAllInRunout = false;
   startResultsAutoClose();
+  startStatsAutoClose();
   shuffleActive = true;
   pendingMyTurn = false;
   window.scrollTo({top:0, behavior:'instant'});
@@ -1027,6 +1062,12 @@ socket.on('handRevealedFoldWin', data => {
   }
   // Refresh the visible This Hand log so the new line appears right away
   renderLogInto(document.getElementById('aioHandLog'), data.handLog);
+  // Let the flip animation finish, then fully re-render so every row's
+  // would-have-had label is correct (a targeted flip alone can't do that,
+  // since a new reveal can change the deciding kicker shown on other rows)
+  if (data.runoutResults) {
+    setTimeout(() => showRunoutResults(data.runoutResults), 1150);
+  }
 });
 
 document.getElementById('foldWinDealNextBtn').onclick = () => {
@@ -1231,11 +1272,36 @@ function showRunoutResults(runout) {
     status.textContent = labels[idx]; info.appendChild(status);
     top.appendChild(info);
     if (runout.foldWin && myName === p.name && !alreadyRevealed) {
+      const stack = document.createElement('div');
+      stack.className = 'fw-btn-stack';
+
+      const peekBtn = document.createElement('button');
+      peekBtn.className = 'fw-peek-btn';
+      peekBtn.textContent = 'Peek';
+      const showPeek = () => {
+        if (!myCards.length) return;
+        cardsDiv.innerHTML = '';
+        myCards.forEach(c => cardsDiv.appendChild(makeCard(c)));
+      };
+      const hidePeek = () => {
+        cardsDiv.innerHTML = '';
+        cardsDiv.appendChild(makeCardBack());
+        cardsDiv.appendChild(makeCardBack());
+      };
+      peekBtn.addEventListener('mousedown', showPeek);
+      peekBtn.addEventListener('touchstart', e => { e.preventDefault(); showPeek(); });
+      peekBtn.addEventListener('mouseup', hidePeek);
+      peekBtn.addEventListener('touchend', hidePeek);
+      peekBtn.addEventListener('mouseleave', hidePeek);
+      stack.appendChild(peekBtn);
+
       const showBtn = document.createElement('button');
       showBtn.className = 'fw-show-hand-btn';
-      showBtn.textContent = 'Show Hand';
-      showBtn.onclick = () => { socket.emit('revealHandFoldWin'); showBtn.remove(); };
-      top.appendChild(showBtn);
+      showBtn.textContent = 'Show';
+      showBtn.onclick = () => { socket.emit('revealHandFoldWin'); stack.remove(); };
+      stack.appendChild(showBtn);
+
+      top.appendChild(stack);
     }
     row.appendChild(top); pl.appendChild(row);
   });
@@ -1546,6 +1612,22 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.34', date:'July 2026',
+    changes:[
+      'Fixed the Flop/Turn/River button leaking into the live all-in showdown screen — it now only ever appears on the post-hand Results screen',
+      'Fixed would-have-had labels not updating when a player revealed their hand individually — was only updating on a full board-complete refresh, now refreshes properly after each reveal',
+      'Results screen auto-close shortened from 10s to 5s',
+      'Peek/Show buttons now disappear the instant the auto-close countdown starts, not just when it finishes',
+      'Stats now has its own matching 5-second auto-close, triggered the same moment the host deals the next hand',
+      'Street button moved off the Results title row, now sits next to Close at the same height, in gold',
+      'End Game now warns if active players is not exactly 1, and Stats now auto-opens for every player the instant the game ends',
+      'Renamed View to Peek on the home screen (button and hint text)',
+      'Added a Peek button above Show on the Results screen — tap/hold to privately view your own cards without revealing them. Show recolored to match EXIT',
+      'Home screen clock now reads Game: 1h 23m 45s',
+      'At the Table header now shows current blinds and the blinds-increase method (using the values entered at setup, since blinds are not live-tracked yet)',
+    ]
+  },
   {
     v:'3.33.1', date:'July 2026',
     changes:[
@@ -2402,16 +2484,25 @@ document.getElementById('toggleSeatsBtn').onclick=()=>{
 // ── Home-screen session clock + blinds method corner display ──────────
 function updateHomeScreenSessionInfo() {
   const corner = document.getElementById('sessionInfoCorner');
+  const tableBlindsEl = document.getElementById('tableBlindsInfo');
   if (!corner) return;
-  if (!lastState || !lastState.gameLive) { corner.style.display = 'none'; return; }
+  if (!lastState || !lastState.gameLive) {
+    corner.style.display = 'none';
+    if (tableBlindsEl) tableBlindsEl.textContent = '';
+    return;
+  }
   corner.style.display = 'block';
   const clockEl = document.getElementById('sessionClockCorner');
-  clockEl.textContent = lastState.sessionStartTime ? formatElapsed(Date.now() - lastState.sessionStartTime, true) : '';
+  clockEl.textContent = lastState.sessionStartTime ? 'Game: ' + formatElapsed(Date.now() - lastState.sessionStartTime, true) : '';
   const info = lastState.sessionInfo || {};
+  const modeLabel = info.blindsIncreaseMode === 'minutes' ? `Every ${info.blindsIncreaseValue}m`
+                   : info.blindsIncreaseMode === 'hands' ? `Every ${info.blindsIncreaseValue} hands`
+                   : 'Same Dealer';
   const modeEl = document.getElementById('blindsModeCorner');
-  modeEl.textContent = info.blindsIncreaseMode === 'minutes' ? `Every ${info.blindsIncreaseValue}m`
-                      : info.blindsIncreaseMode === 'hands' ? `Every ${info.blindsIncreaseValue} hands`
-                      : 'Same Dealer';
+  modeEl.textContent = modeLabel;
+  if (tableBlindsEl) {
+    tableBlindsEl.textContent = info.blindsSB > 0 ? `SB ${info.blindsSB}, BB ${info.blindsBB} · Increase: ${modeLabel}` : '';
+  }
 }
 setInterval(updateHomeScreenSessionInfo, 1000);
 
@@ -2484,16 +2575,25 @@ document.getElementById('siSaveBtn').onclick = () => {
   socket.emit('setSessionInfo', gatherSessionInfoFromForm('si'));
   document.getElementById('sessionInfoEditFields').style.display = 'none';
 };
+socket.on('gameEnded', () => {
+  if (lastState) { renderStatsTable(lastState); renderSessionInfo(lastState); updateStatsClock(); }
+  document.getElementById('statsModal').style.display = 'flex';
+  if (statsAutoCloseTimer) { clearInterval(statsAutoCloseTimer); statsAutoCloseTimer = null; }
+  document.getElementById('statsCloseBtn').textContent = 'Close';
+  clearInterval(statsClockInterval);
+  statsClockInterval = setInterval(updateStatsClock, 1000);
+});
+
 document.getElementById('statsBtn').onclick = () => {
   if (lastState) { renderStatsTable(lastState); renderSessionInfo(lastState); updateStatsClock(); }
   document.getElementById('statsModal').style.display = 'flex';
+  if (statsAutoCloseTimer) { clearInterval(statsAutoCloseTimer); statsAutoCloseTimer = null; }
+  document.getElementById('statsCloseBtn').textContent = 'Close';
   clearInterval(statsClockInterval);
   statsClockInterval = setInterval(updateStatsClock, 1000);
 };
 document.getElementById('statsCloseBtn').onclick = () => {
-  document.getElementById('statsModal').style.display = 'none';
-  clearInterval(statsClockInterval);
-  statsClockInterval = null;
+  closeStatsOverlay();
 };
 
 function ordinal(n) {
@@ -2620,6 +2720,14 @@ function renderPrevGameSnapshot(state) {
 // ── GAME button — starts a new game, or confirms ending the live one ──
 document.getElementById('newGameBtn').onclick = () => {
   if (lastState && lastState.gameLive) {
+    const activeCount = (lastState.players || []).filter(p => !p.eliminated).length;
+    const warnEl = document.getElementById('endGameWarning');
+    if (activeCount !== 1) {
+      warnEl.textContent = `⚠️ There are still ${activeCount} active players — this game hasn't naturally finished yet.`;
+      warnEl.style.display = 'block';
+    } else {
+      warnEl.style.display = 'none';
+    }
     document.getElementById('endGameModal').style.display = 'flex';
   } else {
     showSeatingConfirmation();
@@ -3023,7 +3131,7 @@ function renderHandInfo(board){
   if (!nameEl) return;
   if (!myCards.length) { nameEl.textContent = ''; return; }
   if (!viewingCards) {
-    nameEl.textContent = 'Hold View to see hand';
+    nameEl.textContent = 'Hold Peek to see hand';
     nameEl.style.opacity = '0.45';
     nameEl.style.fontSize = '0.8em';
     return;
