@@ -1170,6 +1170,15 @@ function showRunoutResults(runout) {
     gi = gj;
   }
 
+  // Precompute evals for anyone whose cards are currently known (winner
+  // always visible; folded players only once individually revealed) — used
+  // to show a kicker when it's actually what separates two similar hands
+  const knownEvals = (runout.board || []).length === 5
+    ? sorted.filter(p => p.cards && p.cards.length > 0).map(p => ({
+        name: p.name, eval: evaluateBest([...p.cards, ...runout.board]),
+      })).filter(e => e.eval)
+    : [];
+
   sorted.forEach((p, idx) => {
     const row = document.createElement('div');
     row.className = 'aio-player' + (p.winner ? ' aio-leader' : '');
@@ -1206,7 +1215,19 @@ function showRunoutResults(runout) {
     const nameEl = document.createElement('div'); nameEl.className = 'aio-name';
     nameEl.textContent = p.name; info.appendChild(nameEl);
     const handEl = document.createElement('div'); handEl.className = 'aio-hand';
-    handEl.textContent = compactDesc(p.handDesc||''); info.appendChild(handEl);
+    if (runout.foldWin && p.folded && alreadyRevealed && (runout.board || []).length === 5) {
+      const mine = knownEvals.find(e => e.name === p.name);
+      if (mine) {
+        const peers = knownEvals.filter(e => e.name !== p.name).map(e => e.eval);
+        const pos = computeDecidingPos(mine.eval, peers);
+        handEl.textContent = 'Would have had: ' + compactDesc(describeEvalKicker(mine.eval, pos));
+      } else {
+        handEl.textContent = compactDesc(p.handDesc || '');
+      }
+    } else {
+      handEl.textContent = compactDesc(p.handDesc || '');
+    }
+    info.appendChild(handEl);
     const status = document.createElement('div'); status.className = 'aio-odds';
     status.textContent = labels[idx]; info.appendChild(status);
     top.appendChild(info);
@@ -1526,6 +1547,19 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.32.6', date:'July 2026',
+    changes:[
+      'Fixed would have had/would have won lines hiding kickers entirely, which made genuinely different hands (e.g. same two pair but different kicker) look like a tie when one player actually won outright. Now shows the kicker when its actually what separates the hands, matching how the regular Results screen already handles this',
+    ]
+  },
+  {
+    v:'3.32.5', date:'July 2026',
+    changes:[
+      'Fold-win Results screen: a folded, revealed player now shows Would have had: [hand] in place of the grey Folded label, once the full board is out',
+      'The would have won log line now says STILL would have won when the actual fold-winner also had the best hand on pure strength',
+    ]
+  },
   {
     v:'3.32.4', date:'July 2026',
     changes:[
