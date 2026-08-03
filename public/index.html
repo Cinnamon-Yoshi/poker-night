@@ -1527,6 +1527,13 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.32.1', date:'July 2026',
+    changes:[
+      'Players to Cash now caps at the actual number of players in the game instead of always offering up to 4',
+      'Fold-win Results, when the full board has been dealt out: revealing your hand now also logs what your best hand would have been. Once everyone from the hand has revealed, the log also shows who would have actually won on hand strength alone',
+    ]
+  },
+  {
     v:'3.32', date:'July 2026',
     changes:[
       'Fixed a race condition where dealing out the river from the Results screen wouldnt show in the hand log until Close was pressed',
@@ -2794,6 +2801,17 @@ function gatherSessionInfoFromForm(prefix) {
   };
 }
 
+function populatePlayersToCashOptions(prefix) {
+  const sel = document.getElementById(prefix + 'PlayersToCash');
+  if (!sel) return;
+  const maxCash = Math.min(4, (lastState && lastState.players) ? lastState.players.length : 4);
+  const prevValue = sel.value;
+  let html = '<option value="0">None</option>';
+  for (let i = 1; i <= maxCash; i++) html += `<option value="${i}">${i}</option>`;
+  sel.innerHTML = html;
+  if (Number(prevValue) <= maxCash) sel.value = prevValue;
+}
+
 function fillSessionInfoForm(prefix, info) {
   info = info || {};
   document.getElementById(prefix + 'BuyIn').value = info.buyIn || '';
@@ -2805,6 +2823,7 @@ function fillSessionInfoForm(prefix, info) {
   document.getElementById(prefix + 'BlindsMinutes').value = mode === 'minutes' ? (info.blindsIncreaseValue || '') : '';
   document.getElementById(prefix + 'BlindsHands').value = mode === 'hands' ? (info.blindsIncreaseValue || '') : '';
   updateBlindsModeInputs(prefix);
+  populatePlayersToCashOptions(prefix);
   document.getElementById(prefix + 'PlayersToCash').value = info.playersToCash || '0';
   renderPayoutFields(prefix);
   (info.payouts || []).forEach((amt, i) => {
