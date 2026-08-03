@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.32.2';
+const VERSION = '3.32.3';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -121,7 +121,7 @@ function currentHandLog(){
 // of the new type whenever the result flips
 function normalizeSessionInfo(info){
   if(!info||typeof info!=='object') return sessionInfo;
-  const playersToCash=Math.min(4,players.length,Math.max(0,Math.floor(Number(info.playersToCash)||0)));
+  const playersToCash=Math.min(4,players.length,Math.max(1,Math.floor(Number(info.playersToCash)||1)));
   const rawPayouts=Array.isArray(info.payouts)?info.payouts:[];
   const payouts=[];
   for(let i=0;i<playersToCash;i++) payouts[i]=Math.max(0,Number(rawPayouts[i])||0);
