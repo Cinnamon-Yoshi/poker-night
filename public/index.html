@@ -1527,6 +1527,14 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.32.2', date:'July 2026',
+    changes:[
+      'Fixed would have had lines not appearing when a player revealed before all streets had played out — now logged retroactively once the board completes, regardless of reveal order',
+      'Winners hand reveal now logs the same way as everyone elses (Name shows (cards)) instead of repeating the win announcement and adding shown',
+      'Removed the trophy icon from the would have won summary line so it renders in plain white instead of gold',
+    ]
+  },
+  {
     v:'3.32.1', date:'July 2026',
     changes:[
       'Players to Cash now caps at the actual number of players in the game instead of always offering up to 4',
