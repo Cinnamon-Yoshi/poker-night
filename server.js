@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.31';
+const VERSION = '3.31.1';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -959,31 +959,37 @@ io.on('connection',socket=>{
     broadcast();
   });
 
-  // Host can deal one more community card before declaring the winner, purely
-  // for show — no more betting happens, the fold-win outcome never changes.
-  // Lets folded players see whether their card would have paid off.
-  socket.on('foldWinPlayOutStreet',()=>{
-    const rem=active().filter(p=>!p.eliminated);
-    if(rem.length!==1||stage==='idle'||stage==='river') return;
-    dealPlayOutStreet();
-  });
-
-  function dealPlayOutStreet(){
-    if(stage==='preflop'){
-      deck.pop(); board.push(deck.pop(),deck.pop(),deck.pop()); stage='flop';
+  // Deal one more community card purely for show, from the Results screen,
+  // after a fold-win winner has already been declared. The winner never
+  // changes — this just lets everyone see how the hand would have played out
+  socket.on('foldWinDealNextStreet',()=>{
+    if(!foldWinWinnerName) return; // not in an active fold-win window
+    if(board.length>=5) return;
+    if(board.length===0){
+      deck.pop(); board.push(deck.pop(),deck.pop(),deck.pop());
       addLog('Flop: '+board.slice(0,3).map(c=>cardLabel(c)).join(' '));
       io.emit('streetReveal',{street:'flop',label:'The Flop!',cards:board.slice(0,3)});
-    } else if(stage==='flop'){
-      deck.pop(); board.push(deck.pop()); stage='turn';
+    } else if(board.length===3){
+      deck.pop(); board.push(deck.pop());
       addLog('Turn: '+cardLabel(board[3]));
       io.emit('streetReveal',{street:'turn',label:'The Turn',cards:[board[3]]});
-    } else if(stage==='turn'){
-      deck.pop(); board.push(deck.pop()); stage='river';
+    } else if(board.length===4){
+      deck.pop(); board.push(deck.pop());
       addLog('River: '+cardLabel(board[4]));
       io.emit('streetReveal',{street:'river',label:'The River',cards:[board[4]]});
     }
+    // Re-send the results payload with the updated board — preserve any
+    // hands already individually revealed rather than hiding them again
+    const resultsPlayers=players.filter(p=>!p.sittingOut&&!p.eliminated).map(p=>({
+      name:p.name,
+      cards: (foldWinRevealable&&foldWinRevealable.includes(p.name)) ? [] : [...(holeCards[p.id]||[])],
+      handDesc:p.folded?'Folded':'',
+      winner:p.name===foldWinWinnerName,
+      folded:p.folded,
+    }));
+    io.emit('foldWinBoardUpdated',{runoutResults:{players:resultsPlayers, board:[...board], foldWin:true}});
     broadcast();
-  }
+  });
 
   // Any player from this hand (winner or folded) can choose to reveal their
   // own hand after a fold-win, to see how it stacked up
