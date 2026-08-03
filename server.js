@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.32.6';
+const VERSION = '3.33';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -145,14 +145,31 @@ function checkTimedBlindReminder(){
   if(!gameLive) return;
   if(sessionInfo.blindsIncreaseMode!=='minutes'||sessionInfo.blindsIncreaseValue<=0) return;
   if(!lastBlindReminderAt) return;
+  if(stage!=='idle') return; // defer until the current hand finishes — don't interrupt active play
   const dueMs=sessionInfo.blindsIncreaseValue*60000;
   if(Date.now()-lastBlindReminderAt>=dueMs){
     lastBlindReminderAt=Date.now();
-    addLog('⏰ Blinds reminder — '+sessionInfo.blindsIncreaseValue+' minute'+(sessionInfo.blindsIncreaseValue===1?'':'s')+' elapsed');
+    const msg=sessionInfo.blindsIncreaseValue+' minute'+(sessionInfo.blindsIncreaseValue===1?'':'s')+' elapsed.';
+    addLog('⏰ Blinds reminder — '+msg);
+    io.emit('blindsReminder',{message:msg});
     broadcast();
   }
 }
 setInterval(checkTimedBlindReminder,15000);
+
+// If the given player is the Same Dealer blind-reminder anchor, move the
+// anchor to the next active player (after them in seating order, wrapping
+// around) — used whenever that player leaves or busts out
+function advanceDealerAnchorIfNeeded(name){
+  if(name!==initialDealerName) return;
+  const idx=players.findIndex(p=>p.name===name);
+  if(idx<0) return;
+  const rest=players.filter((p,i)=>i!==idx&&!p.sittingOut);
+  const after=players.slice(idx+1).find(p=>!p.sittingOut);
+  const before=players.slice(0,idx).find(p=>!p.sittingOut);
+  const next=after||before||rest[0]||null;
+  initialDealerName=next?next.name:null;
+}
 
 function formatClockTime(){
   const d=new Date();
@@ -640,16 +657,7 @@ io.on('connection',socket=>{
   });
 
   socket.on('removePlayer',name=>{
-
-    // If the removed player is the blind-reminder anchor, advance to next active player
-    if(name===initialDealerName){
-      const idx=players.findIndex(p=>p.name===name);
-      const rest=players.filter((p,i)=>i!==idx&&!p.sittingOut);
-      const after=players.slice(idx+1).find(p=>!p.sittingOut);
-      const before=players.slice(0,idx).find(p=>!p.sittingOut);
-      const next=after||before||rest[0]||null;
-      initialDealerName=next?next.name:null;
-    }
+    advanceDealerAnchorIfNeeded(name);
     players=players.filter(p=>p.name!==name);
     addLog(name+' removed from game'); broadcast();
   });
@@ -662,14 +670,7 @@ io.on('connection',socket=>{
     if(!p) return;
     if(gameLive&&!p.eliminated) return; // still actively playing — must leaveGameLive first
     const name=p.name;
-    if(name===initialDealerName){
-      const idx=players.findIndex(pl=>pl.name===name);
-      const rest=players.filter((pl,i)=>i!==idx&&!pl.sittingOut);
-      const after=players.slice(idx+1).find(pl=>!pl.sittingOut);
-      const before=players.slice(0,idx).find(pl=>!pl.sittingOut);
-      const next=after||before||rest[0]||null;
-      initialDealerName=next?next.name:null;
-    }
+    advanceDealerAnchorIfNeeded(name);
     if(gameLive){
       // Mid-game: keep the record (stats/placement already recorded) so it
       // still shows correctly in Stats and the final placement recap —
@@ -693,6 +694,7 @@ io.on('connection',socket=>{
     p.eliminated=true; p.sittingOut=true;
     currentGameEliminations.push(p.name);
     io.to(p.id).emit('yourCards',[]);
+    advanceDealerAnchorIfNeeded(p.name);
     const place=gameTotalPlayers-(currentGameEliminations.length-1);
     addLog('\uD83D\uDEAA '+p.name+' left the game ('+ordinalWord(place)+' place)');
     broadcast();
@@ -705,6 +707,7 @@ io.on('connection',socket=>{
       p.eliminated=true; p.sittingOut=true;
       currentGameEliminations.push(name);
       io.to(p.id).emit('yourCards',[]); // clear their cards immediately
+      advanceDealerAnchorIfNeeded(name);
       const place=gameTotalPlayers-(currentGameEliminations.length-1);
       addLog('\u2620\uFE0F '+name+' busted out ('+ordinalWord(place)+' place)');
     } else {
@@ -789,7 +792,9 @@ io.on('connection',socket=>{
       handsSinceBlindReminder++;
       if(handsSinceBlindReminder>=sessionInfo.blindsIncreaseValue){
         handsSinceBlindReminder=0;
-        addLog('⏰ Blinds reminder — '+sessionInfo.blindsIncreaseValue+' hand'+(sessionInfo.blindsIncreaseValue===1?'':'s')+' played');
+        const msg=sessionInfo.blindsIncreaseValue+' hand'+(sessionInfo.blindsIncreaseValue===1?'':'s')+' played.';
+        addLog('⏰ Blinds reminder — '+msg);
+        io.emit('blindsReminder',{message:msg});
       }
     }
     addLog('--- New hand. Dealer: '+players[dealerIdx].name+' ---');
@@ -805,7 +810,7 @@ io.on('connection',socket=>{
     // only when Same Dealer is the selected blinds-increase style
     if(sessionInfo.blindsIncreaseMode==='dealer'&&firstHandDealt&&currentDealerName&&currentDealerName===initialDealerName){
       addLog('[Blinds reminder fired for '+currentDealerName+']');
-      io.emit('blindsReminder',{dealerName:currentDealerName});
+      io.emit('blindsReminder',{message:currentDealerName+' is the dealer again.'});
     }
     if(!firstHandDealt && initialDealerName){
       console.log('[Blind reminder] Tracking armed. Initial dealer: '+initialDealerName);
