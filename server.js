@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.31.1';
+const VERSION = '3.31.2';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -968,15 +968,12 @@ io.on('connection',socket=>{
     if(board.length===0){
       deck.pop(); board.push(deck.pop(),deck.pop(),deck.pop());
       addLog('Flop: '+board.slice(0,3).map(c=>cardLabel(c)).join(' '));
-      io.emit('streetReveal',{street:'flop',label:'The Flop!',cards:board.slice(0,3)});
     } else if(board.length===3){
       deck.pop(); board.push(deck.pop());
       addLog('Turn: '+cardLabel(board[3]));
-      io.emit('streetReveal',{street:'turn',label:'The Turn',cards:[board[3]]});
     } else if(board.length===4){
       deck.pop(); board.push(deck.pop());
       addLog('River: '+cardLabel(board[4]));
-      io.emit('streetReveal',{street:'river',label:'The River',cards:[board[4]]});
     }
     // Re-send the results payload with the updated board — preserve any
     // hands already individually revealed rather than hiding them again
