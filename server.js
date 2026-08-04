@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.35';
+const VERSION = '3.36';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -56,7 +56,8 @@ let sessionHandsPlayed=0;        // total hands dealt this session — for Stats
 let sessionStartTime=null;       // Date.now() when New Game started — drives the session clock
 let sessionInfo={buyIn:0,playersToCash:0,payouts:[],blindsSB:0,blindsBB:0,blindsIncreaseMode:'dealer',blindsIncreaseValue:0,startingChips:2000}; // host-entered placeholders, resets on New Game
 let gameSetupPhase=null; // null | 'buyIn' | 'confirming' — the pre-game flow between seating confirmation and dealer selection
-let lastGameSnapshot=null; // frozen stats from the most recently completed game, shown on Stats below the live table
+let lastGameSnapshot=null; // frozen stats shown on Stats below the live table — only updates when the NEXT game starts, not the instant a game ends
+let pendingGameSnapshot=null; // captured the moment a game ends, promoted to lastGameSnapshot once the next game starts
 let gameLive=false; // true once play actually begins (after confirmation), false again once the host formally ends the game — blocks new (non-reconnect) joins while true
 let gameTotalPlayers=0; // fixed roster size at the moment the game started — placement math uses this, not the live (shrinking) players.length
 
@@ -475,6 +476,7 @@ function publicState(){
       statsRaised:p.statsRaised||0, statsCalled:p.statsCalled||0, statsAllIn:p.statsAllIn||0,
       confirmedTerms:!!p.confirmedTerms,
       departed:!!p.departed,
+      spectate:!!p.spectate,
       streakType:p.streakType||null, streakCount:p.streakCount||0,
       maxWinStreak:p.maxWinStreak||0, maxLossStreak:p.maxLossStreak||0
     }))
@@ -508,7 +510,7 @@ io.on('connection',socket=>{
         socket.emit('joinBlocked',{reason:'A game is in progress. New players cannot join until the host ends the current game.'});
         return;
       }
-      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,eliminated:false,departed:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,statsRaised:0,statsCalled:0,statsAllIn:0,streakType:null,streakCount:0,maxWinStreak:0,maxLossStreak:0,hadMoneyInPot:false,confirmedTerms:false});
+      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,spectate:false,eliminated:false,departed:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,statsRaised:0,statsCalled:0,statsAllIn:0,streakType:null,streakCount:0,maxWinStreak:0,maxLossStreak:0,hadMoneyInPot:false,confirmedTerms:false});
       socket.emit('joined',{id:socket.id});
       addLog(name+' joined the game');
     }
@@ -548,7 +550,7 @@ io.on('connection',socket=>{
 
   function captureGameSnapshot(){
     if(sessionHandsPlayed<=0) return;
-    lastGameSnapshot={
+    pendingGameSnapshot={
       sessionHandsPlayed,
       sessionDuration: sessionStartTime ? Date.now()-sessionStartTime : null,
       sessionInfo: {...sessionInfo},
@@ -560,7 +562,7 @@ io.on('connection',socket=>{
         statsRaised:p.statsRaised||0, statsCalled:p.statsCalled||0, statsAllIn:p.statsAllIn||0,
         streakType:p.streakType||null, streakCount:p.streakCount||0,
         maxWinStreak:p.maxWinStreak||0, maxLossStreak:p.maxLossStreak||0,
-        eliminated:p.eliminated,
+        eliminated:p.eliminated, spectate:p.spectate||false,
       })),
     };
   }
@@ -573,7 +575,7 @@ io.on('connection',socket=>{
     // so it lands on top since the client shows newest entries first
     const totalPlayers=gameTotalPlayers;
     const ordinals=['1st','2nd','3rd','4th','5th','6th','7th','8th','9th'];
-    const placedPlayers=players.map(p=>{
+    const placedPlayers=players.filter(p=>!p.spectate).map(p=>{
       let place;
       if(p.eliminated){
         const idx=currentGameEliminations.indexOf(p.name);
@@ -596,15 +598,20 @@ io.on('connection',socket=>{
     sessionHandsPlayed=0;
     sessionStartTime=null;
     lastBlindReminderAt=null;
-    players.forEach(p=>{p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.maxWinStreak=0;p.maxLossStreak=0;p.hadMoneyInPot=false;});
+    players.forEach(p=>{p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.maxWinStreak=0;p.maxLossStreak=0;p.hadMoneyInPot=false;p.spectate=false;p.sittingOut=false;});
     broadcast();
     io.emit('gameEnded');
   });
 
   socket.on('startNewGame',()=>{
+    // Promote whichever game most recently ended into the visible Previous
+    // Game slot — keeps the OLDER previous game visible for review right up
+    // until a new one actually begins, instead of vanishing the instant a
+    // game ends
+    if(pendingGameSnapshot){ lastGameSnapshot=pendingGameSnapshot; pendingGameSnapshot=null; }
     // Reset all player states first — bringing eliminated players back in
-    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=false;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.maxWinStreak=0;p.maxLossStreak=0;p.hadMoneyInPot=false;p.confirmedTerms=false;});
-    const eligible=players; // everyone is back in after reset
+    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=p.spectate;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.maxWinStreak=0;p.maxLossStreak=0;p.hadMoneyInPot=false;p.confirmedTerms=false;});
+    const eligible=players.filter(p=>!p.spectate); // only actual competitors count toward the minimum
     if(eligible.length<2) return;
     // Commit state changes
     board=[];holeCards={};actingQueue=[];
@@ -638,7 +645,7 @@ io.on('connection',socket=>{
   function beginLiveGameAfterConfirmation(){
     gameSetupPhase=null;
     gameLive=true;
-    gameTotalPlayers=players.length;
+    gameTotalPlayers=players.filter(p=>!p.spectate).length;
     sessionStartTime=Date.now(); // session clock starts when actual play begins, not during setup
     lastBlindReminderAt=Date.now();
     handsSinceBlindReminder=0;
@@ -670,6 +677,27 @@ io.on('connection',socket=>{
     if(gameSetupPhase!=='confirming') return;
     gameSetupPhase='buyIn';
     players.forEach(p=>{ p.confirmedTerms=false; }); // details may change, everyone re-confirms
+    broadcast();
+  });
+
+  // Host cancels out of Game Setup entirely — clears the phase for everyone,
+  // not just locally on the host's own device
+  socket.on('cancelGameSetup',()=>{
+    if(gameSetupPhase!=='buyIn') return;
+    gameSetupPhase=null;
+    broadcast();
+  });
+
+  // Spectate: player/host who is at the table but not playing this game.
+  // Reuses the existing sittingOut skip logic everywhere (dealer rotation,
+  // acting queue, hand dealing) instead of duplicating it. Locked once the
+  // game goes live — not reversible mid-game.
+  socket.on('setSpectate',name=>{
+    if(gameLive) return;
+    const p=players.find(pl=>pl.name===name);
+    if(!p) return;
+    p.spectate=!p.spectate;
+    p.sittingOut=p.spectate;
     broadcast();
   });
 
