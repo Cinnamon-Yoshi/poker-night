@@ -1611,6 +1611,13 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.37.3', date:'July 2026',
+    changes:[
+      'Fixed Game Setup showing blank/zero defaults instead of the new Buy-in 20 / SB 1 / Every 3 Hands defaults — the servers raw starting state hadnt been updated to match, and was still overwriting the form with zeros (and a stale Same Dealer selection) on every fresh load',
+      'Reverted the game-end Stats popup to strictly defer Previous Game until the next game starts, with no exception — an earlier fix had made the popup show the just-ended game specifically, which contradicted the defer-until-next-game behavior everywhere else',
+    ]
+  },
+  {
     v:'3.37.2', date:'July 2026',
     changes:[
       'Fixed the service worker serving stale HTML even after a hard refresh — its internal fetch for the page was a separate request from the browsers navigation and could still hit HTTP cache. Now explicitly bypasses caching, so the app should always load genuinely fresh from here on',
@@ -2670,13 +2677,8 @@ document.getElementById('siSaveBtn').onclick = () => {
   socket.emit('setSessionInfo', gatherSessionInfoFromForm('si'));
   document.getElementById('sessionInfoEditFields').style.display = 'none';
 };
-socket.on('gameEnded', (data) => {
+socket.on('gameEnded', () => {
   if (lastState) { renderStatsTable(lastState); renderSessionInfo(lastState); updateStatsClock(); }
-  // Show the game that JUST ended here specifically — everywhere else,
-  // Previous Game intentionally waits until the next game starts, but that
-  // would leave this exact popup showing nothing (or an older game) at the
-  // one moment it's meant to summarize what just happened
-  if (data && data.snapshot) renderPrevGameSnapshot({ lastGameSnapshot: data.snapshot });
   document.getElementById('statsModal').style.display = 'flex';
   if (statsAutoCloseTimer) { clearInterval(statsAutoCloseTimer); statsAutoCloseTimer = null; }
   document.getElementById('statsCloseBtn').textContent = 'Close';
