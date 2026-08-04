@@ -1629,14 +1629,16 @@ function renderPlayerActionBar(state){
 
   // Show action bar when it's this player's turn
   const show = me && me.isCurrent && state.stage !== 'idle' && !state.foldWinner;
-  if (!show) { bar.classList.add('player-action-hidden'); raiseSelectorOpen = false; return; }
+  if (!show) { bar.classList.add('player-action-hidden'); bar.classList.remove('raise-panel-open'); raiseSelectorOpen = false; return; }
   document.getElementById('playerActionLabel').style.display = '';
 
   if (raiseSelectorOpen) {
     btns.innerHTML = buildRaisePanel(state);
     bar.classList.remove('player-action-hidden');
+    bar.classList.add('raise-panel-open');
     return;
   }
+  bar.classList.remove('raise-panel-open');
 
   const canCheck = !state.hasRaiseThisStreet || (state.bbCanCheck && state.nextActorIsBB);
   if (canCheck) {
@@ -1663,6 +1665,12 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.39.1', date:'July 2026',
+    changes:[
+      'Fixed the raise panel getting clipped, showing only Raise to / 100 with everything else invisible — the action bar had a fixed max-height sized for the old four-button row, silently cutting off the taller panel content below it',
+    ]
+  },
   {
     v:'3.39', date:'July 2026',
     changes:[
