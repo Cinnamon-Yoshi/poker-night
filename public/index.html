@@ -1549,39 +1549,57 @@ let raiseSelectorOpen = false;
 let raiseSelectedAmount = null;
 
 function openRaiseSelector(state) {
-  const startingChips = (state.sessionInfo && state.sessionInfo.startingChips) || 2000;
   raiseSelectorOpen = true;
+  raiseCustomMode = false;
   raiseSelectedAmount = 100; // placeholder default — matches the Pot preset below until real pot tracking exists
   renderPlayerActionBar(state);
 }
 function cancelRaiseSelector(state) {
   raiseSelectorOpen = false;
+  raiseCustomMode = false;
   renderPlayerActionBar(state);
 }
 function confirmRaise(state) {
   raiseSelectorOpen = false;
+  raiseCustomMode = false;
   playerAct('R'); // same plain categorical action as before — amount isn't wired to gameplay yet
 }
+let raiseCustomMode = false;
+
+function openCustomRaiseInput() {
+  raiseCustomMode = true;
+  renderPlayerActionBar(lastState);
+  const el = document.getElementById('raiseCustomInput');
+  if (el) el.focus();
+}
+
 function buildRaisePanel(state) {
-  const startingChips = (state.sessionInfo && state.sessionInfo.startingChips) || 2000;
-  // Min/Half Pot/Pot are placeholder numbers — there's no live pot to calculate
-  // from yet. All In is the one real number, pulled from Starting Chips.
+  // Min/Half Pot/Pot are placeholder numbers — there's no live pot to
+  // calculate from yet. All In stays available as its own separate
+  // top-level button outside this panel, so Custom takes its place here.
   const presets = [
     { label: 'Min', amount: 20 },
     { label: '1/2 pot', amount: 50 },
     { label: 'Pot', amount: 100 },
-    { label: 'All in', amount: startingChips },
   ];
-  const presetBtns = presets.map(p => {
-    const selected = raiseSelectedAmount === p.amount;
-    const bg = selected ? '#6c3483' : '#1b3a29';
-    return `<button class="pab-btn" style="background:${bg};color:#fff;font-size:0.72em;padding:8px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;" onclick="raiseSelectedAmount=${p.amount};renderPlayerActionBar(lastState);">${p.label}<br>${fmtChips(p.amount)}</button>`;
-  }).join('');
+
+  let middleSection;
+  if (raiseCustomMode) {
+    middleSection = `<input type="number" inputmode="numeric" pattern="[0-9]*" min="0" id="raiseCustomInput" value="${raiseSelectedAmount}" style="width:100%;box-sizing:border-box;padding:12px;font-size:1.2em;text-align:center;border-radius:8px;border:1px solid #6c3483;background:#0d2218;color:#fff;margin-bottom:10px;" oninput="raiseSelectedAmount=Number(this.value)||0;document.getElementById('raiseAmountOut').textContent='+'+fmtChips(raiseSelectedAmount);">`;
+  } else {
+    const presetBtns = presets.map(p => {
+      const selected = raiseSelectedAmount === p.amount;
+      const bg = selected ? '#6c3483' : '#1b3a29';
+      return `<button class="pab-btn" style="flex:1;background:${bg};color:#fff;font-size:0.78em;padding:10px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;" onclick="raiseSelectedAmount=${p.amount};renderPlayerActionBar(lastState);">${p.label}<br>${fmtChips(p.amount)}</button>`;
+    }).join('');
+    const customBtn = `<button class="pab-btn" style="flex:1;background:#1b3a29;color:#fff;font-size:0.78em;padding:10px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;" onclick="openCustomRaiseInput()">Custom</button>`;
+    middleSection = `<div style="display:flex;gap:6px;margin-bottom:10px;">${presetBtns}${customBtn}</div>`;
+  }
+
   return `
-    <div style="border:1px solid #6c3483;border-radius:10px;padding:10px;background:rgba(108,52,131,0.15);">
-      <div style="text-align:center;font-size:0.7em;letter-spacing:0.5px;color:#c9a6dd;text-transform:uppercase;margin-bottom:8px;">Raise to</div>
-      <div style="text-align:center;font-size:1.6em;font-weight:500;margin-bottom:10px;">${fmtChips(raiseSelectedAmount)}</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px;">${presetBtns}</div>
+    <div style="width:100%;display:flex;flex-direction:column;">
+      <div style="text-align:center;font-size:1.7em;font-weight:500;margin-bottom:10px;" id="raiseAmountOut">+${fmtChips(raiseSelectedAmount)}</div>
+      ${middleSection}
       <div style="display:flex;gap:6px;">
         <button class="pab-btn" style="flex:2;background:#6c3483;color:#fff;" onclick="confirmRaise(lastState)">Confirm raise</button>
         <button class="pab-btn" style="flex:1;background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.25);" onclick="cancelRaiseSelector(lastState)">Cancel</button>
@@ -1633,12 +1651,16 @@ function renderPlayerActionBar(state){
   document.getElementById('playerActionLabel').style.display = '';
 
   if (raiseSelectorOpen) {
+    const label = document.getElementById('playerActionLabel');
+    label.textContent = 'Raise';
+    label.style.color = '#c9a6dd';
     btns.innerHTML = buildRaisePanel(state);
     bar.classList.remove('player-action-hidden');
     bar.classList.add('raise-panel-open');
     return;
   }
   bar.classList.remove('raise-panel-open');
+  { const label = document.getElementById('playerActionLabel'); label.textContent = 'Your Turn'; label.style.color = ''; }
 
   const canCheck = !state.hasRaiseThisStreet || (state.bbCanCheck && state.nextActorIsBB);
   if (canCheck) {
@@ -1665,6 +1687,12 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.39.2', date:'July 2026',
+    changes:[
+      'Raise panel redesign: removed the nested box (raise controls now flow directly inside the Your Turn container), border and label turn purple and read RAISE while open, buttons fill full width, amount now reads as an additional +N on top of the current bet rather than a raise-to total, and All In is replaced by Custom (opens a live numeric input with the devices number keypad)',
+    ]
+  },
   {
     v:'3.39.1', date:'July 2026',
     changes:[
