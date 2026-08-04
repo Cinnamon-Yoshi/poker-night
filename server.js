@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.36';
+const VERSION = '3.36.1';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -779,7 +779,7 @@ io.on('connection',socket=>{
     // First deal after new game: pick dealer and show animation
     if(pendingDealerAnimation){
       pendingDealerAnimation=false;
-      const eligAll=players.filter(p=>!p.eliminated);
+      const eligAll=players.filter(p=>!p.eliminated&&!p.sittingOut);
       if(eligAll.length<2) return;
       const winner=eligAll[Math.floor(Math.random()*eligAll.length)];
       const si=players.findIndex(p=>p.name===winner.name);
