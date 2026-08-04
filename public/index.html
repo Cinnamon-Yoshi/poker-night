@@ -1543,6 +1543,52 @@ function playerAct(action){
   document.getElementById('playerActionBar').classList.add('player-action-hidden');
 }
 
+function fmtChips(n) { return Math.round(n).toLocaleString('en-US'); }
+
+let raiseSelectorOpen = false;
+let raiseSelectedAmount = null;
+
+function openRaiseSelector(state) {
+  const startingChips = (state.sessionInfo && state.sessionInfo.startingChips) || 2000;
+  raiseSelectorOpen = true;
+  raiseSelectedAmount = 100; // placeholder default — matches the Pot preset below until real pot tracking exists
+  renderPlayerActionBar(state);
+}
+function cancelRaiseSelector(state) {
+  raiseSelectorOpen = false;
+  renderPlayerActionBar(state);
+}
+function confirmRaise(state) {
+  raiseSelectorOpen = false;
+  playerAct('R'); // same plain categorical action as before — amount isn't wired to gameplay yet
+}
+function buildRaisePanel(state) {
+  const startingChips = (state.sessionInfo && state.sessionInfo.startingChips) || 2000;
+  // Min/Half Pot/Pot are placeholder numbers — there's no live pot to calculate
+  // from yet. All In is the one real number, pulled from Starting Chips.
+  const presets = [
+    { label: 'Min', amount: 20 },
+    { label: '1/2 pot', amount: 50 },
+    { label: 'Pot', amount: 100 },
+    { label: 'All in', amount: startingChips },
+  ];
+  const presetBtns = presets.map(p => {
+    const selected = raiseSelectedAmount === p.amount;
+    const bg = selected ? '#6c3483' : '#1b3a29';
+    return `<button class="pab-btn" style="background:${bg};color:#fff;font-size:0.72em;padding:8px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;" onclick="raiseSelectedAmount=${p.amount};renderPlayerActionBar(lastState);">${p.label}<br>${fmtChips(p.amount)}</button>`;
+  }).join('');
+  return `
+    <div style="border:1px solid #6c3483;border-radius:10px;padding:10px;background:rgba(108,52,131,0.15);">
+      <div style="text-align:center;font-size:0.7em;letter-spacing:0.5px;color:#c9a6dd;text-transform:uppercase;margin-bottom:8px;">Raise to</div>
+      <div style="text-align:center;font-size:1.6em;font-weight:500;margin-bottom:10px;">${fmtChips(raiseSelectedAmount)}</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px;">${presetBtns}</div>
+      <div style="display:flex;gap:6px;">
+        <button class="pab-btn" style="flex:2;background:#6c3483;color:#fff;" onclick="confirmRaise(lastState)">Confirm raise</button>
+        <button class="pab-btn" style="flex:1;background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.25);" onclick="cancelRaiseSelector(lastState)">Cancel</button>
+      </div>
+    </div>`;
+}
+
 function renderPlayerActionBar(state){
   const bar = document.getElementById('playerActionBar');
   const btns = document.getElementById('playerActionBtns');
@@ -1583,22 +1629,28 @@ function renderPlayerActionBar(state){
 
   // Show action bar when it's this player's turn
   const show = me && me.isCurrent && state.stage !== 'idle' && !state.foldWinner;
-  if (!show) { bar.classList.add('player-action-hidden'); return; }
+  if (!show) { bar.classList.add('player-action-hidden'); raiseSelectorOpen = false; return; }
   document.getElementById('playerActionLabel').style.display = '';
+
+  if (raiseSelectorOpen) {
+    btns.innerHTML = buildRaisePanel(state);
+    bar.classList.remove('player-action-hidden');
+    return;
+  }
 
   const canCheck = !state.hasRaiseThisStreet || (state.bbCanCheck && state.nextActorIsBB);
   if (canCheck) {
     btns.innerHTML = [
       `<button class="pab-btn fold"  onclick="playerAct('F')">Fold</button>`,
       `<button class="pab-btn check" onclick="playerAct('X')">Check</button>`,
-      `<button class="pab-btn raise" onclick="playerAct('R')">Raise</button>`,
+      `<button class="pab-btn raise" onclick="openRaiseSelector(lastState)">Raise</button>`,
       `<button class="pab-btn allin" onclick="playerAct('A')">All In</button>`
     ].join('');
   } else {
     btns.innerHTML = [
       `<button class="pab-btn fold"  onclick="playerAct('F')">Fold</button>`,
       `<button class="pab-btn call"  onclick="playerAct('C')">Call</button>`,
-      `<button class="pab-btn raise" onclick="playerAct('R')">Raise</button>`,
+      `<button class="pab-btn raise" onclick="openRaiseSelector(lastState)">Raise</button>`,
       `<button class="pab-btn allin" onclick="playerAct('A')">All In</button>`
     ].join('');
   }
@@ -1611,6 +1663,12 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.39', date:'July 2026',
+    changes:[
+      'UI test: tapping Raise now opens an inline amount selector in place of the Fold/Call/Raise/All-In row (Min/Half Pot/Pot placeholders, All In pulled from real Starting Chips, chip-formatted with comma separators). This is a UI-shell test only — Confirm still fires the same plain Raise action as before, no real chip amount is tracked yet. Cancel returns to the normal four buttons',
+    ]
+  },
   {
     v:'3.38', date:'July 2026',
     changes:[
