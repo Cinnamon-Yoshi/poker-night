@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.37';
+const VERSION = '3.37.1';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -742,7 +742,7 @@ io.on('connection',socket=>{
   socket.on('leaveGameLive',()=>{
     if(!gameLive) return;
     const p=players.find(pl=>pl.id===socket.id);
-    if(!p||p.eliminated) return;
+    if(!p||p.eliminated||p.spectate) return;
     p.eliminated=true; p.sittingOut=true;
     currentGameEliminations.push(p.name);
     io.to(p.id).emit('yourCards',[]);
