@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.36.1';
+const VERSION = '3.37';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -122,19 +122,24 @@ function currentHandLog(){
 // of the new type whenever the result flips
 function normalizeSessionInfo(info){
   if(!info||typeof info!=='object') return sessionInfo;
+  const clampInt=(val,min,max,dflt)=>{
+    const n=Math.floor(Number(val));
+    if(!Number.isFinite(n)||n<min||n>max) return dflt;
+    return n;
+  };
   const playersToCash=Math.min(4,players.length,Math.max(1,Math.floor(Number(info.playersToCash)||1)));
   const rawPayouts=Array.isArray(info.payouts)?info.payouts:[];
   const payouts=[];
   for(let i=0;i<playersToCash;i++) payouts[i]=Math.max(0,Number(rawPayouts[i])||0);
-  const blindsSB=Math.max(0,Number(info.blindsSB)||0);
-  const mode=['dealer','minutes','hands'].includes(info.blindsIncreaseMode)?info.blindsIncreaseMode:'dealer';
+  const blindsSB=clampInt(info.blindsSB,1,100,1);
+  const mode=['minutes','hands'].includes(info.blindsIncreaseMode)?info.blindsIncreaseMode:'hands';
   return {
-    buyIn: Math.max(0, Number(info.buyIn)||0),
+    buyIn: clampInt(info.buyIn,0,999,20),
     playersToCash, payouts,
     blindsSB, blindsBB: blindsSB*2,
     blindsIncreaseMode: mode,
-    blindsIncreaseValue: Math.max(0, Math.floor(Number(info.blindsIncreaseValue)||0)),
-    startingChips: Math.max(0, Math.floor(Number(info.startingChips)||0)) || 2000,
+    blindsIncreaseValue: clampInt(info.blindsIncreaseValue,1,60,3),
+    startingChips: clampInt(info.startingChips,100,10000,2000),
   };
 }
 
@@ -599,8 +604,10 @@ io.on('connection',socket=>{
     sessionStartTime=null;
     lastBlindReminderAt=null;
     players.forEach(p=>{p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.maxWinStreak=0;p.maxLossStreak=0;p.hadMoneyInPot=false;p.spectate=false;p.sittingOut=false;});
+    players.forEach(p=>io.to(p.id).emit('yourCards',[]));
+    holeCards={};
     broadcast();
-    io.emit('gameEnded');
+    io.emit('gameEnded',{snapshot:pendingGameSnapshot});
   });
 
   socket.on('startNewGame',()=>{
@@ -785,7 +792,6 @@ io.on('connection',socket=>{
       const si=players.findIndex(p=>p.name===winner.name);
       if(si>=0){ dealerIdx=si; skipDealerAdvance=true; }
       initialDealerName=winner.name;
-      addLog('[Blind reminder tracking: '+winner.name+']');
       io.emit('newGameAnimate',{eligible:eligAll.map(p=>p.name),winner:winner.name,followedByDeal:true});
       // Deal will proceed right after — client queues shuffle behind the animation
     }
