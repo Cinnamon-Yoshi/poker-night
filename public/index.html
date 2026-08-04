@@ -108,6 +108,7 @@
 
     <div class="tourn-subtitle">This session only — resets on New Game. Folded/Won/Lost only count hands where you had money in (blind posted, called, or raised) — a fold with money in counts as a loss.</div>
     <div id="statsTableWrap"></div>
+    <div id="justEndedWrap"></div>
     <div id="prevGameWrap"></div>
   </div>
 </div>
@@ -1611,6 +1612,12 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.38', date:'July 2026',
+    changes:[
+      'Added a new Just Ended section to Stats — always shows the game that literally just concluded, separate from Previous Game which still strictly waits until the next game starts. These can no longer contradict each other since theyre two different sections instead of one trying to do both jobs',
+    ]
+  },
+  {
     v:'3.37.3', date:'July 2026',
     changes:[
       'Fixed Game Setup showing blank/zero defaults instead of the new Buy-in 20 / SB 1 / Every 3 Hands defaults — the servers raw starting state hadnt been updated to match, and was still overwriting the form with zeros (and a stale Same Dealer selection) on every fresh load',
@@ -2787,13 +2794,13 @@ function renderStatsTable(state) {
   const wrap = document.getElementById('statsTableWrap');
   if (!state.gameLive) {
     wrap.innerHTML = '';
-    renderPrevGameSnapshot(state);
+    renderPrevGameSnapshot(state); renderJustEndedSnapshot(state);
     return;
   }
   const players = state.players || [];
   if (players.length === 0) {
     wrap.innerHTML = '<div class="tourn-empty">No players yet.</div>';
-    renderPrevGameSnapshot(state);
+    renderPrevGameSnapshot(state); renderJustEndedSnapshot(state);
     return;
   }
   const totalHands = state.sessionHandsPlayed || 0;
@@ -2801,7 +2808,7 @@ function renderStatsTable(state) {
   let html = `<div style="font-size:0.8em;opacity:0.6;margin-bottom:8px;">${totalHands} hand${totalHands === 1 ? '' : 's'} played this session</div>`;
   html += buildStatsTableHtml(rows);
   wrap.innerHTML = html;
-  renderPrevGameSnapshot(state);
+  renderPrevGameSnapshot(state); renderJustEndedSnapshot(state);
 }
 
 function renderPrevGameSnapshot(state) {
@@ -2811,6 +2818,18 @@ function renderPrevGameSnapshot(state) {
   const rows = computeStatsRows(snap);
   const durationText = snap.sessionDuration != null ? formatElapsed(snap.sessionDuration) : null;
   let html = '<div style="font-size:0.78em;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin:18px 0 8px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.08);">Previous Game</div>';
+  html += `<div style="font-size:0.8em;opacity:0.6;margin-bottom:8px;">${snap.sessionHandsPlayed || 0} hand${snap.sessionHandsPlayed === 1 ? '' : 's'}${durationText ? ' · ' + durationText : ''}</div>`;
+  html += buildStatsTableHtml(rows);
+  wrap.innerHTML = html;
+}
+
+function renderJustEndedSnapshot(state) {
+  const wrap = document.getElementById('justEndedWrap');
+  const snap = state.pendingGameSnapshot;
+  if (!snap || !snap.players || snap.players.length === 0) { wrap.innerHTML = ''; return; }
+  const rows = computeStatsRows(snap);
+  const durationText = snap.sessionDuration != null ? formatElapsed(snap.sessionDuration) : null;
+  let html = '<div style="font-size:0.78em;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin:18px 0 8px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.08);">Just Ended</div>';
   html += `<div style="font-size:0.8em;opacity:0.6;margin-bottom:8px;">${snap.sessionHandsPlayed || 0} hand${snap.sessionHandsPlayed === 1 ? '' : 's'}${durationText ? ' · ' + durationText : ''}</div>`;
   html += buildStatsTableHtml(rows);
   wrap.innerHTML = html;
