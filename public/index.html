@@ -301,7 +301,7 @@
   <!-- GAME -->
   <div id="gameScreen" style="display:none;">
     <div class="app-header">
-      <div id="sessionInfoCorner" style="display:none;position:absolute;top:2px;left:0;text-align:left;font-size:0.62em;line-height:1.35;opacity:0.7;">
+      <div id="sessionInfoCorner" style="display:none;position:absolute;top:2px;left:0;text-align:left;font-size:0.95em;line-height:1.35;opacity:0.7;">
         <div id="sessionClockCorner"></div>
       </div>
       <button id="exitBtn" aria-label="Leave game" style="position:absolute;top:2px;right:0;width:auto;margin-bottom:0;padding:3px 8px;border-radius:20px;border:none;background:#5c2020;color:#d9a3a3;font-size:0.6em;font-weight:800;letter-spacing:0.5px;line-height:1;cursor:pointer;">EXIT</button>
@@ -339,7 +339,7 @@
     <div class="section">
       <div class="label" style="display:flex;justify-content:space-between;align-items:baseline;">
         <span>At the Table</span>
-        <span id="tableBlindsInfo" style="font-size:0.75em;font-weight:normal;opacity:0.65;text-transform:none;letter-spacing:normal;"></span>
+        <span id="tableBlindsInfo" style="font-size:0.95em;font-weight:normal;opacity:0.65;text-transform:none;letter-spacing:normal;"></span>
       </div>
       <div id="playerList"></div>
     </div>
@@ -1423,6 +1423,7 @@ socket.on('state',state=>{
   if(state.cardBackStyle) applyCardBack(state.cardBackStyle);
   tryShowPendingResults();
   updateGameSetupScreens(state);
+  if (document.getElementById('seatConfirmModal').style.display === 'flex') showSeatingConfirmation();
   updateJoinScreenForGameLive(state);
   const gameOffEl = document.getElementById('gameOffNotice');
   if (gameOffEl) gameOffEl.style.display = (isHost && !state.gameLive) ? 'block' : 'none';
@@ -1611,6 +1612,18 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.36', date:'July 2026',
+    changes:[
+      'Game clock and blinds text on the home screen enlarged to match At the Table font size',
+      'Stats: Folded/Won/Lost now show percentage only, no raw count',
+      'Stats: Streak now shows win in gold and loss in red as separate colors (e.g. W3/L2), slash stays white',
+      'Fixed Cancel on Game Setup only working locally for the host — other players were stuck on Waiting for the host forever. Now properly clears for everyone',
+      'Previous Game snapshot now stays visible until the NEXT game actually starts, instead of being replaced the instant the current game ends — no more losing the older previous game with no chance to review it',
+      'New Spectate designation: mark a player (or the host) as spectating for the game on the Confirm Seating screen. They are excluded from the player count, pot math, dealer rotation, At the Table, and Stats — not reversible once the game goes live',
+      'Seating Order in Host Controls now shows spectators at the bottom with only rename and remove buttons',
+    ]
+  },
   {
     v:'3.35', date:'July 2026',
     changes:[
@@ -2423,13 +2436,12 @@ function renderHostControls(state){
   // Seating + bust-out + rename
   const sl=document.getElementById('hostSeatList');
   sl.innerHTML='';
-  state.players.forEach((p,i)=>{
-    if(p.departed) return; // skip rendering, but keep the correct index for reorder buttons below
+  function buildSeatRow(p,i,isSpectate){
     const row=document.createElement('div');
     row.className='player-row';
     const nameEl=document.createElement('span');
     nameEl.className='player-name'+(p.eliminated?' folded':'');
-    nameEl.textContent=p.name+(p.eliminated?' (busted)':'');
+    nameEl.textContent=p.name+(p.eliminated?' (busted)':'')+(isSpectate?' (spectating)':'');
     row.appendChild(nameEl);
     const btns=document.createElement('span');
 
@@ -2437,26 +2449,40 @@ function renderHostControls(state){
     const edit=document.createElement('button');
     edit.className='seat-btn'; edit.textContent='✏'; edit.title='Rename';
     edit.onclick=()=>showRenameInput(row, nameEl, p.name);
+    btns.appendChild(edit);
 
-    // ★ Bust Out / Undo
-    const sit=document.createElement('button');
-    sit.className='seat-btn';
-    sit.style.background=p.eliminated?'#8a2020':'rgba(255,255,255,0.1)';
-    sit.style.color=p.eliminated?'#ff9999':'#fff';
-    sit.textContent='★';
-    sit.title=p.eliminated?'Undo bust-out':'Bust out (eliminate from tournament)';
-    sit.onclick=()=>socket.emit('eliminatePlayer',p.name);
+    if(!isSpectate){
+      // ★ Bust Out / Undo
+      const sit=document.createElement('button');
+      sit.className='seat-btn';
+      sit.style.background=p.eliminated?'#8a2020':'rgba(255,255,255,0.1)';
+      sit.style.color=p.eliminated?'#ff9999':'#fff';
+      sit.textContent='★';
+      sit.title=p.eliminated?'Undo bust-out':'Bust out (eliminate from tournament)';
+      sit.onclick=()=>socket.emit('eliminatePlayer',p.name);
+      btns.appendChild(sit);
 
-    const up=document.createElement('button');up.className='seat-btn';up.textContent='↑';up.disabled=i===0;up.onclick=()=>moveSeat(i,-1);
-    const dn=document.createElement('button');dn.className='seat-btn';dn.textContent='↓';dn.disabled=i===state.players.length-1;dn.onclick=()=>moveSeat(i,1);
+      const up=document.createElement('button');up.className='seat-btn';up.textContent='↑';up.disabled=i===0;up.onclick=()=>moveSeat(i,-1);
+      const dn=document.createElement('button');dn.className='seat-btn';dn.textContent='↓';dn.disabled=i===state.players.length-1;dn.onclick=()=>moveSeat(i,1);
+      btns.appendChild(up);btns.appendChild(dn);
+    }
+
     const rm=document.createElement('button');rm.className='seat-btn remove';rm.textContent='×';
     rm.onclick=()=>{
       if(confirm('Permanently remove '+p.name+' from the session?\n\nUse ★ Bust Out if they are eliminated from the tournament.'))
         socket.emit('removePlayer',p.name);
     };
-    btns.appendChild(edit);btns.appendChild(sit);btns.appendChild(up);btns.appendChild(dn);btns.appendChild(rm);
+    btns.appendChild(rm);
     row.appendChild(btns);
     sl.appendChild(row);
+  }
+  state.players.forEach((p,i)=>{
+    if(p.departed||p.spectate) return; // spectate players render in a second pass below, at the bottom
+    buildSeatRow(p,i,false);
+  });
+  state.players.forEach((p,i)=>{
+    if(p.departed||!p.spectate) return;
+    buildSeatRow(p,i,true);
   });
   window.scrollTo({top:_scroll,behavior:'instant'}); // restore
 }
@@ -2541,7 +2567,7 @@ function renderSessionInfo(state) {
   if (!state.gameLive) { box.style.display = 'none'; return; }
   box.style.display = 'block';
   const info = state.sessionInfo || {};
-  const totalPlayers = (state.players || []).length;
+  const totalPlayers = (state.players || []).filter(p => !p.spectate).length;
   const totalPot = (info.buyIn || 0) * totalPlayers;
   const fmtMoney = n => '$' + (Math.round(n * 100) / 100).toString();
   const display = document.getElementById('sessionInfoDisplay');
@@ -2577,7 +2603,7 @@ document.getElementById('siBuyIn').addEventListener('input', () => {
   updateFirstPlaceAmt('si');
   const label = document.getElementById('siBuyInLabel');
   const buyIn = Number(document.getElementById('siBuyIn').value) || 0;
-  const totalPlayers = (lastState && lastState.players) ? lastState.players.length : 0;
+  const totalPlayers = (lastState && lastState.players) ? lastState.players.filter(p => !p.spectate).length : 0;
   label.textContent = buyIn > 0 && totalPlayers > 0 ? `Player Buy-in ($${buyIn * totalPlayers} total)` : 'Buy-in ($)';
 });
 document.getElementById('siEditToggleBtn').onclick = () => {
@@ -2615,7 +2641,7 @@ function ordinal(n) {
 }
 
 function computeStatsRows(state) {
-  const players = state.players || [];
+  const players = (state.players || []).filter(p => !p.spectate);
   const elimOrder = state.eliminationOrder || [];
   const totalPlayers = state.gameTotalPlayers || players.length;
   const active = players.filter(p => !p.eliminated);
@@ -2670,10 +2696,12 @@ function buildStatsTableHtml(rows) {
     const cls = r.isWinner ? 'tr-leader' : '';
     const style = r.eliminated ? ' style="opacity:0.55;"' : '';
     const statusBadge = r.isWinner ? ' 🏆' : r.eliminated ? ' <span style="opacity:0.5;font-size:0.85em;">(busted)</span>' : '';
-    const streakText = (r.maxWinStreak || r.maxLossStreak) ? `W${r.maxWinStreak}/L${r.maxLossStreak}` : '—';
-    const foldCell = r.foldPct !== null ? `${r.folded} (${r.foldPct}%)` : `${r.folded}`;
-    const winCell = r.winPct !== null ? `${r.won} (${r.winPct}%)` : '—';
-    const lossCell = r.lossPct !== null ? `${r.decided - r.won} (${r.lossPct}%)` : '—';
+    const streakText = (r.maxWinStreak || r.maxLossStreak)
+      ? `<span style="color:#d4af37;">W${r.maxWinStreak}</span><span style="color:#fff;">/</span><span style="color:#ff6b6b;">L${r.maxLossStreak}</span>`
+      : '—';
+    const foldCell = r.foldPct !== null ? `${r.foldPct}%` : '—';
+    const winCell = r.winPct !== null ? `${r.winPct}%` : '—';
+    const lossCell = r.lossPct !== null ? `${r.lossPct}%` : '—';
     const placeCell = r.place !== null
       ? `${ordinal(r.place)}${r.payout != null ? `<br><span style="font-size:0.75em;opacity:0.75;color:#d4af37;">$${r.payout}</span>` : ''}`
       : '—';
@@ -2794,7 +2822,13 @@ function showSeatingConfirmation() {
   players.forEach((p, i) => {
     const div = document.createElement('div');
     div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.08);';
-    div.innerHTML = `<span style="width:22px;text-align:center;opacity:0.45;font-size:0.85em;">${i+1}</span><span style="font-weight:700;">${p.name}</span>`;
+    div.innerHTML = `<span style="width:22px;text-align:center;opacity:0.45;font-size:0.85em;">${i+1}</span><span style="font-weight:700;flex:1;">${p.name}${p.spectate ? ' <span style="opacity:0.5;font-size:0.8em;font-weight:400;">(spectating)</span>' : ''}</span>`;
+    const specBtn = document.createElement('button');
+    specBtn.className = 'secondary';
+    specBtn.style.cssText = 'width:auto;padding:6px 12px;font-size:0.75em;margin-bottom:0;' + (p.spectate ? 'background:#5c2020;color:#d9a3a3;' : '');
+    specBtn.textContent = p.spectate ? 'Spectating' : 'Spectate';
+    specBtn.onclick = () => socket.emit('setSpectate', p.name);
+    div.appendChild(specBtn);
     list.appendChild(div);
   });
   document.getElementById('seatConfirmModal').style.display = 'flex';
@@ -2837,7 +2871,7 @@ function updateGameSetupScreens(state) {
 
 function renderTermsConfirmScreen(state) {
   const info = state.sessionInfo || {};
-  const totalPlayers = (state.players || []).length;
+  const totalPlayers = (state.players || []).filter(p => !p.spectate).length;
   const totalPot = (info.buyIn || 0) * totalPlayers;
   const fmtMoney = n => '$' + (Math.round(n * 100) / 100).toString();
   const summary = document.getElementById('termsSummary');
@@ -2906,7 +2940,7 @@ function updateGsBuyInLabel() {
   const label = document.getElementById('gsBuyInLabel');
   if (!label) return;
   const buyIn = Number(document.getElementById('gsBuyIn').value) || 0;
-  const totalPlayers = (lastState && lastState.players) ? lastState.players.length : 0;
+  const totalPlayers = (lastState && lastState.players) ? lastState.players.filter(p => !p.spectate).length : 0;
   label.textContent = buyIn > 0 && totalPlayers > 0
     ? `Player Buy-in ($${buyIn * totalPlayers} total)`
     : 'Buy-in ($)';
@@ -2950,7 +2984,7 @@ function updateFirstPlaceAmt(prefix) {
   prefix = prefix || 'gs';
   const el = document.getElementById(prefix + 'FirstPlaceAmt');
   if (!el) return;
-  const totalPlayers = (lastState && lastState.players) ? lastState.players.length : 0;
+  const totalPlayers = (lastState && lastState.players) ? lastState.players.filter(p => !p.spectate).length : 0;
   const buyIn = Number(document.getElementById(prefix + 'BuyIn').value) || 0;
   const totalPot = buyIn * totalPlayers;
   let sumOthers = 0;
@@ -2960,7 +2994,7 @@ function updateFirstPlaceAmt(prefix) {
 
 function gatherSessionInfoFromForm(prefix) {
   const playersToCash = Number(document.getElementById(prefix + 'PlayersToCash').value) || 0;
-  const totalPlayers = (lastState && lastState.players) ? lastState.players.length : 0;
+  const totalPlayers = (lastState && lastState.players) ? lastState.players.filter(p => !p.spectate).length : 0;
   const buyIn = Number(document.getElementById(prefix + 'BuyIn').value) || 0;
   const totalPot = buyIn * totalPlayers;
   const payouts = [];
@@ -2990,7 +3024,7 @@ function gatherSessionInfoFromForm(prefix) {
 function populatePlayersToCashOptions(prefix) {
   const sel = document.getElementById(prefix + 'PlayersToCash');
   if (!sel) return;
-  const maxCash = Math.min(4, (lastState && lastState.players) ? lastState.players.length : 4);
+  const maxCash = Math.min(4, (lastState && lastState.players) ? lastState.players.filter(p => !p.spectate).length : 4);
   const prevValue = sel.value;
   let html = '';
   for (let i = 1; i <= maxCash; i++) html += `<option value="${i}">${i}</option>`;
@@ -3024,6 +3058,7 @@ document.getElementById('gsSubmitBtn').onclick = () => {
   socket.emit('submitGameSetup', gatherSessionInfoFromForm('gs'));
 };
 document.getElementById('gsCancelBtn').onclick = () => {
+  socket.emit('cancelGameSetup');
   document.getElementById('gameSetupModal').style.display = 'none';
   showSeatingConfirmation();
 };
@@ -3156,7 +3191,7 @@ function renderPlayerList(players){
   const list=document.getElementById('playerList');list.innerHTML='';
   const ac={F:'fold',C:'call',R:'raise',A:'allin',X:'check'};
   const al={F:'FOLD',C:'CALL',R:'RAISE',A:'ALL IN',X:'CHECK'};
-  players.filter(p=>!p.departed).forEach((p,i)=>{
+  players.filter(p=>!p.departed&&!p.spectate).forEach((p,i)=>{
     const row=document.createElement('div');row.className='player-row';
     const name=document.createElement('span');
     name.className='player-name'+(p.folded&&!p.eliminated?' folded':p.eliminated?' folded':'');
