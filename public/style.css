@@ -238,6 +238,7 @@ button.gold { background:#d4af37; color:#111; }
 
 /* ── Sitting out badge ── */
 .badge.sitout { background:#5a4a00; color:#d4af37; border:1px solid #d4af37; }
+.badge.spectate { background:#1a6a8a; color:#fff; }
 
 /* ── Winner popup overlay ── */
 #winnerOverlay {

@@ -339,7 +339,7 @@
     <div class="section">
       <div class="label" style="display:flex;justify-content:space-between;align-items:baseline;">
         <span>At the Table</span>
-        <span id="tableBlindsInfo" style="font-size:0.95em;font-weight:normal;opacity:0.65;text-transform:none;letter-spacing:normal;"></span>
+        <span id="tableBlindsInfo" style="font-size:1.27em;font-weight:normal;opacity:0.65;text-transform:none;letter-spacing:normal;"></span>
       </div>
       <div id="playerList"></div>
     </div>
@@ -1613,6 +1613,16 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.36.1', date:'July 2026',
+    changes:[
+      'Fixed spectators being included in the who-deals-first drawing — the dealer draw only filtered eliminated players, not sitting-out/spectating ones',
+      'Fixed End Game warning also counting spectators toward the active-player check',
+      'Seating Order now shows BUST and SPECTATE as colored badges (matching At the Table style) instead of plain text',
+      'Game Setup: payout fields now list in worst-to-best order (3rd, 2nd, then 1st) instead of 2nd, 3rd, 1st',
+      'Fixed the blinds/increase text in At the Table still looking too small — it was nested inside an already-shrunk parent, so the font-size was compounding smaller instead of matching player-name size',
+    ]
+  },
+  {
     v:'3.36', date:'July 2026',
     changes:[
       'Game clock and blinds text on the home screen enlarged to match At the Table font size',
@@ -2441,7 +2451,9 @@ function renderHostControls(state){
     row.className='player-row';
     const nameEl=document.createElement('span');
     nameEl.className='player-name'+(p.eliminated?' folded':'');
-    nameEl.textContent=p.name+(p.eliminated?' (busted)':'')+(isSpectate?' (spectating)':'');
+    nameEl.textContent=p.name+' ';
+    if(p.eliminated){ const b=document.createElement('span'); b.className='badge sitout'; b.textContent='BUST'; nameEl.appendChild(b); }
+    if(isSpectate){ const b=document.createElement('span'); b.className='badge spectate'; b.textContent='SPECTATE'; nameEl.appendChild(b); }
     row.appendChild(nameEl);
     const btns=document.createElement('span');
 
@@ -2757,7 +2769,7 @@ function renderPrevGameSnapshot(state) {
 // ── GAME button — starts a new game, or confirms ending the live one ──
 document.getElementById('newGameBtn').onclick = () => {
   if (lastState && lastState.gameLive) {
-    const activeCount = (lastState.players || []).filter(p => !p.eliminated).length;
+    const activeCount = (lastState.players || []).filter(p => !p.eliminated && !p.spectate).length;
     const warnEl = document.getElementById('endGameWarning');
     if (activeCount !== 1) {
       warnEl.textContent = `⚠️ There are still ${activeCount} active players — this game hasn't naturally finished yet.`;
@@ -2969,7 +2981,7 @@ function renderPayoutFields(prefix) {
   const ordinalLabels = ['1st', '2nd', '3rd', '4th'];
   if (playersToCash <= 0) { container.innerHTML = ''; return; }
   let html = '';
-  for (let i = 1; i < playersToCash; i++) {
+  for (let i = playersToCash - 1; i >= 1; i--) {
     html += `<div style="margin-bottom:8px;"><label style="font-size:0.72em;opacity:0.6;display:block;margin-bottom:3px;">${ordinalLabels[i]} Place ($)</label><input type="number" min="0" class="${prefix}PayoutInput" data-idx="${i}" style="width:100%;padding:8px;border-radius:6px;border:none;background:#1a1a1a;color:#fff;"></div>`;
   }
   html += `<div><label style="font-size:0.72em;opacity:0.6;display:block;margin-bottom:3px;">1st Place ($) — remainder of pot</label><div id="${prefix}FirstPlaceAmt" style="padding:8px;border-radius:6px;background:#141414;color:#d4af37;font-weight:700;">$0</div></div>`;
