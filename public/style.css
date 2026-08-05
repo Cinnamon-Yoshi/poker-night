@@ -864,14 +864,18 @@ button.gold { background:#d4af37; color:#111; }
 }
 .player-action-btns { display:flex; gap:8px; }
 .pab-btn {
-  flex:1; border:none; border-radius:10px;
-  padding:15px 4px; font-weight:900; font-size:0.76em; cursor:pointer;
+  flex:1; border:none; border-radius:10px; box-sizing:border-box;
+  height:50px; padding:0 4px; font-weight:900; font-size:0.76em; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  white-space:nowrap; overflow:hidden;
 }
 .pab-btn.fold  { background:#e01010; color:#fff; }
 .pab-btn.call  { background:#2a7a4a; color:#fff; }
 .pab-btn.check { background:#2a7a4a; color:#fff; }
 .pab-btn.raise { background:#6c3483; color:#fff; }
 .pab-btn.allin { background:#1a6a8a; color:#fff; }
+.pab-btn.pab-cancel { background:#5c2020; color:#d9a3a3; border:none; }
+.pab-amt { font-size:0.75em; font-weight:700; }
 
 /* ═══ INLINE HAND NAME ═══ */
 .hand-name-inline {

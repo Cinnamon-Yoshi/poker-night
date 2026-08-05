@@ -1673,9 +1673,9 @@ function buildRaisePanel(state) {
   if (raiseCustomMode) {
     return `
       <div style="display:flex;gap:6px;width:100%;box-sizing:border-box;">
-        <button class="pab-btn" style="flex:1.2;background:#6c3483;color:#fff;font-size:0.78em;padding:10px 4px;white-space:nowrap;" onclick="confirmRaise(lastState)">Confirm</button>
-        <input type="number" inputmode="numeric" pattern="[0-9]*" min="0" id="raiseCustomInput" value="" placeholder="Enter amount" style="flex:2;box-sizing:border-box;padding:10px 8px;font-size:0.9em;text-align:center;border-radius:10px;border:1px solid #6c3483;background:#0d2218;color:#fff;" oninput="raiseSelectedAmount=Number(this.value)||0;">
-        <button class="pab-btn" style="flex:1;background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.25);font-size:0.78em;padding:10px 4px;" onclick="cancelRaiseSelector(lastState)">Cancel</button>
+        <button class="pab-btn" style="flex:1.2;background:#6c3483;color:#fff;" onclick="confirmRaise(lastState)">Confirm</button>
+        <input type="number" inputmode="numeric" pattern="[0-9]*" min="0" id="raiseCustomInput" value="" placeholder="Enter amount" style="flex:2;box-sizing:border-box;height:50px;padding:0 8px;font-size:0.9em;text-align:center;border-radius:10px;border:1px solid #6c3483;background:#0d2218;color:#fff;" oninput="raiseSelectedAmount=Number(this.value)||0;">
+        <button class="pab-btn pab-cancel" onclick="cancelRaiseSelector(lastState)">Cancel</button>
       </div>`;
   }
 
@@ -1683,10 +1683,10 @@ function buildRaisePanel(state) {
   // no separate confirm step. Custom opens the screen above; Cancel
   // returns straight to the Fold/Call/Raise/All In buttons.
   const presetBtns = presets.map(p => {
-    return `<button class="pab-btn" style="flex:1;background:#1b3a29;color:#fff;font-size:0.7em;padding:8px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;white-space:nowrap;" onclick="raiseSelectedAmount=${p.amount};raiseSelectedLabel='${p.label}';confirmRaise(lastState);">${p.label}<br>${fmtChips(p.amount)}</button>`;
+    return `<button class="pab-btn" style="flex:1;background:#6c3483;color:#fff;" onclick="raiseSelectedAmount=${p.amount};raiseSelectedLabel='${p.label}';confirmRaise(lastState);">${p.label}<span class="pab-amt">${fmtChips(p.amount)}</span></button>`;
   }).join('');
-  const customBtn = `<button class="pab-btn" style="flex:1;background:#1b3a29;color:#fff;font-size:0.7em;padding:8px 2px;" onclick="openCustomRaiseInput()">Custom</button>`;
-  const cancelBtn = `<button class="pab-btn" style="flex:1;background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.25);font-size:0.7em;padding:8px 2px;" onclick="cancelRaiseSelector(lastState)">Cancel</button>`;
+  const customBtn = `<button class="pab-btn" style="flex:1;background:#1b3a29;color:#fff;" onclick="openCustomRaiseInput()">Custom</button>`;
+  const cancelBtn = `<button class="pab-btn pab-cancel" style="flex:1;" onclick="cancelRaiseSelector(lastState)">Cancel</button>`;
 
   return `<div style="display:flex;gap:6px;width:100%;box-sizing:border-box;">${presetBtns}${customBtn}${cancelBtn}</div>`;
 }
@@ -1749,7 +1749,7 @@ function renderPlayerActionBar(state){
   const canCheck = !state.hasRaiseThisStreet || (state.bbCanCheck && state.nextActorIsBB);
   const myStartingChips = (state.sessionInfo && state.sessionInfo.startingChips) || 2000;
   const myStack = (me && me.stack != null) ? me.stack : myStartingChips;
-  const allInBtn = `<button class="pab-btn allin" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.1;" onclick="playerAct('A')">All In<span style="font-size:0.75em;font-weight:700;">${fmtChips(myStack)}</span></button>`;
+  const allInBtn = `<button class="pab-btn allin" onclick="playerAct('A')">All In<span class="pab-amt">${fmtChips(myStack)}</span></button>`;
   if (canCheck) {
     btns.innerHTML = [
       `<button class="pab-btn fold"  onclick="playerAct('F')">Fold</button>`,
@@ -1760,7 +1760,7 @@ function renderPlayerActionBar(state){
   } else {
     btns.innerHTML = [
       `<button class="pab-btn fold"  onclick="playerAct('F')">Fold</button>`,
-      `<button class="pab-btn call" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.1;" onclick="playerAct('C')">Call<span style="font-size:0.75em;font-weight:700;">${fmtChips(150)}</span></button>`,
+      `<button class="pab-btn call" onclick="playerAct('C')">Call<span class="pab-amt">${fmtChips(150)}</span></button>`,
       `<button class="pab-btn raise" onclick="openRaiseSelector(lastState)">Raise</button>`,
       allInBtn
     ].join('');
@@ -1807,6 +1807,15 @@ document.getElementById('cardRanksCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.50', date:'August 2026',
+    changes:[
+      'Standardized all 3 action-bar popups (Your Turn, Raise presets, Raise custom) to the same fixed button height, so the popup itself is now a consistent height across all three states',
+      'Min/1/2 pot/Pot buttons recolored purple to match Confirm',
+      'Chip amounts on Min/1/2 pot/Pot buttons now unbolded and smaller, matching the Call buttons style',
+      'Cancel buttons on both raise screens now styled like the EXIT/LEAVE button (dusty red pill)',
+    ]
+  },
   {
     v:'3.49', date:'August 2026',
     changes:[
