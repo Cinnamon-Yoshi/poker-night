@@ -65,6 +65,16 @@
 </div>
 
 <!-- Stats modal -->
+<div id="cardRanksModal" class="full-modal" style="display:none;">
+  <div class="full-modal-inner">
+    <button id="cardRanksCloseBtn" style="width:100%;margin-bottom:12px;">Close</button>
+    <div class="full-modal-hdr">
+      <span class="full-modal-title">📋 Card Ranks</span>
+    </div>
+    <div id="cardRanksList" style="margin-top:10px;"></div>
+  </div>
+</div>
+
 <div id="statsModal" class="full-modal" style="display:none;">
   <div class="full-modal-inner">
     <button id="statsCloseBtn" style="width:100%;margin-bottom:12px;">Close</button>
@@ -339,25 +349,13 @@
     <!-- Players at Table -->
     <div class="section">
       <div class="label" style="display:flex;justify-content:space-between;align-items:baseline;">
-        <span>At the Table</span>
-        <span id="tablePotInfo" style="font-size:1.27em;font-weight:normal;opacity:0.65;text-transform:none;letter-spacing:normal;"></span>
+        <span class="at-table-title">At the Table</span>
+        <span id="tablePotInfo" class="at-table-pot"></span>
       </div>
       <table id="playerList"></table>
     </div>
 
-    <!-- Hand Rankings cheat sheet -->
-    <div class="section" id="cheatSheet" style="display:none;">
-      <div class="rank-row"><span>1. Royal Flush</span><span>A K Q J 10, same suit</span></div>
-      <div class="rank-row"><span>2. Straight Flush</span><span>5 in a row, same suit</span></div>
-      <div class="rank-row"><span>3. Four of a Kind</span><span>4 cards same rank</span></div>
-      <div class="rank-row"><span>4. Full House</span><span>Three of a kind + pair</span></div>
-      <div class="rank-row"><span>5. Flush</span><span>5 same suit, any order</span></div>
-      <div class="rank-row"><span>6. Straight</span><span>5 in a row, any suit</span></div>
-      <div class="rank-row"><span>7. Three of a Kind</span><span>3 cards same rank</span></div>
-      <div class="rank-row"><span>8. Two Pair</span><span>2 different pairs</span></div>
-      <div class="rank-row"><span>9. Pair</span><span>2 cards same rank</span></div>
-      <div class="rank-row"><span>10. High Card</span><span>Best single card wins</span></div>
-    </div>
+    <!-- Hand Rankings — now a full modal, see cardRanksModal below -->
 
     <!-- Action Log (moved above the button row) -->
     <div class="section" style="margin-top:8px;">
@@ -1688,12 +1686,56 @@ function renderPlayerActionBar(state){
   bar.classList.remove('player-action-hidden');
 }
 document.getElementById('cheatToggle').onclick=()=>{
-  const el=document.getElementById('cheatSheet');
-  el.style.display=el.style.display==='none'?'block':'none';
+  const list=document.getElementById('cardRanksList');
+  const ranks=[
+    { name:'1. Royal Flush', desc:'A K Q J 10, same suit', cards:[{r:14,s:'S'},{r:13,s:'S'},{r:12,s:'S'},{r:11,s:'S'},{r:10,s:'S'}] },
+    { name:'2. Straight Flush', desc:'5 in a row, same suit', cards:[{r:9,s:'H'},{r:8,s:'H'},{r:7,s:'H'},{r:6,s:'H'},{r:5,s:'H'}] },
+    { name:'3. Four of a Kind', desc:'4 cards same rank', cards:[{r:13,s:'S'},{r:13,s:'H'},{r:13,s:'D'},{r:13,s:'C'},{r:5,s:'S'}] },
+    { name:'4. Full House', desc:'Three of a kind + pair', cards:[{r:8,s:'S'},{r:8,s:'H'},{r:8,s:'D'},{r:4,s:'C'},{r:4,s:'S'}] },
+    { name:'5. Flush', desc:'5 same suit, any order', cards:[{r:14,s:'D'},{r:11,s:'D'},{r:8,s:'D'},{r:6,s:'D'},{r:3,s:'D'}] },
+    { name:'6. Straight', desc:'5 in a row, any suit', cards:[{r:9,s:'S'},{r:8,s:'H'},{r:7,s:'D'},{r:6,s:'C'},{r:5,s:'S'}] },
+    { name:'7. Three of a Kind', desc:'3 cards same rank', cards:[{r:7,s:'S'},{r:7,s:'H'},{r:7,s:'D'},{r:13,s:'C'},{r:2,s:'S'}] },
+    { name:'8. Two Pair', desc:'2 different pairs', cards:[{r:11,s:'S'},{r:11,s:'H'},{r:4,s:'D'},{r:4,s:'C'},{r:9,s:'S'}] },
+    { name:'9. Pair', desc:'2 cards same rank', cards:[{r:12,s:'S'},{r:12,s:'H'},{r:9,s:'D'},{r:6,s:'C'},{r:3,s:'S'}] },
+    { name:'10. High Card', desc:'Best single card wins', cards:[{r:14,s:'S'},{r:11,s:'H'},{r:8,s:'D'},{r:5,s:'C'},{r:2,s:'S'}] },
+  ];
+  list.innerHTML='';
+  ranks.forEach(rk=>{
+    const row=document.createElement('div');
+    row.style.cssText='padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.08);';
+    const label=document.createElement('div');
+    label.style.cssText='margin-bottom:8px;';
+    label.innerHTML=`<div style="font-weight:700;font-size:0.95em;">${rk.name}</div><div style="font-size:0.8em;opacity:0.6;">${rk.desc}</div>`;
+    row.appendChild(label);
+    const cardsRow=document.createElement('div');
+    cardsRow.style.cssText='display:flex;gap:5px;';
+    rk.cards.forEach(c=>{
+      const cardEl=makeCard(c);
+      cardEl.style.cssText='--card-w:38px;--card-h:54px;';
+      cardsRow.appendChild(cardEl);
+    });
+    row.appendChild(cardsRow);
+    list.appendChild(row);
+  });
+  document.getElementById('cardRanksModal').style.display='flex';
+};
+document.getElementById('cardRanksCloseBtn').onclick=()=>{
+  document.getElementById('cardRanksModal').style.display='none';
 };
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.43', date:'July 2026',
+    changes:[
+      'Standardized font sizes across At the Table: title, badges, name, action, bet, stack, and Pot all now share one consistent size',
+      'New hand log entries now include the hand number',
+      'Raise and Call log entries now show a placeholder amount',
+      'Winner log entries (both fold-win and full showdown, including splits) now include pot size and a placeholder % chip increase',
+      'Card Ranks converted from an expanding section to a full popup modal matching Stats, now showing an actual rendered card example for each of the 10 hand rankings instead of just text',
+      'Action log cap raised from 3,000 to 8,000 entries for comfortable headroom on long multi-hour sessions',
+    ]
+  },
   {
     v:'3.42', date:'July 2026',
     changes:[
@@ -3464,9 +3506,8 @@ function renderPlayerList(players){
     const stackTd=document.createElement('td');
     stackTd.className='pt-stack';
     if(p.eliminated){
-      stackTd.innerHTML='<span style="background:#5c2020;color:#d9a3a3;font-size:0.65em;padding:2px 6px;border-radius:20px;font-weight:800;">BUST</span>';
+      stackTd.innerHTML='<span style="background:#5c2020;color:#d9a3a3;font-size:0.85em;padding:2px 6px;border-radius:20px;font-weight:800;">BUST</span>';
     } else {
-      stackTd.style.cssText='font-size:0.95em;font-weight:normal;opacity:0.65;';
       stackTd.textContent=fmtChips(startingChips);
     }
     row.appendChild(stackTd);
@@ -3477,9 +3518,6 @@ function renderPlayerList(players){
   if(potEl){
     // Placeholder pot — no real pot tracking wired up yet
     potEl.textContent=(lastState&&lastState.gameLive)?`Pot: ${fmtChips(placeholderPot())}`:'';
-    potEl.style.color='#d4af37';
-    potEl.style.fontSize='0.9em';
-    potEl.style.fontWeight='500';
   }
 }
 

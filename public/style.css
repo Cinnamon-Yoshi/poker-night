@@ -67,11 +67,14 @@ button.gold { background:#d4af37; color:#111; }
 #playerList tr:last-child { border-bottom:none; }
 #playerList td { padding:7px 4px; vertical-align:middle; }
 .pt-badge { text-align:center; width:1%; white-space:nowrap; }
-.pt-name { text-align:left; font-weight:600; font-size:0.95em; width:1%; white-space:nowrap; }
+.pt-name { text-align:left; font-weight:600; font-size:0.85em; width:1%; white-space:nowrap; }
 .pt-name.folded { opacity:0.35; text-decoration:line-through; }
 .pt-action { text-align:center; white-space:nowrap; width:1%; }
 .pt-bet { text-align:left; white-space:nowrap; color:#c9a6dd; font-size:0.85em; font-weight:600; padding-left:10px; }
-.pt-stack { text-align:right; white-space:nowrap; width:1%; }
+.pt-stack { text-align:right; white-space:nowrap; width:1%; font-size:0.85em; opacity:0.65; }
+#playerList .badge { font-size:0.85em; }
+.at-table-title { font-size:0.85em; }
+.at-table-pot { font-size:0.85em; color:#d4af37; font-weight:500; }
 
 /* ── Badges ── */
 .badge { font-size:0.65em; padding:2px 6px; border-radius:20px; margin-left:3px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; line-height:1; }
