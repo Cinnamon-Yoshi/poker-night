@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Roatan Poker Club</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="/manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -282,7 +283,7 @@
 
 <!-- Action notification (shown to everyone for All In / Raise / Fold) -->
 <div id="actionNotif">
-  <img src="/img/card-roatan.jpg" alt="" style="width:90px;border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,0.5);margin-bottom:14px;">
+  <img src="/img/card-roatan.jpg" alt="" style="width:130px;border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,0.5);margin-bottom:14px;">
   <div id="actionNotifName" style="font-size:1.15em;font-weight:900;"></div>
   <div id="actionNotifVerb" style="font-size:0.5em;font-weight:700;opacity:0.85;margin-top:4px;"></div>
   <div id="actionNotifDetail" style="font-size:0.55em;font-weight:800;margin-top:10px;"></div>
@@ -1329,7 +1330,7 @@ function showRunoutResults(runout) {
 
       const peekBtn = document.createElement('button');
       peekBtn.className = 'fw-peek-btn';
-      peekBtn.textContent = 'Peek';
+      peekBtn.innerHTML = '&#128065;<br>Peek';
       const showPeek = () => {
         if (!myCards.length) return;
         cardsDiv.innerHTML = '';
@@ -1804,6 +1805,15 @@ document.getElementById('cardRanksCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.47', date:'July 2026',
+    changes:[
+      'Added a proper favicon — bold gold R on a teal-to-green gradient, matching the card artwork',
+      'Action popup card image (Fold/Raise/All In) enlarged to match Your Turns card size',
+      'Added the eyeball icon to the Peek button on the fold-win Results screen',
+      'Fixed a real stats bug: fold percentage could exceed 100% after using Undo — the undo snapshot only ever captured action/folded/all-in, never the underlying stats counters, so an undo-then-refold could increment Folded multiple times per hand while Played stayed fixed at one. Undo now captures and restores the full set of stats fields',
+    ]
+  },
   {
     v:'3.46', date:'July 2026',
     changes:[
