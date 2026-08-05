@@ -21,7 +21,15 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.42';
+const VERSION = '3.43';
+
+// Shared placeholder pot value — matches the client's placeholderPot(). No
+// real pot tracking wired up yet, so this is purely for shell consistency.
+const PLACEHOLDER_POT = 2500;
+function winPotSummary(){
+  const pct = Math.round((PLACEHOLDER_POT / (sessionInfo.startingChips||2000)) * 100);
+  return ' ['+PLACEHOLDER_POT+' pot, +'+pct+'%]';
+}
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
@@ -68,7 +76,7 @@ function freshDeck(){
   return d;
 }
 
-function addLog(msg){actionLog.push(msg);if(actionLog.length>3000)actionLog.shift();}
+function addLog(msg){actionLog.push(msg);if(actionLog.length>8000)actionLog.shift();}
 
 function nextActive(from){
   const n=players.length; if(!n) return -1;
@@ -850,7 +858,7 @@ io.on('connection',socket=>{
         io.emit('blindsReminder',{message:msg});
       }
     }
-    addLog('--- New hand. Dealer: '+players[dealerIdx].name+' ---');
+    addLog('--- New hand #'+sessionHandsPlayed+'. Dealer: '+players[dealerIdx].name+' ---');
     const sbIdx=getSB(), bbIdx=getBB();
     handSBIdx=sbIdx; handBBIdx=bbIdx;
     // Blinds are forced money in the pot — count as played immediately
@@ -890,7 +898,10 @@ io.on('connection',socket=>{
     const isBBCheck=bbCanCheck&&stage==='preflop'&&nextActor===getBB();
     if(action==='X'&&hasRaiseThisStreet&&!isBBCheck) return;
     const labels={F:'Fold',C:'Call',R:'Raise',A:'All In',X:'Check'};
-    const logEntry=p.name+': '+(labels[action]||action);
+    let logEntry=p.name+': '+(labels[action]||action);
+    if(action==='R'||action==='C'){
+      logEntry+=' '+150; // placeholder amount — no real chip tracking wired up yet
+    }
     saveUndo(logEntry);
     p.action=action;
     if(action==='F'){
@@ -1029,7 +1040,7 @@ io.on('connection',socket=>{
     winner.statsWon=(winner.statsWon||0)+1;
     winner.statsDecided=(winner.statsDecided||0)+1;
     recordStreak(winner,true);
-    addLog('🏆 '+winner.name+' wins (everyone else folded)');
+    addLog('🏆 '+winner.name+' wins (everyone else folded)'+winPotSummary());
     const resultsPlayers=players.filter(p=>!p.sittingOut&&!p.eliminated).map(p=>({
       name:p.name,
       cards:[], // hidden until Show Hand is pressed
@@ -1211,8 +1222,8 @@ io.on('connection',socket=>{
     // the river, call it out — they caught up on the last card
     const wasNotLeading=isRunoutSession&&!isSplit&&lastLeaderNames.length>0&&!lastLeaderNames.includes(wNames[0]);
     const winnerLogMsg=isSplit
-      ?'\uD83E\uDD1D Split pot \u2014 '+wNamesStr+(wDescLog?' — tied with '+wDescLog+'!':'!')
-      :'\uD83C\uDFC6 '+wNamesStr+(wasNotLeading?' rivers the win':' wins')+(wDescLog?' with '+wDescLog+'!':'!');
+      ?'\uD83E\uDD1D Split pot \u2014 '+wNamesStr+(wDescLog?' — tied with '+wDescLog+'!':'!')+winPotSummary()
+      :'\uD83C\uDFC6 '+wNamesStr+(wasNotLeading?' rivers the win':' wins')+(wDescLog?' with '+wDescLog+'!':'!')+winPotSummary();
 
     // Hand summary: only players who were actually in the hand (not sitting out)
     const nonFolded=results.filter(r=>!r.folded&&!r.sittingOut)
