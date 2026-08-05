@@ -391,10 +391,10 @@
 
     <!-- Button row: Hand Ranks + Stats + Log + Host Controls -->
     <div class="btn-row">
-      <button class="secondary" id="cheatToggle">Hand Ranks</button>
-      <button class="secondary" id="statsBtn">Stats</button>
-      <button class="secondary" id="logBtn">Log</button>
-      <button class="secondary" id="hostToggle">&#128274;</button>
+      <button class="secondary" id="cheatToggle">Hand<br>Ranks</button>
+      <button class="secondary" id="statsBtn">Game<br>Stats</button>
+      <button class="secondary" id="logBtn">Action<br>Log</button>
+      <button class="secondary" id="hostToggle">&#128274;<br>Dealer</button>
     </div>
 
     <!-- Host Panel (below button row — change 3) -->
@@ -408,17 +408,18 @@
       <div id="hostControls" class="host-panel" style="display:none;">
         <div class="host-panel-title">&#9824; Dealer Controls</div>
         <div class="host-act-row">
-          <button class="hbtn hbtn-F" id="hbtnF" onclick="doAct('F')"><span class="bl">F</span><span class="bs">FOLD</span></button>
-          <button class="hbtn hbtn-C" id="hbtnC" onclick="doAct(hbtnCAction)"><span class="bl" id="hbtnCBl">C</span><span class="bs" id="hbtnCBs">CALL</span></button>
-          <button class="hbtn hbtn-R" id="hbtnR" onclick="doAct('R')"><span class="bl">R</span><span class="bs">RAISE</span></button>
-          <button class="hbtn hbtn-A" id="hbtnA" onclick="doAct('A')"><span class="bl">A</span><span class="bs">ALL IN</span></button>
-          <button class="hbtn hbtn-undo" id="hbtnUndo" onclick="doUndo()"><span class="bl">&#8617;</span><span class="bs">UNDO</span></button>
-          <button class="hbtn" id="hbtnN" onclick="doNext()" style="background:#d4af37;color:#111;"><span class="bl">&#9654;</span><span class="bs">DEAL</span></button>
+          <button class="hbtn hbtn-F" id="hbtnF" onclick="doAct('F')"><span class="bl">F</span></button>
+          <button class="hbtn hbtn-C" id="hbtnC" onclick="doAct(hbtnCAction)"><span class="bl" id="hbtnCBl">C</span></button>
+          <button class="hbtn hbtn-R" id="hbtnR" onclick="doAct('R')"><span class="bl">R</span></button>
+          <button class="hbtn hbtn-A" id="hbtnA" onclick="doAct('A')"><span class="bl">A</span></button>
+          <button class="hbtn hbtn-undo" id="hbtnUndo" onclick="doUndo()"><span class="bl">&#8617;</span></button>
+          <button class="hbtn" id="hbtnN" onclick="doNext()" style="background:#d4af37;color:#111;"><span class="bl">&#9654;</span></button>
         </div>
         <div class="host-btn-row">
-          <button class="secondary" id="changeDeckBtn">&#127183; Deck</button>
-          <button class="secondary" id="newGameBtn">&#128260; GAME</button>
-          <button class="secondary" id="toggleSeatsBtn">&#129489; Seats &#9660;</button>
+          <button class="secondary" id="changeDeckBtn">Deck</button>
+          <button class="secondary" id="newGameBtn">GAME</button>
+          <button class="secondary" id="toggleSeatsBtn">Seats &#9660;</button>
+          <button class="secondary" id="releaseHostBtn" style="background:#5c2020;color:#d9a3a3;">Release</button>
         </div>
         <div id="seatSection" style="margin-top:14px;display:none;">
           <div class="label">Seating Order</div>
@@ -1583,7 +1584,7 @@ function updateNButton(state){
   // Fold-win: one player left standing — show winner button immediately
   if(state.foldWinner){
     btn.onclick = ()=>socket.emit('declareFoldWinner');
-    btn.innerHTML='<span class="bl">&#127942;</span><span class="bs">WIN</span>';
+    btn.innerHTML='<span class="bl">&#127942;</span>';
     btn.disabled=false;
     btn.style.background='#d4af37'; btn.style.color='#111';
     return;
@@ -1591,28 +1592,28 @@ function updateNButton(state){
   btn.onclick = doNext;
   // During runout preview: N is blocked — host uses Proceed button instead
   if(state.pendingRunout){
-    btn.innerHTML='<span class="bl">&#9646;&#9646;</span><span class="bs">WAIT</span>';
+    btn.innerHTML='<span class="bl">&#9646;&#9646;</span>';
     btn.disabled=true; btn.style.background='#2a2a2a'; btn.style.color='#555';
     return;
   }
   if(state.stage==='idle'){
-    btn.innerHTML='<span class="bl">&#9654;</span><span class="bs">DEAL</span>';
+    btn.innerHTML='<span class="bl">&#9654;</span>';
     btn.disabled=state.playerCount<2;
     btn.style.background='#d4af37'; btn.style.color='#111';
   } else if(state.stage==='preflop'){
-    btn.innerHTML='<span class="bl">&#9654;</span><span class="bs">FLOP</span>';
+    btn.innerHTML='<span class="bl">&#9654;</span>';
     btn.disabled=!state.canRevealNext;
     btn.style.background=state.canRevealNext?'#2a5d46':'#1a3a2a'; btn.style.color='#fff';
   } else if(state.stage==='flop'){
-    btn.innerHTML='<span class="bl">&#9654;</span><span class="bs">TURN</span>';
+    btn.innerHTML='<span class="bl">&#9654;</span>';
     btn.disabled=!state.canRevealNext;
     btn.style.background=state.canRevealNext?'#2a5d46':'#1a3a2a'; btn.style.color='#fff';
   } else if(state.stage==='turn'){
-    btn.innerHTML='<span class="bl">&#9654;</span><span class="bs">RIVER</span>';
+    btn.innerHTML='<span class="bl">&#9654;</span>';
     btn.disabled=!state.canRevealNext;
     btn.style.background=state.canRevealNext?'#2a5d46':'#1a3a2a'; btn.style.color='#fff';
   } else if(state.stage==='river'){
-    btn.innerHTML='<span class="bl">&#127942;</span><span class="bs">WIN</span>';
+    btn.innerHTML='<span class="bl">&#127942;</span>';
     btn.disabled=!state.canRevealWinner;
     btn.style.background=state.canRevealWinner?'#d4af37':'#4a3a00'; btn.style.color='#111';
   }
@@ -1828,6 +1829,16 @@ document.getElementById('logCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.52', date:'August 2026',
+    changes:[
+      'Standardized button height across the top nav row, Dealer Controls action row, and Deck/GAME/Seats row to match the Deck/GAME/Seats row height',
+      'Top nav buttons now read Hand Ranks / Game Stats / Action Log on two lines, plus a new Dealer button (lock icon + label) in the 4th spot',
+      'Dealer Controls action row (Fold/Call/Raise/All In/Undo/Deal-Flop-Turn-River-Win) simplified to icon-only — also fixed the Call/Check button always showing "C" even when checking, it now correctly shows "X" for check',
+      'Deck/GAME/Seats icons removed; added a 4th Release button to exit Dealer Controls and require the PIN again',
+      'Seating Order: pencil icon removed — tap a players name directly to rename. Added spacing between the bust-out star and the reorder arrows, and between the arrows and the remove (×) button',
+    ]
+  },
   {
     v:'3.51', date:'August 2026',
     changes:[
@@ -2839,8 +2850,7 @@ function renderHostControls(state){
   const canCheck = bbCheck || (!idle&&!noActor&&!state.hasRaiseThisStreet);
   hbtnCAction = canCheck ? 'X' : 'C';
   document.getElementById('hbtnC').disabled = idle||noActor;
-  document.getElementById('hbtnCBl').textContent = 'C';
-  document.getElementById('hbtnCBs').textContent = canCheck ? 'CHECK' : 'CALL';
+  document.getElementById('hbtnCBl').textContent = canCheck ? 'X' : 'C';
   document.getElementById('hbtnUndo').disabled=!state.canUndo;
 
   // Seating + bust-out + rename
@@ -2852,16 +2862,13 @@ function renderHostControls(state){
     const nameEl=document.createElement('span');
     nameEl.className='player-name'+(p.eliminated?' folded':'');
     nameEl.textContent=p.name+' ';
+    nameEl.title='Tap to rename';
+    nameEl.style.cursor='pointer';
+    nameEl.onclick=()=>showRenameInput(row, nameEl, p.name);
     if(p.eliminated){ const b=document.createElement('span'); b.className='badge sitout'; b.textContent='BUST'; nameEl.appendChild(b); }
     if(isSpectate){ const b=document.createElement('span'); b.className='badge spectate'; b.textContent='SPECTATE'; nameEl.appendChild(b); }
     row.appendChild(nameEl);
     const btns=document.createElement('span');
-
-    // ✏ Rename
-    const edit=document.createElement('button');
-    edit.className='seat-btn'; edit.textContent='✏'; edit.title='Rename';
-    edit.onclick=()=>showRenameInput(row, nameEl, p.name);
-    btns.appendChild(edit);
 
     if(!isSpectate){
       // ★ Bust Out / Undo
@@ -2874,12 +2881,12 @@ function renderHostControls(state){
       sit.onclick=()=>socket.emit('eliminatePlayer',p.name);
       btns.appendChild(sit);
 
-      const up=document.createElement('button');up.className='seat-btn';up.textContent='↑';up.disabled=i===0;up.onclick=()=>moveSeat(i,-1);
+      const up=document.createElement('button');up.className='seat-btn';up.style.marginLeft='10px';up.textContent='↑';up.disabled=i===0;up.onclick=()=>moveSeat(i,-1);
       const dn=document.createElement('button');dn.className='seat-btn';dn.textContent='↓';dn.disabled=i===state.players.length-1;dn.onclick=()=>moveSeat(i,1);
       btns.appendChild(up);btns.appendChild(dn);
     }
 
-    const rm=document.createElement('button');rm.className='seat-btn remove';rm.textContent='×';
+    const rm=document.createElement('button');rm.className='seat-btn remove';rm.style.marginLeft='10px';rm.textContent='×';
     rm.onclick=()=>{
       if(confirm('Permanently remove '+p.name+' from the session?\n\nUse ★ Bust Out if they are eliminated from the tournament.'))
         socket.emit('removePlayer',p.name);
@@ -2926,13 +2933,21 @@ function showRenameInput(row, nameEl, currentName){
 }
 
 // ── New Game + dealer animation ───────────────────────────────────────
-document.getElementById('toggleSeatsBtn').innerHTML='&#129489; Seats &#9658;';
+document.getElementById('toggleSeatsBtn').innerHTML='Seats &#9658;';
 document.getElementById('toggleSeatsBtn').onclick=()=>{
   const sec=document.getElementById('seatSection');
   const btn=document.getElementById('toggleSeatsBtn');
   const hidden=sec.style.display==='none';
   sec.style.display=hidden?'block':'none';
-  btn.innerHTML=hidden?'&#129489; Seats &#9660;':'&#129489; Seats &#9658;';
+  btn.innerHTML=hidden?'Seats &#9660;':'Seats &#9658;';
+};
+document.getElementById('releaseHostBtn').onclick=()=>{
+  if(!confirm('Release host control? You will need the PIN again to re-enter Dealer Controls.')) return;
+  isHost=false;
+  sessionStorage.removeItem('pokerIsHost');
+  document.getElementById('hostControls').style.display='none';
+  document.getElementById('pinScreen').style.display='block';
+  document.getElementById('pinInput').value='';
 };
 // ── Home-screen session clock + blinds method corner display ──────────
 function updateHomeScreenSessionInfo() {

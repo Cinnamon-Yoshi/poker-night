@@ -150,10 +150,10 @@ button.gold { background:#d4af37; color:#111; }
 }
 .host-act-row { display:flex; gap:5px; margin-bottom:8px; }
 .hbtn {
-  flex:1; padding:14px 2px; font-size:0.9em; font-weight:800;
+  flex:1; padding:0 2px; font-size:0.9em; font-weight:800;
   border-radius:8px; border:none; color:#fff; cursor:pointer;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
-  line-height:1;
+  line-height:1; box-sizing:border-box; height:46px;
 }
 .hbtn:disabled { opacity:0.2; cursor:default; }
 .hbtn .bl { font-size:1.3em; }
@@ -162,7 +162,7 @@ button.gold { background:#d4af37; color:#111; }
 .hbtn-C { background:#2a7a4a; }
 .hbtn-R { background:#6c3483; }
 .hbtn-A { background:#1a6a8a; }
-.hbtn-undo { background:#8b2222; font-size:0.85em; padding:9px 0; flex:none; width:58px; }
+.hbtn-undo { background:#8b2222; font-size:0.85em; flex:none; width:48px; }
 
 /* Current actor highlight in visual list */
 .player-row.current-actor { background:rgba(212,175,55,0.1); border-radius:8px; padding:7px 8px; margin:-4px; }
@@ -249,7 +249,7 @@ button.gold { background:#d4af37; color:#111; }
 
 /* ── Button row (Rankings + Host Controls side by side) ── */
 .btn-row { display:flex; gap:8px; margin-bottom:8px; }
-.btn-row button { flex:1; margin-bottom:0; font-size:0.88em; padding:11px 4px; }
+.btn-row button { flex:1; margin-bottom:0; font-size:0.68em; padding:0 2px; box-sizing:border-box; height:46px; line-height:1.25; }
 
 /* ── Version info ── */
 .version-info { text-align:center; font-size:0.72em; opacity:0.35; margin:8px 0 4px; }
@@ -520,7 +520,7 @@ button.gold { background:#d4af37; color:#111; }
 
 /* Half-width host buttons */
 .host-btn-row { display:flex; gap:8px; margin-bottom:8px; }
-.host-btn-row button { flex:1; margin-bottom:0; }
+.host-btn-row button { flex:1; margin-bottom:0; box-sizing:border-box; height:46px; }
 
 /* ═══ CHANGELOG MODAL ═══ */
 #changelogModal {
