@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.46';
+const VERSION = '3.47';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
@@ -525,7 +525,13 @@ function sendCards(id){if(holeCards[id]) io.to(id).emit('yourCards',holeCards[id
 
 function saveUndo(logEntry){
   undoState={
-    playerStates:players.map(p=>({action:p.action,folded:p.folded,allIn:p.allIn})),
+    playerStates:players.map(p=>({
+      action:p.action,folded:p.folded,allIn:p.allIn,
+      statsPlayed:p.statsPlayed,statsWon:p.statsWon,statsFolded:p.statsFolded,statsDecided:p.statsDecided,
+      statsRaised:p.statsRaised,statsCalled:p.statsCalled,statsAllIn:p.statsAllIn,
+      hadMoneyInPot:p.hadMoneyInPot,calledThisHand:p.calledThisHand,raisedThisHand:p.raisedThisHand,allInThisHand:p.allInThisHand,
+      streakType:p.streakType,streakCount:p.streakCount,maxWinStreak:p.maxWinStreak,maxLossStreak:p.maxLossStreak,
+    })),
     actingQueue:[...actingQueue], hasRaiseThisStreet, logEntry
   };
 }
@@ -985,10 +991,13 @@ io.on('connection',socket=>{
   socket.on('undoAction',()=>{
     if(!undoState) return;
     players.forEach((p,i)=>{
-      if(undoState.playerStates[i]){
-        p.action=undoState.playerStates[i].action;
-        p.folded=undoState.playerStates[i].folded;
-        p.allIn=undoState.playerStates[i].allIn;
+      const s=undoState.playerStates[i];
+      if(s){
+        p.action=s.action; p.folded=s.folded; p.allIn=s.allIn;
+        p.statsPlayed=s.statsPlayed; p.statsWon=s.statsWon; p.statsFolded=s.statsFolded; p.statsDecided=s.statsDecided;
+        p.statsRaised=s.statsRaised; p.statsCalled=s.statsCalled; p.statsAllIn=s.statsAllIn;
+        p.hadMoneyInPot=s.hadMoneyInPot; p.calledThisHand=s.calledThisHand; p.raisedThisHand=s.raisedThisHand; p.allInThisHand=s.allInThisHand;
+        p.streakType=s.streakType; p.streakCount=s.streakCount; p.maxWinStreak=s.maxWinStreak; p.maxLossStreak=s.maxLossStreak;
       }
     });
     actingQueue=[...undoState.actingQueue];
