@@ -281,6 +281,14 @@
 <!-- Turn notification (shown only to the player whose turn it is) -->
 <div id="turnNotif">🎯 Your turn!</div>
 
+<!-- All-In notification (shown to everyone when a player goes all-in) -->
+<div id="allInNotif">
+  <img src="/img/card-roatan.jpg" alt="" style="width:90px;border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,0.5);margin-bottom:14px;">
+  <div id="allInNotifName" style="font-size:1.15em;font-weight:900;"></div>
+  <div style="font-size:0.5em;font-weight:700;opacity:0.85;margin-top:4px;">went All In</div>
+  <div id="allInNotifAmount" style="font-size:0.55em;font-weight:800;margin-top:10px;"></div>
+</div>
+
 <!-- Street reveal overlay (Flop / Turn / River) -->
 <div id="streetOverlay">
   <div id="soPh1">
@@ -327,7 +335,7 @@
         <div id="blindsCorner"></div>
         <div id="blindsIncreaseCorner"></div>
       </div>
-      <button id="exitBtn" aria-label="Leave game" style="position:absolute;top:2px;right:0;width:auto;margin-bottom:0;padding:3px 8px;border-radius:20px;border:none;background:#5c2020;color:#d9a3a3;font-size:0.6em;font-weight:800;letter-spacing:0.5px;line-height:1;cursor:pointer;">EXIT</button>
+      <button id="exitBtn" aria-label="Leave game" style="position:absolute;top:2px;right:0;width:auto;margin-bottom:0;padding:4px 10px;border-radius:20px;border:none;background:#5c2020;color:#d9a3a3;font-size:0.75em;font-weight:800;letter-spacing:0.5px;line-height:1;cursor:pointer;">EXIT</button>
       <div class="app-title">&#9824; Roatan Poker Club</div>
       <div id="myNameLabel" class="player-name-header"></div>
       <div id="gameOffNotice" style="display:none;text-align:center;font-size:0.72em;font-weight:800;color:#e01010;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">Game Off</div>
@@ -347,7 +355,7 @@
         <div class="hole-cards-row" id="holeCardsWrap">
           <div class="cards-row" id="holeCardsRow"></div>
           <div id="handNameInline" class="hand-name-inline"></div>
-          <button class="view-btn" id="viewCardsBtn" style="display:none;">&#128065;<br>Peek</button>
+          <button class="view-btn" id="viewCardsBtn" style="display:none;"><span style="font-size:2em;display:block;line-height:1;">&#128065;</span>Peek</button>
         </div>
       </div>
     </div>
@@ -1415,6 +1423,18 @@ socket.on('yourCards',cards=>{
 let wasMyCurrent=false;
 let shuffleActive=false;
 let pendingMyTurn=false;
+let allInPopupActive=false;
+socket.on('playerAllInPopup', data => {
+  allInPopupActive = true;
+  document.getElementById('allInNotifName').textContent = data.name;
+  document.getElementById('allInNotifAmount').textContent = fmtChips(data.amount);
+  document.getElementById('allInNotif').classList.add('active');
+  setTimeout(() => {
+    document.getElementById('allInNotif').classList.remove('active');
+    allInPopupActive = false;
+    if (pendingMyTurn) { showTurnNotif(); pendingMyTurn = false; }
+  }, 1000);
+});
 let streetAnimActive=false;
 let inAllInRunout=false;
 let currentCardBack='blue-diamond';
@@ -1479,7 +1499,7 @@ socket.on('state',state=>{
   }
   const isMeCurrent=!!(meInState&&meInState.isCurrent);
   if(isMeCurrent&&!wasMyCurrent){
-    if(shuffleActive||streetAnimActive) pendingMyTurn=true;
+    if(shuffleActive||streetAnimActive||allInPopupActive) pendingMyTurn=true;
     else showTurnNotif();
   }
   wasMyCurrent=isMeCurrent;
@@ -1580,8 +1600,8 @@ function updateNButton(state){
 function doAct(action){ socket.emit('recordAction',action); }
 function doUndo(){ socket.emit('undoAction'); }
 
-function playerAct(action){
-  socket.emit('recordAction', action);
+function playerAct(action, extra){
+  socket.emit('recordAction', action, extra);
   document.getElementById('playerActionBar').classList.add('player-action-hidden');
 }
 
@@ -1594,11 +1614,13 @@ function fmtChips(n) { return Math.round(n).toLocaleString('en-US'); }
 
 let raiseSelectorOpen = false;
 let raiseSelectedAmount = null;
+let raiseSelectedLabel = null;
 
 function openRaiseSelector(state) {
   raiseSelectorOpen = true;
   raiseCustomMode = false;
   raiseSelectedAmount = 100; // placeholder default — matches the Pot preset below until real pot tracking exists
+  raiseSelectedLabel = 'Pot';
   renderPlayerActionBar(state);
 }
 function cancelRaiseSelector(state) {
@@ -1609,13 +1631,14 @@ function cancelRaiseSelector(state) {
 function confirmRaise(state) {
   raiseSelectorOpen = false;
   raiseCustomMode = false;
-  playerAct('R'); // same plain categorical action as before — amount isn't wired to gameplay yet
+  playerAct('R', { label: raiseSelectedLabel, amount: raiseSelectedAmount });
 }
 let raiseCustomMode = false;
 
 function openCustomRaiseInput() {
   raiseCustomMode = true;
   raiseSelectedAmount = 0;
+  raiseSelectedLabel = null;
   renderPlayerActionBar(lastState);
   const el = document.getElementById('raiseCustomInput');
   if (el) el.focus();
@@ -1638,7 +1661,7 @@ function buildRaisePanel(state) {
     const presetBtns = presets.map(p => {
       const selected = raiseSelectedAmount === p.amount;
       const bg = selected ? '#6c3483' : '#1b3a29';
-      return `<button class="pab-btn" style="flex:1;background:${bg};color:#fff;font-size:0.78em;padding:10px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;" onclick="raiseSelectedAmount=${p.amount};renderPlayerActionBar(lastState);">${p.label}<br>${fmtChips(p.amount)}</button>`;
+      return `<button class="pab-btn" style="flex:1;background:${bg};color:#fff;font-size:0.78em;padding:10px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;" onclick="raiseSelectedAmount=${p.amount};raiseSelectedLabel='${p.label}';renderPlayerActionBar(lastState);">${p.label}<br>${fmtChips(p.amount)}</button>`;
     }).join('');
     const customBtn = `<button class="pab-btn" style="flex:1;background:#1b3a29;color:#fff;font-size:0.78em;padding:10px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;" onclick="openCustomRaiseInput()">Custom</button>`;
     middleSection = `<div style="display:flex;gap:6px;margin-bottom:10px;">${presetBtns}${customBtn}</div>`;
@@ -1767,6 +1790,19 @@ document.getElementById('cardRanksCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.45', date:'July 2026',
+    changes:[
+      'Fixed GAME BEGINS timestamp showing server time instead of your own local time — now formats using each devices own timezone',
+      'NEXT badge no longer flashes, color now matches Peek (gold background, black text)',
+      'Action badges (Fold/Call/Raise/All In/NEXT) in At the Table now share a consistent width',
+      'Doubled the Peek button eyeball icon size',
+      'All In log entries now show the players chip stack amount',
+      'Raise log entries now show which preset was used (e.g. "Raise MIN 20", "Raise 1/2 Pot 150") — custom amounts just show the number with no label',
+      'EXIT/LEAVE button enlarged by 25%',
+      'New: when a player goes all-in, everyone sees a 1-second blue popup with their name, chip amount, and the Roatan card image — the next players Your Turn notification correctly waits until after it finishes',
+    ]
+  },
   {
     v:'3.44', date:'July 2026',
     changes:[
@@ -3601,6 +3637,12 @@ function actionLogColorClass(entry){
   return map[m[1]] ? ' '+map[m[1]] : '';
 }
 
+function formatLogEntry(entry){
+  return entry.replace(/\{\{TS:(\d+)\}\}/, (_, ts) => {
+    return new Date(Number(ts)).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+  });
+}
+
 function renderLogInto(el, entries){
   if(!el) return;
   el.innerHTML='';
@@ -3608,7 +3650,7 @@ function renderLogInto(el, entries){
     const d=document.createElement('div');
     d.className='log-entry'+(entry.includes('\uD83C\uDFC6')||entry.includes('---')?' hl':'')+actionLogColorClass(entry);
     if(entry.includes('\u21A9')) d.style.opacity='0.6';
-    d.textContent=entry;el.appendChild(d);
+    d.textContent=formatLogEntry(entry);el.appendChild(d);
   });
 }
 

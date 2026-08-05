@@ -73,6 +73,7 @@ button.gold { background:#d4af37; color:#111; }
 .pt-bet { text-align:left; white-space:nowrap; color:#c9a6dd; font-size:0.85em; font-weight:600; padding-left:10px; }
 .pt-stack { text-align:right; white-space:nowrap; width:1%; font-size:0.85em; opacity:0.65; }
 #playerList .badge { font-size:0.85em; }
+.pt-action .badge { min-width:52px; }
 .at-table-title { font-size:0.85em; }
 .at-table-pot { font-size:1.15em; color:#d4af37; font-weight:800; }
 
@@ -200,7 +201,7 @@ button.gold { background:#d4af37; color:#111; }
 .view-btn:active { opacity:0.85; }
 
 /* ── NEXT TO ACT badge ── */
-.badge.next { background:#d4af37; color:#fff; animation:blink 1s ease-in-out infinite alternate; }
+.badge.next { background:#d4af37; color:#111; }
 @keyframes blink { from{opacity:0.7;} to{opacity:1;} }
 
 /* ── Shuffle overlay ── */
@@ -333,6 +334,19 @@ button.gold { background:#d4af37; color:#111; }
   pointer-events:none;
 }
 #turnNotif.active {
+  display:flex;
+  animation:turnPop 0.3s cubic-bezier(0.2,1.2,0.4,1);
+}
+#allInNotif {
+  position:fixed; inset:0;
+  background:rgba(26,106,138,0.94);
+  color:#fff;
+  font-size:2.1em; font-weight:900;
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+  z-index:998; text-align:center;
+  pointer-events:none;
+}
+#allInNotif.active {
   display:flex;
   animation:turnPop 0.3s cubic-bezier(0.2,1.2,0.4,1);
 }
