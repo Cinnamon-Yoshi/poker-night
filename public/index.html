@@ -300,7 +300,7 @@
   <!-- GAME -->
   <div id="gameScreen" style="display:none;">
     <div class="app-header">
-      <div id="sessionInfoCorner" style="display:none;position:absolute;top:2px;left:0;text-align:left;font-size:0.95em;line-height:1.35;opacity:0.7;">
+      <div id="sessionInfoCorner" style="display:none;position:absolute;top:2px;left:0;text-align:left;font-size:0.72em;line-height:1.35;opacity:0.7;">
         <div id="sessionClockCorner"></div>
         <div id="blindsCorner"></div>
         <div id="blindsIncreaseCorner"></div>
@@ -359,6 +359,12 @@
       <div class="rank-row"><span>10. High Card</span><span>Best single card wins</span></div>
     </div>
 
+    <!-- Action Log (moved above the button row) -->
+    <div class="section" style="margin-top:8px;">
+      <div class="label">Action Log</div>
+      <div class="log-wrap" id="actionLog"></div>
+    </div>
+
     <!-- Button row: Rankings + Tournament + Host Controls -->
     <div class="btn-row">
       <button class="secondary" id="cheatToggle">&#128203; Card Ranks</button>
@@ -394,12 +400,6 @@
           <div id="hostSeatList"></div>
         </div>
       </div>
-    </div>
-
-    <!-- Action Log (below host controls) -->
-    <div class="section" style="margin-top:8px;">
-      <div class="label">Action Log</div>
-      <div class="log-wrap" id="actionLog"></div>
     </div>
 
     <!-- Version info (change 1) -->
@@ -1545,6 +1545,11 @@ function playerAct(action){
   document.getElementById('playerActionBar').classList.add('player-action-hidden');
 }
 
+// Shared placeholder pot value — used by both the At the Table pot display
+// and the raise panel's Half Pot/Pot presets, so the shell is at least
+// internally consistent even though neither is wired to real chip math yet
+function placeholderPot() { return 2500; }
+
 function fmtChips(n) { return Math.round(n).toLocaleString('en-US'); }
 
 let raiseSelectorOpen = false;
@@ -1582,8 +1587,8 @@ function buildRaisePanel(state) {
   // top-level button outside this panel, so Custom takes its place here.
   const presets = [
     { label: 'Min', amount: 20 },
-    { label: '1/2 pot', amount: 50 },
-    { label: 'Pot', amount: 100 },
+    { label: '1/2 pot', amount: Math.round(placeholderPot() / 2) },
+    { label: 'Pot', amount: placeholderPot() },
   ];
 
   let middleSection;
@@ -1675,7 +1680,7 @@ function renderPlayerActionBar(state){
   } else {
     btns.innerHTML = [
       `<button class="pab-btn fold"  onclick="playerAct('F')">Fold</button>`,
-      `<button class="pab-btn call"  onclick="playerAct('C')">Call ${fmtChips(150)}</button>`,
+      `<button class="pab-btn call" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.1;" onclick="playerAct('C')">Call<span style="font-size:0.75em;font-weight:700;">${fmtChips(150)}</span></button>`,
       `<button class="pab-btn raise" onclick="openRaiseSelector(lastState)">Raise</button>`,
       `<button class="pab-btn allin" onclick="playerAct('A')">All In</button>`
     ].join('');
@@ -1689,6 +1694,18 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.42', date:'July 2026',
+    changes:[
+      'Call amount now shows below the Call label instead of inline',
+      'Chip stack font shrunk closer to name size',
+      'Name and action columns in At the Table now tightly hug their content instead of stretching',
+      'Corner clock/blinds/increase text shrunk back down',
+      'Action Log moved back above the Card Ranks/Stats/Host row',
+      'BUST now replaces the chip stack (styled like EXIT, dusty red) instead of appearing as a badge next to the name',
+      'Unified the two different placeholder pot numbers (At the Table pot display and the raise panels Half Pot/Pot presets) into one shared value, so the shell is at least internally consistent',
+    ]
+  },
   {
     v:'3.41', date:'July 2026',
     changes:[
@@ -3406,7 +3423,6 @@ function renderPlayerList(players){
     if(p.isDealer) posBadges+='<span class="badge dealer">D</span> ';
     if(p.isSB) posBadges+='<span class="badge sb">SB</span> ';
     if(p.isBB) posBadges+='<span class="badge bb">BB</span> ';
-    if(p.eliminated) posBadges+='<span class="badge sitout">BUST</span> ';
     const badgeTd=document.createElement('td');
     badgeTd.className='pt-badge';
     badgeTd.innerHTML=posBadges;
@@ -3447,8 +3463,12 @@ function renderPlayerList(players){
 
     const stackTd=document.createElement('td');
     stackTd.className='pt-stack';
-    stackTd.style.cssText='font-size:1.27em;font-weight:normal;opacity:0.65;';
-    stackTd.textContent=fmtChips(startingChips);
+    if(p.eliminated){
+      stackTd.innerHTML='<span style="background:#5c2020;color:#d9a3a3;font-size:0.65em;padding:2px 6px;border-radius:20px;font-weight:800;">BUST</span>';
+    } else {
+      stackTd.style.cssText='font-size:0.95em;font-weight:normal;opacity:0.65;';
+      stackTd.textContent=fmtChips(startingChips);
+    }
     row.appendChild(stackTd);
 
     list.appendChild(row);
@@ -3456,7 +3476,7 @@ function renderPlayerList(players){
   const potEl=document.getElementById('tablePotInfo');
   if(potEl){
     // Placeholder pot — no real pot tracking wired up yet
-    potEl.textContent=(lastState&&lastState.gameLive)?`Pot: ${fmtChips(2500)}`:'';
+    potEl.textContent=(lastState&&lastState.gameLive)?`Pot: ${fmtChips(placeholderPot())}`:'';
     potEl.style.color='#d4af37';
     potEl.style.fontSize='0.9em';
     potEl.style.fontWeight='500';
