@@ -302,6 +302,8 @@
     <div class="app-header">
       <div id="sessionInfoCorner" style="display:none;position:absolute;top:2px;left:0;text-align:left;font-size:0.95em;line-height:1.35;opacity:0.7;">
         <div id="sessionClockCorner"></div>
+        <div id="blindsCorner"></div>
+        <div id="blindsIncreaseCorner"></div>
       </div>
       <button id="exitBtn" aria-label="Leave game" style="position:absolute;top:2px;right:0;width:auto;margin-bottom:0;padding:3px 8px;border-radius:20px;border:none;background:#5c2020;color:#d9a3a3;font-size:0.6em;font-weight:800;letter-spacing:0.5px;line-height:1;cursor:pointer;">EXIT</button>
       <div class="app-title">&#9824; Roatan Poker Club</div>
@@ -338,7 +340,7 @@
     <div class="section">
       <div class="label" style="display:flex;justify-content:space-between;align-items:baseline;">
         <span>At the Table</span>
-        <span id="tableBlindsInfo" style="font-size:1.27em;font-weight:normal;opacity:0.65;text-transform:none;letter-spacing:normal;"></span>
+        <span id="tablePotInfo" style="font-size:1.27em;font-weight:normal;opacity:0.65;text-transform:none;letter-spacing:normal;"></span>
       </div>
       <div id="playerList"></div>
     </div>
@@ -1688,6 +1690,16 @@ document.getElementById('cheatToggle').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.40', date:'July 2026',
+    changes:[
+      'At the Table row layout redesigned for the upcoming chip/betting system: position badge, name, action, and raise amount now cluster on the left in that order, with chip stack pushed to the far right',
+      'Blinds and blinds-increase moved back to the home screen corner under the session clock (no Increase: prefix on the second line)',
+      'At the Table header now shows Pot size where blinds used to be',
+      'Raise amount now shows next to a players name when their last action was Raise',
+      'Note: chip stack, pot, and raise-amount are still shell/placeholder — stack shows the real Starting Chips value (static, nothing deducts from it yet), Pot and raise amounts are fixed placeholder numbers until real chip math is built',
+    ]
+  },
+  {
     v:'3.39.3', date:'July 2026',
     changes:[
       'Removed the redundant +N amount summary from the raise panel — the amount is already visible via the highlighted preset or the custom input itself',
@@ -2673,11 +2685,9 @@ document.getElementById('toggleSeatsBtn').onclick=()=>{
 // ── Home-screen session clock + blinds method corner display ──────────
 function updateHomeScreenSessionInfo() {
   const corner = document.getElementById('sessionInfoCorner');
-  const tableBlindsEl = document.getElementById('tableBlindsInfo');
   if (!corner) return;
   if (!lastState || !lastState.gameLive) {
     corner.style.display = 'none';
-    if (tableBlindsEl) tableBlindsEl.textContent = '';
     return;
   }
   corner.style.display = 'block';
@@ -2687,9 +2697,8 @@ function updateHomeScreenSessionInfo() {
   const modeLabel = info.blindsIncreaseMode === 'minutes' ? `Every ${info.blindsIncreaseValue}m`
                    : info.blindsIncreaseMode === 'hands' ? `Every ${info.blindsIncreaseValue} hands`
                    : 'Same Dealer';
-  if (tableBlindsEl) {
-    tableBlindsEl.textContent = info.blindsSB > 0 ? `SB ${info.blindsSB}, BB ${info.blindsBB} · Increase: ${modeLabel}` : '';
-  }
+  document.getElementById('blindsCorner').textContent = info.blindsSB > 0 ? `SB ${info.blindsSB}, BB ${info.blindsBB}` : '';
+  document.getElementById('blindsIncreaseCorner').textContent = info.blindsSB > 0 ? modeLabel : '';
 }
 setInterval(updateHomeScreenSessionInfo, 1000);
 
@@ -3378,29 +3387,48 @@ function renderPlayerList(players){
   const list=document.getElementById('playerList');list.innerHTML='';
   const ac={F:'fold',C:'call',R:'raise',A:'allin',X:'check'};
   const al={F:'FOLD',C:'CALL',R:'RAISE',A:'ALL IN',X:'CHECK'};
+  const startingChips=(lastState&&lastState.sessionInfo&&lastState.sessionInfo.startingChips)||2000;
   players.filter(p=>!p.departed&&!p.spectate).forEach((p,i)=>{
     const row=document.createElement('div');row.className='player-row';
-    const name=document.createElement('span');
-    name.className='player-name'+(p.folded&&!p.eliminated?' folded':p.eliminated?' folded':'');
-    let pos='';
-    if(p.isDealer) pos+=' <span class="badge dealer">D</span>';
-    if(p.isSB) pos+=' <span class="badge sb">SB</span>';
-    if(p.isBB) pos+=' <span class="badge bb">BB</span>';
-    if(p.eliminated) pos+=' <span class="badge sitout">BUST</span>';
-    name.innerHTML=p.name+pos;
-    row.appendChild(name);
-    const badges=document.createElement('span');
+
+    let posBadges='';
+    if(p.isDealer) posBadges+='<span class="badge dealer">D</span> ';
+    if(p.isSB) posBadges+='<span class="badge sb">SB</span> ';
+    if(p.isBB) posBadges+='<span class="badge bb">BB</span> ';
+    if(p.eliminated) posBadges+='<span class="badge sitout">BUST</span> ';
+
+    const nameCls='player-name'+(p.folded&&!p.eliminated?' folded':p.eliminated?' folded':'');
+    let actionHtml='';
     if(p.eliminated||p.sittingOut){
       // no action badge — observer/bust-out
     } else if(p.isCurrent){
-      badges.innerHTML='<span class="badge next">NEXT TO ACT</span>';
+      actionHtml='<span class="badge next">NEXT TO ACT</span>';
     } else if(p.action){
-      badges.innerHTML=`<span class="badge ${ac[p.action]||''}">${al[p.action]||p.action}</span>`;
+      actionHtml=`<span class="badge ${ac[p.action]||''}">${al[p.action]||p.action}</span>`;
+      if(p.action==='R'){
+        // Placeholder raise amount — no real chip tracking wired up yet
+        actionHtml+=` <span style="color:#c9a6dd;font-size:0.85em;font-weight:600;">${fmtChips(150)}</span>`;
+      }
     }
-    if(!p.connected) badges.innerHTML+='<span class="badge discon">OFFLINE</span>';
-    row.appendChild(badges);
+    if(!p.connected) actionHtml+=' <span class="badge discon">OFFLINE</span>';
+
+    const left=document.createElement('span');
+    left.style.cssText='display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
+    left.innerHTML=`${posBadges}<span class="${nameCls}" style="flex:0 0 auto;">${p.name}</span>${actionHtml}`;
+    row.appendChild(left);
+
+    const stack=document.createElement('span');
+    stack.style.cssText='color:#d4af37;font-size:0.9em;font-weight:500;flex-shrink:0;';
+    stack.textContent=fmtChips(startingChips);
+    row.appendChild(stack);
+
     list.appendChild(row);
   });
+  const potEl=document.getElementById('tablePotInfo');
+  if(potEl){
+    // Placeholder pot — no real pot tracking wired up yet
+    potEl.textContent=(lastState&&lastState.gameLive)?`Pot: ${fmtChips(2500)}`:'';
+  }
 }
 
 // ── Log ───────────────────────────────────────────────────────────────
