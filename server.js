@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.39.3';
+const VERSION = '3.40';
 const LAST_UPDATED = 'July 2025';
 
 const SUITS = ['S','H','D','C'];
