@@ -1568,6 +1568,7 @@ let raiseCustomMode = false;
 
 function openCustomRaiseInput() {
   raiseCustomMode = true;
+  raiseSelectedAmount = 0;
   renderPlayerActionBar(lastState);
   const el = document.getElementById('raiseCustomInput');
   if (el) el.focus();
@@ -1585,7 +1586,7 @@ function buildRaisePanel(state) {
 
   let middleSection;
   if (raiseCustomMode) {
-    middleSection = `<input type="number" inputmode="numeric" pattern="[0-9]*" min="0" id="raiseCustomInput" value="${raiseSelectedAmount}" style="width:100%;box-sizing:border-box;padding:12px;font-size:1.2em;text-align:center;border-radius:8px;border:1px solid #6c3483;background:#0d2218;color:#fff;margin-bottom:10px;" oninput="raiseSelectedAmount=Number(this.value)||0;document.getElementById('raiseAmountOut').textContent='+'+fmtChips(raiseSelectedAmount);">`;
+    middleSection = `<input type="number" inputmode="numeric" pattern="[0-9]*" min="0" id="raiseCustomInput" value="" placeholder="Enter amount" style="width:100%;box-sizing:border-box;padding:12px;font-size:1.2em;text-align:center;border-radius:8px;border:1px solid #6c3483;background:#0d2218;color:#fff;margin-bottom:10px;" oninput="raiseSelectedAmount=Number(this.value)||0;">`;
   } else {
     const presetBtns = presets.map(p => {
       const selected = raiseSelectedAmount === p.amount;
@@ -1598,7 +1599,6 @@ function buildRaisePanel(state) {
 
   return `
     <div style="width:100%;display:flex;flex-direction:column;">
-      <div style="text-align:center;font-size:1.7em;font-weight:500;margin-bottom:10px;" id="raiseAmountOut">+${fmtChips(raiseSelectedAmount)}</div>
       ${middleSection}
       <div style="display:flex;gap:6px;">
         <button class="pab-btn" style="flex:2;background:#6c3483;color:#fff;" onclick="confirmRaise(lastState)">Confirm raise</button>
@@ -1687,6 +1687,13 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.39.3', date:'July 2026',
+    changes:[
+      'Removed the redundant +N amount summary from the raise panel — the amount is already visible via the highlighted preset or the custom input itself',
+      'Custom raise input now starts empty with a placeholder instead of pre-filled with the last preset value, so you dont have to delete anything before typing your own amount',
+    ]
+  },
   {
     v:'3.39.2', date:'July 2026',
     changes:[
