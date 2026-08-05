@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.44';
+const VERSION = '3.45';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
@@ -683,7 +683,7 @@ io.on('connection',socket=>{
     sessionStartTime=Date.now(); // session clock starts when actual play begins, not during setup
     lastBlindReminderAt=Date.now();
     handsSinceBlindReminder=0;
-    addLog('=== GAME BEGINS ('+formatClockTime()+') ===');
+    addLog('=== GAME BEGINS ({{TS:'+Date.now()+'}}) ===');
     dealHand();
   }
 
@@ -916,7 +916,7 @@ io.on('connection',socket=>{
 
   socket.on('startHand',()=>{ dealHand(); });
 
-  socket.on('recordAction',action=>{
+  socket.on('recordAction',(action,extra)=>{
     pruneQueue();
     if(actingQueue.length===0) return;
     const playerIdx=actingQueue[0];
@@ -928,10 +928,20 @@ io.on('connection',socket=>{
     if(action==='X'&&hasRaiseThisStreet&&!isBBCheck) return;
     const labels={F:'Fold',C:'Call',R:'Raise',A:'All In',X:'Check'};
     let logEntry=p.name+': '+(labels[action]||action);
-    if(action==='R'||action==='C'){
+    if(action==='R'){
+      const raiseLogLabel={Min:'MIN','1/2 pot':'1/2 Pot',Pot:'Pot'};
+      const amt=(extra&&Number.isFinite(extra.amount))?extra.amount:150;
+      const labelPrefix=(extra&&extra.label&&raiseLogLabel[extra.label])?raiseLogLabel[extra.label]+' ':'';
+      logEntry+=' '+labelPrefix+amt;
+    } else if(action==='C'){
       logEntry+=' '+150; // placeholder amount — no real chip tracking wired up yet
+    } else if(action==='A'){
+      logEntry+=': '+(sessionInfo.startingChips||2000); // placeholder — shows their full stack
     }
     saveUndo(logEntry);
+    if(action==='A'){
+      io.emit('playerAllInPopup',{name:p.name,amount:sessionInfo.startingChips||2000});
+    }
     p.action=action;
     if(action==='F'){
       p.folded=true;
