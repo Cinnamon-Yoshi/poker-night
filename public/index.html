@@ -70,9 +70,19 @@
   <div class="full-modal-inner">
     <button id="cardRanksCloseBtn" style="width:100%;margin-bottom:12px;">Close</button>
     <div class="full-modal-hdr">
-      <span class="full-modal-title">📋 Card Ranks</span>
+      <span class="full-modal-title">Hand Ranks</span>
     </div>
     <div id="cardRanksList" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<div id="logModal" class="full-modal" style="display:none;">
+  <div class="full-modal-inner">
+    <button id="logCloseBtn" style="width:100%;margin-bottom:12px;">Close</button>
+    <div class="full-modal-hdr">
+      <span class="full-modal-title">Action Log</span>
+    </div>
+    <div class="log-wrap" id="actionLog" style="margin-top:10px;max-height:none;overflow:visible;"></div>
   </div>
 </div>
 
@@ -330,7 +340,7 @@
   <!-- GAME -->
   <div id="gameScreen" style="display:none;">
     <div class="app-header">
-      <div id="sessionInfoCorner" style="display:none;position:absolute;top:2px;left:0;text-align:left;font-size:0.72em;line-height:1.35;opacity:0.7;">
+      <div id="sessionInfoCorner" style="display:none;position:absolute;top:2px;left:14px;text-align:left;font-size:0.72em;line-height:1.35;opacity:0.7;">
         <div id="sessionClockCorner"></div>
         <div id="blindsCorner"></div>
         <div id="blindsIncreaseCorner"></div>
@@ -377,17 +387,14 @@
 
     <!-- Hand Rankings — now a full modal, see cardRanksModal below -->
 
-    <!-- Action Log (moved above the button row) -->
-    <div class="section" style="margin-top:8px;">
-      <div class="label">Action Log</div>
-      <div class="log-wrap" id="actionLog"></div>
-    </div>
+    <!-- Action Log — now a full modal, see logModal below -->
 
-    <!-- Button row: Rankings + Tournament + Host Controls -->
+    <!-- Button row: Hand Ranks + Stats + Log + Host Controls -->
     <div class="btn-row">
-      <button class="secondary" id="cheatToggle">&#128203; Card Ranks</button>
-      <button class="secondary" id="statsBtn">&#128202; Stats</button>
-      <button class="secondary" id="hostToggle">&#128274; Host</button>
+      <button class="secondary" id="cheatToggle">Hand Ranks</button>
+      <button class="secondary" id="statsBtn">Stats</button>
+      <button class="secondary" id="logBtn">Log</button>
+      <button class="secondary" id="hostToggle">&#128274;</button>
     </div>
 
     <!-- Host Panel (below button row — change 3) -->
@@ -1769,44 +1776,69 @@ function renderPlayerActionBar(state){
 }
 document.getElementById('cheatToggle').onclick=()=>{
   const list=document.getElementById('cardRanksList');
+  // `core` = how many cards (from the front of the array) actually make up
+  // the named hand; any cards after that are kickers and get dimmed.
   const ranks=[
-    { name:'1. Royal Flush', desc:'A K Q J 10, same suit', cards:[{r:14,s:'S'},{r:13,s:'S'},{r:12,s:'S'},{r:11,s:'S'},{r:10,s:'S'}] },
-    { name:'2. Straight Flush', desc:'5 in a row, same suit', cards:[{r:9,s:'H'},{r:8,s:'H'},{r:7,s:'H'},{r:6,s:'H'},{r:5,s:'H'}] },
-    { name:'3. Four of a Kind', desc:'4 cards same rank', cards:[{r:13,s:'S'},{r:13,s:'H'},{r:13,s:'D'},{r:13,s:'C'},{r:5,s:'S'}] },
-    { name:'4. Full House', desc:'Three of a kind + pair', cards:[{r:8,s:'S'},{r:8,s:'H'},{r:8,s:'D'},{r:4,s:'C'},{r:4,s:'S'}] },
-    { name:'5. Flush', desc:'5 same suit, any order', cards:[{r:14,s:'D'},{r:11,s:'D'},{r:8,s:'D'},{r:6,s:'D'},{r:3,s:'D'}] },
-    { name:'6. Straight', desc:'5 in a row, any suit', cards:[{r:9,s:'S'},{r:8,s:'H'},{r:7,s:'D'},{r:6,s:'C'},{r:5,s:'S'}] },
-    { name:'7. Three of a Kind', desc:'3 cards same rank', cards:[{r:7,s:'S'},{r:7,s:'H'},{r:7,s:'D'},{r:13,s:'C'},{r:2,s:'S'}] },
-    { name:'8. Two Pair', desc:'2 different pairs', cards:[{r:11,s:'S'},{r:11,s:'H'},{r:4,s:'D'},{r:4,s:'C'},{r:9,s:'S'}] },
-    { name:'9. Pair', desc:'2 cards same rank', cards:[{r:12,s:'S'},{r:12,s:'H'},{r:9,s:'D'},{r:6,s:'C'},{r:3,s:'S'}] },
-    { name:'10. High Card', desc:'Best single card wins', cards:[{r:14,s:'S'},{r:11,s:'H'},{r:8,s:'D'},{r:5,s:'C'},{r:2,s:'S'}] },
+    { name:'1. Royal Flush', desc:'A K Q J 10, same suit', core:5, cards:[{r:14,s:'S'},{r:13,s:'S'},{r:12,s:'S'},{r:11,s:'S'},{r:10,s:'S'}] },
+    { name:'2. Straight Flush', desc:'5 in a row, same suit', core:5, cards:[{r:9,s:'H'},{r:8,s:'H'},{r:7,s:'H'},{r:6,s:'H'},{r:5,s:'H'}] },
+    { name:'3. Four of a Kind', desc:'4 cards same rank', core:4, cards:[{r:13,s:'S'},{r:13,s:'H'},{r:13,s:'D'},{r:13,s:'C'},{r:5,s:'S'}] },
+    { name:'4. Full House', desc:'Three of a kind + pair', core:5, cards:[{r:8,s:'S'},{r:8,s:'H'},{r:8,s:'D'},{r:4,s:'C'},{r:4,s:'S'}] },
+    { name:'5. Flush', desc:'5 same suit, any order', core:5, cards:[{r:14,s:'D'},{r:11,s:'D'},{r:8,s:'D'},{r:6,s:'D'},{r:3,s:'D'}] },
+    { name:'6. Straight', desc:'5 in a row, any suit', core:5, cards:[{r:9,s:'S'},{r:8,s:'H'},{r:7,s:'D'},{r:6,s:'C'},{r:5,s:'S'}] },
+    { name:'7. Three of a Kind', desc:'3 cards same rank', core:3, cards:[{r:7,s:'S'},{r:7,s:'H'},{r:7,s:'D'},{r:13,s:'C'},{r:2,s:'S'}] },
+    { name:'8. Two Pair', desc:'2 different pairs', core:4, cards:[{r:11,s:'S'},{r:11,s:'H'},{r:4,s:'D'},{r:4,s:'C'},{r:9,s:'S'}] },
+    { name:'9. Pair', desc:'2 cards same rank', core:2, cards:[{r:12,s:'S'},{r:12,s:'H'},{r:9,s:'D'},{r:6,s:'C'},{r:3,s:'S'}] },
+    { name:'10. High Card', desc:'Best single card wins', core:1, cards:[{r:14,s:'S'},{r:11,s:'H'},{r:8,s:'D'},{r:5,s:'C'},{r:2,s:'S'}] },
   ];
   list.innerHTML='';
-  ranks.forEach(rk=>{
+  ranks.forEach((rk,i)=>{
     const row=document.createElement('div');
-    row.style.cssText='padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.08);';
+    row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 0;';
     const label=document.createElement('div');
-    label.style.cssText='margin-bottom:8px;';
+    label.style.cssText='flex-shrink:0;';
     label.innerHTML=`<div style="font-weight:700;font-size:0.95em;">${rk.name}</div><div style="font-size:0.8em;opacity:0.6;">${rk.desc}</div>`;
     row.appendChild(label);
     const cardsRow=document.createElement('div');
-    cardsRow.style.cssText='display:flex;gap:5px;';
-    rk.cards.forEach(c=>{
+    cardsRow.style.cssText='display:flex;gap:5px;justify-content:flex-end;';
+    rk.cards.forEach((c,idx)=>{
       const cardEl=makeCard(c);
-      cardEl.style.cssText='--card-w:38px;--card-h:54px;';
+      const dim = idx >= rk.core;
+      cardEl.style.cssText=`--card-w:38px;--card-h:54px;${dim ? 'opacity:0.32;' : ''}`;
       cardsRow.appendChild(cardEl);
     });
     row.appendChild(cardsRow);
     list.appendChild(row);
+    if (i < ranks.length - 1) {
+      const divider=document.createElement('div');
+      divider.style.cssText='width:75%;max-width:75%;margin:0 auto;height:2px;background:#d4af37;';
+      list.appendChild(divider);
+    }
   });
   document.getElementById('cardRanksModal').style.display='flex';
 };
 document.getElementById('cardRanksCloseBtn').onclick=()=>{
   document.getElementById('cardRanksModal').style.display='none';
 };
+document.getElementById('logBtn').onclick=()=>{
+  document.getElementById('logModal').style.display='flex';
+};
+document.getElementById('logCloseBtn').onclick=()=>{
+  document.getElementById('logModal').style.display='none';
+};
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.51', date:'August 2026',
+    changes:[
+      'Top-left session clock/blinds now aligned with the section headings below it (was flush against the page edge, headings are inset by the section padding)',
+      'Community / Your Cards / At the Table headings unified to the same size and weight — At the Table previously rendered larger',
+      '"Card Ranks" renamed to "Hand Ranks" throughout',
+      'Hand Ranks popup redesigned: card examples now right-aligned next to the hand name, kicker cards not part of the named hand are dimmed, and a centered gold divider (matching the Close button) separates each entry',
+      'Action Log converted from an inline section into a full popup modal (matching Hand Ranks and Stats) — fixes the nested scroll-within-scroll and gives more room to read entries',
+      'Button row is now 4 across: Hand Ranks / Stats / Log / Host. Icons dropped from the first three for space; Host is now icon-only',
+    ]
+  },
   {
     v:'3.50', date:'August 2026',
     changes:[
