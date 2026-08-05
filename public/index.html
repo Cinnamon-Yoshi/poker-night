@@ -382,6 +382,7 @@
         <span class="at-table-title">At the Table</span>
         <span id="tablePotInfo" class="at-table-pot"></span>
       </div>
+      <span class="current-bet-header">Current Bet</span>
       <table id="playerList"></table>
     </div>
 
@@ -1829,6 +1830,14 @@ document.getElementById('logCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.53', date:'August 2026',
+    changes:[
+      'Added a Current Bet header/column to At the Table, styled to match the "At the Table" label with the same purple used for bet amounts',
+      'Current Bet header and each row\'s bet amount are right-aligned to line up with the middle of the Action Log button below (independent of the table\'s own column widths, so it stays put regardless of name length or badge count)',
+      'Bet amounts already use comma thousand separators via the existing chip formatter, so this holds once real bet tracking goes beyond blind-sized numbers',
+    ]
+  },
   {
     v:'3.52', date:'August 2026',
     changes:[
@@ -3701,7 +3710,12 @@ function renderPlayerList(players){
     }
     const betTd=document.createElement('td');
     betTd.className='pt-bet';
-    betTd.textContent=betAmt?fmtChips(betAmt):'';
+    if(betAmt){
+      const betSpan=document.createElement('span');
+      betSpan.className='bet-amount-abs';
+      betSpan.textContent=fmtChips(betAmt);
+      betTd.appendChild(betSpan);
+    }
     row.appendChild(betTd);
 
     const stackTd=document.createElement('td');
@@ -3714,6 +3728,16 @@ function renderPlayerList(players){
     row.appendChild(stackTd);
 
     list.appendChild(row);
+  });
+  // The bet amount is positioned absolutely (see .bet-amount-abs) so its
+  // right edge lines up with the Action Log button below, independent of
+  // the table's own auto-sized columns. Vertically center each one against
+  // its own row now that the table has actually laid out.
+  list.querySelectorAll('.bet-amount-abs').forEach(span=>{
+    const tr=span.closest('tr');
+    if(!tr) return;
+    span.style.top=(tr.offsetTop + tr.offsetHeight/2)+'px';
+    span.style.transform='translateY(-50%)';
   });
   const potEl=document.getElementById('tablePotInfo');
   if(potEl){

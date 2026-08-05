@@ -46,7 +46,7 @@ button.gold { background:#d4af37; color:#111; }
 .sublabel { font-size:0.7em; opacity:0.6; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
 
 /* ── Section boxes ── */
-.section { background:rgba(255,255,255,0.07); border-radius:12px; padding:12px 14px; margin-bottom:12px; }
+.section { background:rgba(255,255,255,0.07); border-radius:12px; padding:12px 14px; margin-bottom:12px; position:relative; }
 .label { font-size:0.7em; opacity:0.6; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
 .hand-name { font-size:1.1em; font-weight:800; text-align:center; color:#d4af37; margin:4px 0 8px; }
 .draw-item { font-size:0.88em; background:rgba(212,175,55,0.15); padding:7px 10px; border-radius:8px; margin-top:6px; border-left:3px solid #d4af37; }
@@ -70,7 +70,16 @@ button.gold { background:#d4af37; color:#111; }
 .pt-name { text-align:left; font-weight:600; font-size:0.85em; width:1%; white-space:nowrap; }
 .pt-name.folded { opacity:0.35; text-decoration:line-through; }
 .pt-action { text-align:center; white-space:nowrap; width:1%; }
-.pt-bet { text-align:left; white-space:nowrap; color:#c9a6dd; font-size:0.85em; font-weight:600; padding-left:10px; }
+.pt-bet { text-align:left; white-space:nowrap; padding-left:10px; }
+.bet-amount-abs {
+  position:absolute; right:calc(37.5% - 1px);
+  color:#c9a6dd; font-size:0.85em; font-weight:600; white-space:nowrap;
+}
+.current-bet-header {
+  position:absolute; top:12px; right:calc(37.5% - 1px);
+  font-size:0.7em; text-transform:uppercase; letter-spacing:0.5px;
+  color:#c9a6dd; white-space:nowrap;
+}
 .pt-stack { text-align:right; white-space:nowrap; width:1%; font-size:0.85em; opacity:0.65; }
 #playerList .badge { font-size:0.85em; }
 .pt-action .badge { min-width:52px; font-weight:400; }
