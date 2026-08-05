@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.43';
+const VERSION = '3.44';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
@@ -151,25 +151,42 @@ function normalizeSessionInfo(info){
   };
 }
 
-// Automated blind-increase reminders for the Minutes / # of Hands styles —
-// Same Dealer already has its own mechanism further down
+// Automated blind-increase reminders for the Minutes / # of Hands styles.
+// Neither fires directly anymore — both just mark a pending flag. The
+// actual notification only surfaces when the host closes the Results
+// screen (see 'hostCloseResults' handler), which is also the moment the
+// hand-count threshold is unambiguous (the hand has genuinely concluded).
 let lastBlindReminderAt=null;   // Date.now() of the last reminder (minutes mode) or game start
-let handsSinceBlindReminder=0;  // hands dealt since the last reminder (hands mode)
+let handsSinceBlindReminder=0;  // hands concluded since the last reminder (hands mode)
+let blindsReminderPending=false;
+let blindsReminderMsg='';
+function markBlindsReminderDue(msg){
+  blindsReminderPending=true;
+  blindsReminderMsg=msg;
+}
 function checkTimedBlindReminder(){
   if(!gameLive) return;
   if(sessionInfo.blindsIncreaseMode!=='minutes'||sessionInfo.blindsIncreaseValue<=0) return;
   if(!lastBlindReminderAt) return;
-  if(stage!=='idle') return; // defer until the current hand finishes — don't interrupt active play
+  if(blindsReminderPending) return; // already due, waiting on host to close results
   const dueMs=sessionInfo.blindsIncreaseValue*60000;
   if(Date.now()-lastBlindReminderAt>=dueMs){
-    lastBlindReminderAt=Date.now();
-    const msg=sessionInfo.blindsIncreaseValue+' minute'+(sessionInfo.blindsIncreaseValue===1?'':'s')+' elapsed.';
-    addLog('⏰ Blinds reminder — '+msg);
-    io.emit('blindsReminder',{message:msg});
-    broadcast();
+    markBlindsReminderDue(sessionInfo.blindsIncreaseValue+' minute'+(sessionInfo.blindsIncreaseValue===1?'':'s')+' elapsed.');
   }
 }
 setInterval(checkTimedBlindReminder,15000);
+
+// Called when a hand concludes (fold-win or showdown) — hands-mode counting
+// belongs here, not at hand-start, since "N hands played" should mean N
+// hands actually finished, not N hands begun
+function checkHandsBlindsReminderDue(){
+  if(sessionInfo.blindsIncreaseMode!=='hands'||sessionInfo.blindsIncreaseValue<=0) return;
+  if(blindsReminderPending) return;
+  handsSinceBlindReminder++;
+  if(handsSinceBlindReminder>=sessionInfo.blindsIncreaseValue){
+    markBlindsReminderDue(sessionInfo.blindsIncreaseValue+' hand'+(sessionInfo.blindsIncreaseValue===1?'':'s')+' played.');
+  }
+}
 
 // If the given player is the Same Dealer blind-reminder anchor, move the
 // anchor to the next active player (after them in seating order, wrapping
@@ -718,6 +735,20 @@ io.on('connection',socket=>{
     broadcast();
   });
 
+  // Host closes the Results screen — this is the moment a due blinds
+  // reminder actually surfaces, and only to this specific socket (the
+  // server has no server-side concept of "the host", so client-side gates
+  // when to even send this event, and this response only ever goes back
+  // to the one connection that asked)
+  socket.on('hostCloseResults',()=>{
+    if(!blindsReminderPending) return;
+    socket.emit('blindsReminderForHost',{message:blindsReminderMsg});
+    blindsReminderPending=false;
+    blindsReminderMsg='';
+    handsSinceBlindReminder=0;
+    lastBlindReminderAt=Date.now();
+  });
+
   socket.on('removePlayer',name=>{
     advanceDealerAnchorIfNeeded(name);
     players=players.filter(p=>p.name!==name);
@@ -788,8 +819,15 @@ io.on('connection',socket=>{
   });
 
   socket.on('setSessionInfo',info=>{
+    const oldInfo={...sessionInfo};
     sessionInfo=normalizeSessionInfo(info);
+    const changedFields=[];
+    ['buyIn','startingChips','blindsSB','blindsIncreaseMode','blindsIncreaseValue','playersToCash'].forEach(k=>{
+      if(oldInfo[k]!==sessionInfo[k]) changedFields.push(k);
+    });
+    if(JSON.stringify(oldInfo.payouts)!==JSON.stringify(sessionInfo.payouts)) changedFields.push('payouts');
     broadcast();
+    if(changedFields.length) io.emit('sessionInfoChanged',{changedFields});
   });
 
   function dealHand(){
@@ -849,15 +887,6 @@ io.on('connection',socket=>{
     hasRaiseThisStreet=true;  // pre-flop: blinds already out = there's a bet to call
     bbCanCheck=true;           // BB gets free check option if no one raises
     sessionHandsPlayed++;
-    if(sessionInfo.blindsIncreaseMode==='hands'&&sessionInfo.blindsIncreaseValue>0){
-      handsSinceBlindReminder++;
-      if(handsSinceBlindReminder>=sessionInfo.blindsIncreaseValue){
-        handsSinceBlindReminder=0;
-        const msg=sessionInfo.blindsIncreaseValue+' hand'+(sessionInfo.blindsIncreaseValue===1?'':'s')+' played.';
-        addLog('⏰ Blinds reminder — '+msg);
-        io.emit('blindsReminder',{message:msg});
-      }
-    }
     addLog('--- New hand #'+sessionHandsPlayed+'. Dealer: '+players[dealerIdx].name+' ---');
     const sbIdx=getSB(), bbIdx=getBB();
     handSBIdx=sbIdx; handBBIdx=bbIdx;
@@ -1052,6 +1081,7 @@ io.on('connection',socket=>{
     foldWinRevealable=resultsPlayers.map(p=>p.name); // winner AND folded players can all choose to show their hand
     lastHandResult=null;
     stage='idle'; actingQueue=[]; bbCanCheck=false;
+    checkHandsBlindsReminderDue();
     hasRaiseThisStreet=false; undoState=null;
     pendingRunoutStage=null;
     io.emit('winnerAnnounce',{
@@ -1268,6 +1298,7 @@ io.on('connection',socket=>{
     results.forEach(r=>delete r._eval);
     lastHandResult={results:results.filter(r=>!r.sittingOut),board:[...board]};
     actingQueue=[]; undoState=null; stage='idle';
+    checkHandsBlindsReminderDue();
     broadcast();
   });
 
