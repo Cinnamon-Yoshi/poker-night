@@ -342,7 +342,7 @@
         <span>At the Table</span>
         <span id="tablePotInfo" style="font-size:1.27em;font-weight:normal;opacity:0.65;text-transform:none;letter-spacing:normal;"></span>
       </div>
-      <div id="playerList"></div>
+      <table id="playerList"></table>
     </div>
 
     <!-- Hand Rankings cheat sheet -->
@@ -1675,7 +1675,7 @@ function renderPlayerActionBar(state){
   } else {
     btns.innerHTML = [
       `<button class="pab-btn fold"  onclick="playerAct('F')">Fold</button>`,
-      `<button class="pab-btn call"  onclick="playerAct('C')">Call</button>`,
+      `<button class="pab-btn call"  onclick="playerAct('C')">Call ${fmtChips(150)}</button>`,
       `<button class="pab-btn raise" onclick="openRaiseSelector(lastState)">Raise</button>`,
       `<button class="pab-btn allin" onclick="playerAct('A')">All In</button>`
     ].join('');
@@ -1689,6 +1689,16 @@ document.getElementById('cheatToggle').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.41', date:'July 2026',
+    changes:[
+      'At the Table converted to a real table for reliable column alignment — badge/name/action/bet no longer slide left when a row has no position badge',
+      'Columns: badge (centered), name (left), action (centered, NEXT TO ACT shortened to NEXT), bet (left), stack (right, aligned to the table edge)',
+      'Swapped Pot and chip stack font styles — Pot is now gold, stack now uses the dimmer style Pot used to have',
+      'Bet column now shows placeholder SB/BB blind amounts, not just raise amounts',
+      'Call button (players own action bar) now shows a placeholder call amount',
+    ]
+  },
   {
     v:'3.40', date:'July 2026',
     changes:[
@@ -3388,39 +3398,58 @@ function renderPlayerList(players){
   const ac={F:'fold',C:'call',R:'raise',A:'allin',X:'check'};
   const al={F:'FOLD',C:'CALL',R:'RAISE',A:'ALL IN',X:'CHECK'};
   const startingChips=(lastState&&lastState.sessionInfo&&lastState.sessionInfo.startingChips)||2000;
+  const info=(lastState&&lastState.sessionInfo)||{};
   players.filter(p=>!p.departed&&!p.spectate).forEach((p,i)=>{
-    const row=document.createElement('div');row.className='player-row';
+    const row=document.createElement('tr');
 
     let posBadges='';
     if(p.isDealer) posBadges+='<span class="badge dealer">D</span> ';
     if(p.isSB) posBadges+='<span class="badge sb">SB</span> ';
     if(p.isBB) posBadges+='<span class="badge bb">BB</span> ';
     if(p.eliminated) posBadges+='<span class="badge sitout">BUST</span> ';
+    const badgeTd=document.createElement('td');
+    badgeTd.className='pt-badge';
+    badgeTd.innerHTML=posBadges;
+    row.appendChild(badgeTd);
 
-    const nameCls='player-name'+(p.folded&&!p.eliminated?' folded':p.eliminated?' folded':'');
+    const nameTd=document.createElement('td');
+    nameTd.className='pt-name'+(p.folded&&!p.eliminated?' folded':p.eliminated?' folded':'');
+    nameTd.textContent=p.name;
+    row.appendChild(nameTd);
+
     let actionHtml='';
     if(p.eliminated||p.sittingOut){
       // no action badge — observer/bust-out
     } else if(p.isCurrent){
-      actionHtml='<span class="badge next">NEXT TO ACT</span>';
+      actionHtml='<span class="badge next">NEXT</span>';
     } else if(p.action){
       actionHtml=`<span class="badge ${ac[p.action]||''}">${al[p.action]||p.action}</span>`;
-      if(p.action==='R'){
-        // Placeholder raise amount — no real chip tracking wired up yet
-        actionHtml+=` <span style="color:#c9a6dd;font-size:0.85em;font-weight:600;">${fmtChips(150)}</span>`;
-      }
     }
     if(!p.connected) actionHtml+=' <span class="badge discon">OFFLINE</span>';
+    const actionTd=document.createElement('td');
+    actionTd.className='pt-action';
+    actionTd.innerHTML=actionHtml;
+    row.appendChild(actionTd);
 
-    const left=document.createElement('span');
-    left.style.cssText='display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
-    left.innerHTML=`${posBadges}<span class="${nameCls}" style="flex:0 0 auto;">${p.name}</span>${actionHtml}`;
-    row.appendChild(left);
+    // Bet column — shows whatever a player currently has in front of them
+    // this street: blind amounts for SB/BB, or a raise amount. All
+    // placeholder numbers for now — no real chip tracking wired up yet.
+    let betAmt=null;
+    if(!p.eliminated&&!p.sittingOut){
+      if(p.action==='R') betAmt=150;
+      else if(p.isBB) betAmt=info.blindsBB||0;
+      else if(p.isSB) betAmt=info.blindsSB||0;
+    }
+    const betTd=document.createElement('td');
+    betTd.className='pt-bet';
+    betTd.textContent=betAmt?fmtChips(betAmt):'';
+    row.appendChild(betTd);
 
-    const stack=document.createElement('span');
-    stack.style.cssText='color:#d4af37;font-size:0.9em;font-weight:500;flex-shrink:0;';
-    stack.textContent=fmtChips(startingChips);
-    row.appendChild(stack);
+    const stackTd=document.createElement('td');
+    stackTd.className='pt-stack';
+    stackTd.style.cssText='font-size:1.27em;font-weight:normal;opacity:0.65;';
+    stackTd.textContent=fmtChips(startingChips);
+    row.appendChild(stackTd);
 
     list.appendChild(row);
   });
@@ -3428,6 +3457,9 @@ function renderPlayerList(players){
   if(potEl){
     // Placeholder pot — no real pot tracking wired up yet
     potEl.textContent=(lastState&&lastState.gameLive)?`Pot: ${fmtChips(2500)}`:'';
+    potEl.style.color='#d4af37';
+    potEl.style.fontSize='0.9em';
+    potEl.style.fontWeight='500';
   }
 }
 
