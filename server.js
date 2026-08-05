@@ -21,13 +21,18 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.45';
+const VERSION = '3.46';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
 const PLACEHOLDER_POT = 2500;
-function winPotSummary(){
-  const pct = Math.round((PLACEHOLDER_POT / (sessionInfo.startingChips||2000)) * 100);
+function winPotSummary(numWinners){
+  numWinners = numWinners || 1;
+  const share = Math.round(PLACEHOLDER_POT / numWinners);
+  const pct = Math.round((share / (sessionInfo.startingChips||2000)) * 100);
+  if(numWinners > 1){
+    return ' ['+PLACEHOLDER_POT+' pot, '+share+' each, +'+pct+'%]';
+  }
   return ' ['+PLACEHOLDER_POT+' pot, +'+pct+'%]';
 }
 const LAST_UPDATED = 'July 2025';
@@ -940,7 +945,12 @@ io.on('connection',socket=>{
     }
     saveUndo(logEntry);
     if(action==='A'){
-      io.emit('playerAllInPopup',{name:p.name,amount:sessionInfo.startingChips||2000});
+      io.emit('playerActionPopup',{type:'allin',name:p.name,amount:sessionInfo.startingChips||2000});
+    } else if(action==='R'){
+      const amt=(extra&&Number.isFinite(extra.amount))?extra.amount:150;
+      io.emit('playerActionPopup',{type:'raise',name:p.name,amount:amt,label:extra&&extra.label});
+    } else if(action==='F'){
+      io.emit('playerActionPopup',{type:'fold',name:p.name});
     }
     p.action=action;
     if(action==='F'){
@@ -1262,7 +1272,7 @@ io.on('connection',socket=>{
     // the river, call it out — they caught up on the last card
     const wasNotLeading=isRunoutSession&&!isSplit&&lastLeaderNames.length>0&&!lastLeaderNames.includes(wNames[0]);
     const winnerLogMsg=isSplit
-      ?'\uD83E\uDD1D Split pot \u2014 '+wNamesStr+(wDescLog?' — tied with '+wDescLog+'!':'!')+winPotSummary()
+      ?'\uD83E\uDD1D Split pot \u2014 '+wNamesStr+(wDescLog?' — tied with '+wDescLog+'!':'!')+winPotSummary(winners.length)
       :'\uD83C\uDFC6 '+wNamesStr+(wasNotLeading?' rivers the win':' wins')+(wDescLog?' with '+wDescLog+'!':'!')+winPotSummary();
 
     // Hand summary: only players who were actually in the hand (not sitting out)
