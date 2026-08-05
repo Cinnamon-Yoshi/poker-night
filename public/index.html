@@ -1669,27 +1669,26 @@ function buildRaisePanel(state) {
     { label: 'Pot', amount: placeholderPot() },
   ];
 
-  let middleSection;
+  // Custom screen: single row — Confirm raise / amount input / Cancel.
   if (raiseCustomMode) {
-    middleSection = `<input type="number" inputmode="numeric" pattern="[0-9]*" min="0" id="raiseCustomInput" value="" placeholder="Enter amount" style="width:100%;box-sizing:border-box;padding:12px;font-size:1.2em;text-align:center;border-radius:8px;border:1px solid #6c3483;background:#0d2218;color:#fff;margin-bottom:10px;" oninput="raiseSelectedAmount=Number(this.value)||0;">`;
-  } else {
-    const presetBtns = presets.map(p => {
-      const selected = raiseSelectedAmount === p.amount;
-      const bg = selected ? '#6c3483' : '#1b3a29';
-      return `<button class="pab-btn" style="flex:1;background:${bg};color:#fff;font-size:0.78em;padding:10px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;" onclick="raiseSelectedAmount=${p.amount};raiseSelectedLabel='${p.label}';renderPlayerActionBar(lastState);">${p.label}<br>${fmtChips(p.amount)}</button>`;
-    }).join('');
-    const customBtn = `<button class="pab-btn" style="flex:1;background:#1b3a29;color:#fff;font-size:0.78em;padding:10px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;" onclick="openCustomRaiseInput()">Custom</button>`;
-    middleSection = `<div style="display:flex;gap:6px;margin-bottom:10px;">${presetBtns}${customBtn}</div>`;
+    return `
+      <div style="display:flex;gap:6px;">
+        <button class="pab-btn" style="flex:1.3;background:#6c3483;color:#fff;font-size:0.82em;" onclick="confirmRaise(lastState)">Confirm raise</button>
+        <input type="number" inputmode="numeric" pattern="[0-9]*" min="0" id="raiseCustomInput" value="" placeholder="Enter amount" style="flex:2;box-sizing:border-box;padding:10px 8px;font-size:1em;text-align:center;border-radius:8px;border:1px solid #6c3483;background:#0d2218;color:#fff;" oninput="raiseSelectedAmount=Number(this.value)||0;">
+        <button class="pab-btn" style="flex:1;background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.25);font-size:0.82em;" onclick="cancelRaiseSelector(lastState)">Cancel</button>
+      </div>`;
   }
 
-  return `
-    <div style="width:100%;display:flex;flex-direction:column;">
-      ${middleSection}
-      <div style="display:flex;gap:6px;">
-        <button class="pab-btn" style="flex:2;background:#6c3483;color:#fff;" onclick="confirmRaise(lastState)">Confirm raise</button>
-        <button class="pab-btn" style="flex:1;background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.25);" onclick="cancelRaiseSelector(lastState)">Cancel</button>
-      </div>
-    </div>`;
+  // Preset screen: single row of 5 — tapping a preset acts immediately,
+  // no separate confirm step. Custom opens the screen above; Cancel
+  // returns straight to the Fold/Call/Raise/All In buttons.
+  const presetBtns = presets.map(p => {
+    return `<button class="pab-btn" style="flex:1;background:#1b3a29;color:#fff;font-size:0.72em;padding:10px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;" onclick="raiseSelectedAmount=${p.amount};raiseSelectedLabel='${p.label}';confirmRaise(lastState);">${p.label}<br>${fmtChips(p.amount)}</button>`;
+  }).join('');
+  const customBtn = `<button class="pab-btn" style="flex:1;background:#1b3a29;color:#fff;font-size:0.72em;padding:10px 2px;" onclick="openCustomRaiseInput()">Custom</button>`;
+  const cancelBtn = `<button class="pab-btn" style="flex:1;background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.25);font-size:0.72em;" onclick="cancelRaiseSelector(lastState)">Cancel</button>`;
+
+  return `<div style="display:flex;gap:6px;">${presetBtns}${customBtn}${cancelBtn}</div>`;
 }
 
 function renderPlayerActionBar(state){
@@ -1748,19 +1747,22 @@ function renderPlayerActionBar(state){
   { const label = document.getElementById('playerActionLabel'); label.textContent = 'Your Turn'; label.style.color = ''; }
 
   const canCheck = !state.hasRaiseThisStreet || (state.bbCanCheck && state.nextActorIsBB);
+  const myStartingChips = (state.sessionInfo && state.sessionInfo.startingChips) || 2000;
+  const myStack = (me && me.stack != null) ? me.stack : myStartingChips;
+  const allInBtn = `<button class="pab-btn allin" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.1;" onclick="playerAct('A')">All In<span style="font-size:0.75em;font-weight:700;">${fmtChips(myStack)}</span></button>`;
   if (canCheck) {
     btns.innerHTML = [
       `<button class="pab-btn fold"  onclick="playerAct('F')">Fold</button>`,
       `<button class="pab-btn check" onclick="playerAct('X')">Check</button>`,
       `<button class="pab-btn raise" onclick="openRaiseSelector(lastState)">Raise</button>`,
-      `<button class="pab-btn allin" onclick="playerAct('A')">All In</button>`
+      allInBtn
     ].join('');
   } else {
     btns.innerHTML = [
       `<button class="pab-btn fold"  onclick="playerAct('F')">Fold</button>`,
       `<button class="pab-btn call" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.1;" onclick="playerAct('C')">Call<span style="font-size:0.75em;font-weight:700;">${fmtChips(150)}</span></button>`,
       `<button class="pab-btn raise" onclick="openRaiseSelector(lastState)">Raise</button>`,
-      `<button class="pab-btn allin" onclick="playerAct('A')">All In</button>`
+      allInBtn
     ].join('');
   }
   bar.classList.remove('player-action-hidden');
@@ -1805,6 +1807,15 @@ document.getElementById('cardRanksCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.48', date:'August 2026',
+    changes:[
+      'Raise popup consolidated: preset screen is now a single row of 5 (Min / 1/2 pot / Pot / Custom / Cancel) — tapping a preset raises immediately, no separate Confirm step. Custom screen unchanged (Confirm raise / amount / Cancel), and Cancel on either screen returns straight to Fold/Call/Raise/All In',
+      'All In button now shows the players chip stack underneath it',
+      'D/SB/BB position badges standardized to the same width',
+      'Action status tags (Fold/Call/Check/Raise/All In/Next) in At the Table unbolded',
+    ]
+  },
   {
     v:'3.47', date:'July 2026',
     changes:[
