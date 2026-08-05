@@ -230,6 +230,17 @@
   <div class="blinds-dealer" id="blindsDealerMsg"></div>
 </div>
 
+<!-- Host-only blinds reminder — stays until acted on, unlike the passive one above -->
+<div id="hostBlindsReminderModal" class="full-modal" style="display:none;">
+  <div class="full-modal-inner" style="text-align:center;">
+    <div style="font-size:2.5em;margin-bottom:8px;">🔔</div>
+    <div style="font-size:1.2em;font-weight:800;color:#d4af37;margin-bottom:8px;">Time to Increase the Blinds</div>
+    <div id="hostBlindsReminderMsg" style="opacity:0.75;margin-bottom:20px;"></div>
+    <button id="hostBlindsGoToStatsBtn" style="margin-bottom:8px;">Go to Stats</button>
+    <button id="hostBlindsDismissBtn" class="secondary">Dismiss</button>
+  </div>
+</div>
+
 <!-- Shuffle overlay -->
 <div id="shuffleOverlay">
   <div class="shuffle-content">
@@ -242,7 +253,8 @@
 <!-- New Game modal (dealer selection animation) -->
 <div id="newGameModal">
   <div class="ng-wrap">
-    <div class="ng-title">🎲 Who Deals First?</div>
+    <img src="/img/card-roatan.jpg" alt="Roatan Poker Club" style="display:block;width:37.5%;max-width:170px;margin:0 auto 14px;border-radius:14px;box-shadow:0 8px 20px rgba(0,0,0,0.5);">
+    <div class="ng-title">Who Deals First?</div>
     <div class="ng-subtitle">The dealer button is choosing…</div>
     <div id="ngPlayerList"></div>
     <div id="ngResult" class="ng-result"></div>
@@ -852,6 +864,33 @@ socket.on('blindsReminder', data => {
   }, 3000);
 });
 
+// Host-only blinds reminder — surfaces only when the host closes Results,
+// and stays until they act on it rather than auto-dismissing
+socket.on('blindsReminderForHost', data => {
+  document.getElementById('hostBlindsReminderMsg').textContent = data.message || '';
+  document.getElementById('hostBlindsReminderModal').style.display = 'flex';
+});
+document.getElementById('hostBlindsGoToStatsBtn').onclick = () => {
+  document.getElementById('hostBlindsReminderModal').style.display = 'none';
+  document.getElementById('statsBtn').click();
+};
+document.getElementById('hostBlindsDismissBtn').onclick = () => {
+  document.getElementById('hostBlindsReminderModal').style.display = 'none';
+};
+
+// Non-host players get Stats auto-opened with whatever just changed
+// highlighted, when the host saves an edit to Game Info
+socket.on('sessionInfoChanged', data => {
+  if (isHost) return; // the host already sees their own change immediately
+  highlightedInfoFields = data.changedFields || [];
+  if (lastState) { renderStatsTable(lastState); renderSessionInfo(lastState); updateStatsClock(); }
+  document.getElementById('statsModal').style.display = 'flex';
+  if (statsAutoCloseTimer) { clearInterval(statsAutoCloseTimer); statsAutoCloseTimer = null; }
+  document.getElementById('statsCloseBtn').textContent = 'Close';
+  clearInterval(statsClockInterval);
+  statsClockInterval = setInterval(updateStatsClock, 1000);
+});
+
 // ── Shuffle card animation (Variant 2: riffle → lift/tilt → deal) ────
 function startShuffleAnim(stage) {
   stage.innerHTML = '';
@@ -940,6 +979,7 @@ function closeResultsOverlay(){
   document.getElementById('allInOverlay').classList.remove('active');
   const btn = document.getElementById('aioCloseBtn');
   if (btn) btn.textContent = 'Close';
+  if (isHost) socket.emit('hostCloseResults');
 }
 
 function startResultsAutoClose(){
@@ -968,6 +1008,7 @@ function closeStatsOverlay(){
   statsClockInterval = null;
   const btn = document.getElementById('statsCloseBtn');
   if (btn) btn.textContent = 'Close';
+  highlightedInfoFields = [];
 }
 
 function startStatsAutoClose(){
@@ -1423,6 +1464,7 @@ socket.on('state',state=>{
   tryShowPendingResults();
   updateGameSetupScreens(state);
   if (document.getElementById('seatConfirmModal').style.display === 'flex') showSeatingConfirmation();
+  if (document.getElementById('statsModal').style.display === 'flex') { renderStatsTable(state); renderSessionInfo(state); }
   updateJoinScreenForGameLive(state);
   const gameOffEl = document.getElementById('gameOffNotice');
   if (gameOffEl) gameOffEl.style.display = (isHost && !state.gameLive) ? 'block' : 'none';
@@ -1725,6 +1767,16 @@ document.getElementById('cardRanksCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.44', date:'July 2026',
+    changes:[
+      'Who Deals First: removed the dice icon, added the Roatan card image above the title (half the size of the join screens version)',
+      'Pot amount in At the Table is now bigger and bolder',
+      'NEXT badge text changed from black to white',
+      'Blinds reminder redesigned: fixed the off-by-one bug where hands-mode was counting from hand-start instead of hand-conclusion. The reminder no longer auto-fires during play — it now surfaces only to the host, only when they close the Results screen, with a Go to Stats button. When the host saves a blinds change, all other players get Stats auto-opened with exactly what changed shown in bold',
+      'Fixed Edit Game Info changes not showing on the Stats screen you were returned to after Save — they were saving correctly and showing everywhere else, just not on that specific already-open screen until you closed and reopened it',
+    ]
+  },
   {
     v:'3.43', date:'July 2026',
     changes:[
@@ -2788,6 +2840,8 @@ function updateStatsClock() {
   if (!lastState || !lastState.sessionStartTime) { el.textContent = ''; return; }
   el.textContent = `Session time: ${formatElapsed(Date.now() - lastState.sessionStartTime, true)}`;
 }
+let highlightedInfoFields = []; // set when a non-host player is shown what just changed
+
 function renderSessionInfo(state) {
   const box = document.getElementById('sessionInfoBox');
   if (!state.gameLive) { box.style.display = 'none'; return; }
@@ -2797,21 +2851,22 @@ function renderSessionInfo(state) {
   const totalPot = (info.buyIn || 0) * totalPlayers;
   const fmtMoney = n => '$' + (Math.round(n * 100) / 100).toString();
   const display = document.getElementById('sessionInfoDisplay');
+  const hl = (...fields) => fields.some(f => highlightedInfoFields.includes(f)) ? ' style="font-weight:900;color:#d4af37;"' : '';
   let html = '';
-  html += `<div>Buy-in: ${info.buyIn > 0 ? fmtMoney(info.buyIn) : '—'}</div>`;
-  html += `<div>Starting Chips: ${info.startingChips ? info.startingChips : '—'}</div>`;
+  html += `<div${hl('buyIn')}>Buy-in: ${info.buyIn > 0 ? fmtMoney(info.buyIn) : '—'}</div>`;
+  html += `<div${hl('startingChips')}>Starting Chips: ${info.startingChips ? info.startingChips : '—'}</div>`;
   html += `<div>Total Pot: ${info.buyIn > 0 ? fmtMoney(totalPot) + ` (${totalPlayers} players)` : '—'}</div>`;
-  html += `<div>Blinds: ${info.blindsSB > 0 ? fmtMoney(info.blindsSB) + ' / ' + fmtMoney(info.blindsBB) : '—'}</div>`;
+  html += `<div${hl('blindsSB')}>Blinds: ${info.blindsSB > 0 ? fmtMoney(info.blindsSB) + ' / ' + fmtMoney(info.blindsBB) : '—'}</div>`;
   const modeLabel = info.blindsIncreaseMode === 'minutes' ? `Every ${info.blindsIncreaseValue} min`
                    : info.blindsIncreaseMode === 'hands' ? `Every ${info.blindsIncreaseValue} hands`
                    : 'Same Dealer';
-  html += `<div>Blinds Increase: ${modeLabel}</div>`;
+  html += `<div${hl('blindsIncreaseMode','blindsIncreaseValue')}>Blinds Increase: ${modeLabel}</div>`;
   if (info.playersToCash > 0 && info.payouts && info.payouts.length) {
     const ordinalLabels = ['1st', '2nd', '3rd', '4th'];
     const lines = info.payouts.map((amt, i) => `${ordinalLabels[i]}: ${fmtMoney(amt || 0)}`).join(' · ');
-    html += `<div>Payouts: ${lines}</div>`;
+    html += `<div${hl('playersToCash','payouts')}>Payouts: ${lines}</div>`;
   } else {
-    html += `<div>Players to Cash: —</div>`;
+    html += `<div${hl('playersToCash','payouts')}>Players to Cash: —</div>`;
   }
   display.innerHTML = html;
   document.getElementById('siEditToggleBtn').style.display = isHost ? 'block' : 'none';
