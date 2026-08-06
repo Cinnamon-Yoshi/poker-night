@@ -1447,7 +1447,7 @@ socket.on('playerActionPopup', data => {
   const el = document.getElementById('actionNotif');
   el.style.background = `rgba(${style.bg},0.94)`;
   document.getElementById('actionNotifName').textContent = data.name;
-  document.getElementById('actionNotifVerb').textContent = style.verb;
+  document.getElementById('actionNotifVerb').textContent = (data.type === 'raise' && data.isReRaise) ? 'Re-Raises' : style.verb;
   const raiseLogLabel = {Min:'MIN','1/2 pot':'1/2 Pot',Pot:'Pot'};
   let detail = '';
   if (data.type === 'allin' || data.type === 'raise') {
@@ -1530,9 +1530,16 @@ socket.on('state',state=>{
     else showTurnNotif();
   }
   wasMyCurrent=isMeCurrent;
-  renderBoard(state.board);
+  // Once a hand is over (stage idle) clear this device's own hole cards and
+  // the community row on screen — the Results overlay reads its own
+  // independent snapshot (data.board / runout.board from winnerAnnounce),
+  // never live state.board, so this doesn't affect that display at all; it
+  // just stops stale cards from sitting on the game screen underneath.
+  const boardForRender = state.stage==='idle' ? [] : state.board;
+  if(state.stage==='idle' && myCards.length){ myCards=[]; }
+  renderBoard(boardForRender);
   renderHoleCards();
-  renderHandInfo(state.board);
+  renderHandInfo(boardForRender);
   renderPlayerList(state.players);
   // Eliminated observer banner — reuse meInState already declared above
   const isElim=!!(meInState&&(meInState.eliminated||meInState.spectate));
@@ -1685,9 +1692,9 @@ function buildRaisePanel(state) {
   const capTotal = Math.min(myStreetBet + myStack, state.liveStackCap != null ? state.liveStackCap : Infinity);
   const maxRaiseBy = Math.max(0, capTotal - toCall);
   const presets = [
-    { label: 'Min', amount: Math.min(bb, maxRaiseBy) },
-    { label: '1/2 pot', amount: Math.min(Math.round(pot / 2), maxRaiseBy) },
-    { label: 'Pot', amount: Math.min(pot, maxRaiseBy) },
+    { label: 'Min', amount: bb },
+    { label: '1/2 pot', amount: Math.round(pot / 2) },
+    { label: 'Pot', amount: pot },
   ];
 
   // Custom screen: single row — Confirm / amount input / Cancel.
@@ -1702,9 +1709,17 @@ function buildRaisePanel(state) {
 
   // Preset screen: single row of 5 — tapping a preset acts immediately,
   // no separate confirm step. Custom opens the screen above; Cancel
-  // returns straight to the Fold/Call/Raise/All In buttons.
+  // returns straight to the Fold/Call/Raise/All In buttons. The preset
+  // amounts themselves are never shrunk to fit what this player can
+  // afford — All In already covers "everything I have left". Instead, a
+  // preset that's unaffordable is just dimmed and disabled.
   const presetBtns = presets.map(p => {
-    return `<button class="pab-btn" style="flex:1;background:#6c3483;color:#fff;" onclick="raiseSelectedAmount=${p.amount};raiseSelectedLabel='${p.label}';confirmRaise(lastState);">${p.label}<span class="pab-amt">${fmtChips(p.amount)}</span></button>`;
+    const disabled = p.amount > maxRaiseBy;
+    const style = disabled
+      ? 'flex:1;background:#1b3a29;color:rgba(255,255,255,0.35);'
+      : 'flex:1;background:#6c3483;color:#fff;';
+    const onclick = disabled ? '' : `onclick="raiseSelectedAmount=${p.amount};raiseSelectedLabel='${p.label}';confirmRaise(lastState);"`;
+    return `<button class="pab-btn" style="${style}" ${disabled ? 'disabled' : ''} ${onclick}>${p.label}<span class="pab-amt">${fmtChips(p.amount)}</span></button>`;
   }).join('');
   const customBtn = `<button class="pab-btn" style="flex:1;background:#1b3a29;color:#fff;" onclick="openCustomRaiseInput()">Custom</button>`;
   const cancelBtn = `<button class="pab-btn pab-cancel" style="flex:1;" onclick="cancelRaiseSelector(lastState)">Cancel</button>`;
@@ -1844,6 +1859,17 @@ document.getElementById('logCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.60', date:'August 2026',
+    changes:[
+      'Community/hole cards no longer sit stale on screen after a hand ends — cleared the moment stage goes idle (covers closing Results, auto-close, joining fresh, and after a game ends, since all four share that same idle state)',
+      'Re-raises now say "Re-Raises" on the purple popup instead of "Raised", tracked per street',
+      'Action log / hand log now show the real pot amount instead of a placeholder — % stack gain removed for now rather than showing a wrong number; the pieces to bring it back later (handStartStack per player) are already in place',
+      'Raise presets (Min/1/2 pot/Pot) no longer shrink their amount to fit your stack — they show the true number and just dim/disable if you cant afford it. All In still covers "everything I have left"',
+      'Current Bet header is now centered on the same edge the amounts right-align to, instead of also right-aligning to it',
+      'Any player who goes all-in and does not win or split the pot is now busted out automatically. When more than one all-in loser busts from the same hand, the smallest original stack (at the start of that hand) busts first',
+    ]
+  },
   {
     v:'3.59', date:'August 2026',
     changes:[
