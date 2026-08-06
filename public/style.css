@@ -857,6 +857,7 @@ button.gold { background:#d4af37; color:#111; }
   max-height:120px; overflow:hidden;
 }
 .player-action-bar.raise-panel-open { max-height:280px; border-color:#6c3483; }
+.player-action-bar.pab-noframe { background:none; border:none; padding:0; }
 .player-action-hidden {
   opacity:0; max-height:0; padding:0; border:none;
   pointer-events:none; margin:0;

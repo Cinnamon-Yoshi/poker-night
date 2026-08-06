@@ -1651,8 +1651,8 @@ let raiseSelectedLabel = null;
 function openRaiseSelector(state) {
   raiseSelectorOpen = true;
   raiseCustomMode = false;
-  const bb = (state.sessionInfo && state.sessionInfo.blindsBB) || 20;
-  raiseSelectedAmount = bb;
+  const sb = (state.sessionInfo && state.sessionInfo.blindsSB) || 10;
+  raiseSelectedAmount = (state.toCall || 0) + sb; // raise-to total; buildRaisePanel recomputes the real Min preset on render
   raiseSelectedLabel = 'Min';
   renderPlayerActionBar(state);
 }
@@ -1679,22 +1679,29 @@ function openCustomRaiseInput() {
 
 function buildRaisePanel(state) {
   const me = state.players.find(p => p.name === myName);
-  const bb = (state.sessionInfo && state.sessionInfo.blindsBB) || 20;
+  const sb = (state.sessionInfo && state.sessionInfo.blindsSB) || 10;
   const pot = state.pot || 0;
   const toCall = state.toCall || 0;
   const myStreetBet = (me && me.streetBet) || 0;
   const myStack = (me && me.stack) || 0;
-  // Raise amounts here are "raise-by" — how much on top of the current bet
-  // to call, matching how the server interprets extra.amount. The hard
-  // ceiling is however much this player could still add this street: their
-  // own stack, or the shortest live stack in the hand if that's smaller
-  // (single-pot stand-in for side pots — see server.js liveStackCap).
-  const capTotal = Math.min(myStreetBet + myStack, state.liveStackCap != null ? state.liveStackCap : Infinity);
-  const maxRaiseBy = Math.max(0, capTotal - toCall);
+  // Raise amounts here are "raise TO" — the total this player's bet becomes
+  // this street, not an increment on top of the call. That's also what the
+  // server now expects in extra.amount. The hard ceiling is the total this
+  // player could ever have in front of them this street: their own stack
+  // plus what they've already put in, or the shortest live stack in the
+  // hand if that's smaller (single-pot stand-in for side pots — see
+  // server.js liveStackCap).
+  const maxRaiseTo = Math.min(myStreetBet + myStack, state.liveStackCap != null ? state.liveStackCap : Infinity);
+  // Minimum legal raise size — for now hardcoded to the current SB amount.
+  // This is meant to become a host-configurable "min raise strategy" in
+  // Game Info later (options: current SB / current BB / double BB / the
+  // largest raise so far this street) — SB is just today's fixed choice.
+  const minRaiseIncrement = sb;
+  const minRaiseTo = toCall + minRaiseIncrement;
   const presets = [
-    { label: 'Min', amount: bb },
-    { label: '1/2 pot', amount: Math.round(pot / 2) },
-    { label: 'Pot', amount: pot },
+    { label: 'Min', amount: minRaiseTo },
+    { label: '1/2 pot', amount: toCall + Math.round(pot / 2) },
+    { label: 'Pot', amount: toCall + pot },
   ];
 
   // Custom screen: single row — Confirm / amount input / Cancel.
@@ -1702,7 +1709,7 @@ function buildRaisePanel(state) {
     return `
       <div style="display:flex;gap:6px;width:100%;box-sizing:border-box;">
         <button class="pab-btn" style="flex:1.2;background:#6c3483;color:#fff;" onclick="confirmRaise(lastState)">Confirm</button>
-        <input type="number" inputmode="numeric" pattern="[0-9]*" min="0" max="${maxRaiseBy}" id="raiseCustomInput" value="" placeholder="Enter amount" style="flex:2;box-sizing:border-box;height:50px;padding:0 8px;font-size:0.9em;text-align:center;border-radius:10px;border:1px solid #6c3483;background:#0d2218;color:#fff;" oninput="raiseSelectedAmount=Math.min(Number(this.value)||0, ${maxRaiseBy});">
+        <input type="number" inputmode="numeric" pattern="[0-9]*" min="${toCall}" max="${maxRaiseTo}" id="raiseCustomInput" value="" placeholder="Raise to amount" style="flex:2;box-sizing:border-box;height:50px;padding:0 8px;font-size:0.9em;text-align:center;border-radius:10px;border:1px solid #6c3483;background:#0d2218;color:#fff;" oninput="raiseSelectedAmount=Math.min(Number(this.value)||0, ${maxRaiseTo});">
         <button class="pab-btn pab-cancel" onclick="cancelRaiseSelector(lastState)">Cancel</button>
       </div>`;
   }
@@ -1714,7 +1721,7 @@ function buildRaisePanel(state) {
   // afford — All In already covers "everything I have left". Instead, a
   // preset that's unaffordable is just dimmed and disabled.
   const presetBtns = presets.map(p => {
-    const disabled = p.amount > maxRaiseBy;
+    const disabled = p.amount > maxRaiseTo;
     const style = disabled
       ? 'flex:1;background:#1b3a29;color:rgba(255,255,255,0.35);'
       : 'flex:1;background:#6c3483;color:#fff;';
@@ -1738,6 +1745,7 @@ function renderPlayerActionBar(state){
     document.getElementById('playerActionLabel').style.display = 'none';
     btns.innerHTML = `<button class="pab-btn" onclick="socket.emit('declareFoldWinner')" style="background:#d4af37;color:#111;font-size:1.05em;width:100%;">🏆 Winner</button>`;
     bar.classList.remove('player-action-hidden');
+    bar.classList.add('pab-noframe');
     return;
   }
 
@@ -1747,12 +1755,13 @@ function renderPlayerActionBar(state){
       document.getElementById('playerActionLabel').style.display = 'none';
       btns.innerHTML = `<button class="pab-btn" onclick="doNext()" style="background:#d4af37;color:#111;font-size:1.05em;width:100%;">Deal Next Hand →</button>`;
       bar.classList.remove('player-action-hidden');
+      bar.classList.add('pab-noframe');
       return;
     }
     if (state.stage !== 'idle' && !state.pendingRunout) {
       const noOneActing = !state.nextActorName;
       if (noOneActing && (state.canRevealNext || state.canRevealWinner)) {
-        const label = state.willRunout ? "Let's Show the Cards →"
+        const label = state.willRunout ? 'All-In -- Reveal Hands'
                     : state.stage === 'preflop' ? 'Deal the Flop →'
                     : state.stage === 'flop'    ? 'Deal the Turn →'
                     : state.stage === 'turn'    ? 'Deal the River →'
@@ -1760,10 +1769,13 @@ function renderPlayerActionBar(state){
         document.getElementById('playerActionLabel').style.display = 'none';
         btns.innerHTML = `<button class="pab-btn" onclick="doNext()" style="background:#d4af37;color:#111;font-size:1.05em;width:100%;">${label}</button>`;
         bar.classList.remove('player-action-hidden');
+        bar.classList.add('pab-noframe');
         return;
       }
     }
   }
+
+  bar.classList.remove('pab-noframe');
 
   // Show action bar when it's this player's turn
   const show = me && me.isCurrent && state.stage !== 'idle' && !state.foldWinner;
@@ -1859,6 +1871,20 @@ document.getElementById('logCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.62', date:'August 2026',
+    changes:[
+      'Raise changed from "raise-by" to "raise to" — Min/1/2 pot/Pot presets and the Custom input now represent the total you are raising to, not an increment on top of the call, and thats what gets sent to the server',
+      'Minimum legal raise size is now enforced (silently clamped up if you try to raise below it, matching how the shortest-stack cap already works) — hardcoded to the current SB amount for now. This is meant to become a host setting in Game Info later (options: current SB / current BB / double BB / largest raise so far this street) but SB is the fixed choice until that setting exists',
+    ]
+  },
+  {
+    v:'3.61', date:'August 2026',
+    changes:[
+      'Removed the dark/gold frame from the single wide proceed buttons (Deal Next Hand, Deal the Flop/Turn/River, All-In -- Reveal Hands, Reveal Winner, Winner) — just the yellow button now, same height, full width matching the other popups. The framed Fold/Call/Raise/All In row and both raise-panel screens keep their frame since those hold multiple buttons',
+      "\"Let's Show the Cards\" renamed to \"All-In -- Reveal Hands\"",
+    ]
+  },
   {
     v:'3.60', date:'August 2026',
     changes:[
