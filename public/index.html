@@ -1834,6 +1834,15 @@ document.getElementById('logCloseBtn').onclick=()=>{
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
   {
+    v:'3.57', date:'August 2026',
+    changes:[
+      'First real chip/pot tracking: players now have an actual stack, deducted and paid out for real — blinds, calls, raises, all-ins, and showdown/fold-win payouts all move real chips server-side',
+      'Pot is now computed from actual bets, not a placeholder number',
+      'No side pots yet — every bet/raise this hand is silently capped at the shortest stack still live in the hand (recalculated as players fold), so nobody can commit more than the short stack could ever match. All-in for a smaller amount than the table is only being called for what the caller has, not what the raiser bet, may still show as a simple full call for now — side pots are a later feature',
+      'This is server-side only in this version — the UI (Current Bet column, Call amount, raise presets, chip stacks shown) is still reading placeholder numbers and has not been rewired to the new real data yet. That is the next step',
+    ]
+  },
+  {
     v:'3.56', date:'August 2026',
     changes:[
       'Shuffle animation title changed from "Dealer is shuffling…" to "Shuffling…"',
