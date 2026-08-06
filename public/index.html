@@ -1633,9 +1633,7 @@ function playerAct(action, extra){
 }
 
 // Shared placeholder pot value — used by both the At the Table pot display
-// and the raise panel's Half Pot/Pot presets, so the shell is at least
-// internally consistent even though neither is wired to real chip math yet
-function placeholderPot() { return 2500; }
+function placeholderPot() { return 2500; } // no longer used by the Call/raise/pot UI — kept only in case anything else still references it
 
 function fmtChips(n) { return Math.round(n).toLocaleString('en-US'); }
 
@@ -1646,8 +1644,9 @@ let raiseSelectedLabel = null;
 function openRaiseSelector(state) {
   raiseSelectorOpen = true;
   raiseCustomMode = false;
-  raiseSelectedAmount = 100; // placeholder default — matches the Pot preset below until real pot tracking exists
-  raiseSelectedLabel = 'Pot';
+  const bb = (state.sessionInfo && state.sessionInfo.blindsBB) || 20;
+  raiseSelectedAmount = bb;
+  raiseSelectedLabel = 'Min';
   renderPlayerActionBar(state);
 }
 function cancelRaiseSelector(state) {
@@ -1672,13 +1671,23 @@ function openCustomRaiseInput() {
 }
 
 function buildRaisePanel(state) {
-  // Min/Half Pot/Pot are placeholder numbers — there's no live pot to
-  // calculate from yet. All In stays available as its own separate
-  // top-level button outside this panel, so Custom takes its place here.
+  const me = state.players.find(p => p.name === myName);
+  const bb = (state.sessionInfo && state.sessionInfo.blindsBB) || 20;
+  const pot = state.pot || 0;
+  const toCall = state.toCall || 0;
+  const myStreetBet = (me && me.streetBet) || 0;
+  const myStack = (me && me.stack) || 0;
+  // Raise amounts here are "raise-by" — how much on top of the current bet
+  // to call, matching how the server interprets extra.amount. The hard
+  // ceiling is however much this player could still add this street: their
+  // own stack, or the shortest live stack in the hand if that's smaller
+  // (single-pot stand-in for side pots — see server.js liveStackCap).
+  const capTotal = Math.min(myStreetBet + myStack, state.liveStackCap != null ? state.liveStackCap : Infinity);
+  const maxRaiseBy = Math.max(0, capTotal - toCall);
   const presets = [
-    { label: 'Min', amount: 20 },
-    { label: '1/2 pot', amount: Math.round(placeholderPot() / 2) },
-    { label: 'Pot', amount: placeholderPot() },
+    { label: 'Min', amount: Math.min(bb, maxRaiseBy) },
+    { label: '1/2 pot', amount: Math.min(Math.round(pot / 2), maxRaiseBy) },
+    { label: 'Pot', amount: Math.min(pot, maxRaiseBy) },
   ];
 
   // Custom screen: single row — Confirm / amount input / Cancel.
@@ -1686,7 +1695,7 @@ function buildRaisePanel(state) {
     return `
       <div style="display:flex;gap:6px;width:100%;box-sizing:border-box;">
         <button class="pab-btn" style="flex:1.2;background:#6c3483;color:#fff;" onclick="confirmRaise(lastState)">Confirm</button>
-        <input type="number" inputmode="numeric" pattern="[0-9]*" min="0" id="raiseCustomInput" value="" placeholder="Enter amount" style="flex:2;box-sizing:border-box;height:50px;padding:0 8px;font-size:0.9em;text-align:center;border-radius:10px;border:1px solid #6c3483;background:#0d2218;color:#fff;" oninput="raiseSelectedAmount=Number(this.value)||0;">
+        <input type="number" inputmode="numeric" pattern="[0-9]*" min="0" max="${maxRaiseBy}" id="raiseCustomInput" value="" placeholder="Enter amount" style="flex:2;box-sizing:border-box;height:50px;padding:0 8px;font-size:0.9em;text-align:center;border-radius:10px;border:1px solid #6c3483;background:#0d2218;color:#fff;" oninput="raiseSelectedAmount=Math.min(Number(this.value)||0, ${maxRaiseBy});">
         <button class="pab-btn pab-cancel" onclick="cancelRaiseSelector(lastState)">Cancel</button>
       </div>`;
   }
@@ -1761,6 +1770,8 @@ function renderPlayerActionBar(state){
   const canCheck = !state.hasRaiseThisStreet || (state.bbCanCheck && state.nextActorIsBB);
   const myStartingChips = (state.sessionInfo && state.sessionInfo.startingChips) || 2000;
   const myStack = (me && me.stack != null) ? me.stack : myStartingChips;
+  const myStreetBet = (me && me.streetBet) || 0;
+  const callAmt = Math.max(0, (state.toCall || 0) - myStreetBet);
   const allInBtn = `<button class="pab-btn allin" onclick="playerAct('A')">All In<span class="pab-amt">${fmtChips(myStack)}</span></button>`;
   if (canCheck) {
     btns.innerHTML = [
@@ -1772,7 +1783,7 @@ function renderPlayerActionBar(state){
   } else {
     btns.innerHTML = [
       `<button class="pab-btn fold"  onclick="playerAct('F')">Fold</button>`,
-      `<button class="pab-btn call" onclick="playerAct('C')">Call<span class="pab-amt">${fmtChips(150)}</span></button>`,
+      `<button class="pab-btn call" onclick="playerAct('C')">Call<span class="pab-amt">${fmtChips(callAmt)}</span></button>`,
       `<button class="pab-btn raise" onclick="openRaiseSelector(lastState)">Raise</button>`,
       allInBtn
     ].join('');
@@ -1833,6 +1844,23 @@ document.getElementById('logCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.59', date:'August 2026',
+    changes:[
+      'Wired the UI to the real chip data from v3.57 — this is the part you can actually see and test now',
+      'Call button amount now reads the real toCall minus what you have already put in this street, not a hardcoded 150',
+      'Raise presets (Min/1/2 pot/Pot) now compute from the real pot and blinds, and are capped at the shortest live stack in the hand (silently, per the side-pot stand-in) — Custom input enforces the same cap',
+      'Current Bet column now shows each players real streetBet instead of guessing from blind position',
+      'Stack shown in At the Table now reflects real chip counts, going up and down as hands are played, instead of a static Starting Chips number',
+      'Pot display now reads the real accumulated pot',
+    ]
+  },
+  {
+    v:'3.58', date:'August 2026',
+    changes:[
+      'Fixed the footer showing a stale version (3.47) while this popup showed the current one — the footer reads a separate VERSION/LAST_UPDATED constant in server.js that I had not been keeping in sync with the changelog. Both now match',
+    ]
+  },
   {
     v:'3.57', date:'August 2026',
     changes:[
@@ -3729,15 +3757,9 @@ function renderPlayerList(players){
     actionTd.innerHTML=actionHtml;
     row.appendChild(actionTd);
 
-    // Bet column — shows whatever a player currently has in front of them
-    // this street: blind amounts for SB/BB, or a raise amount. All
-    // placeholder numbers for now — no real chip tracking wired up yet.
-    let betAmt=null;
-    if(!p.eliminated&&!p.sittingOut){
-      if(p.action==='R') betAmt=150;
-      else if(p.isBB) betAmt=info.blindsBB||0;
-      else if(p.isSB) betAmt=info.blindsSB||0;
-    }
+    // Bet column — real per-player street bet from the server (blinds,
+    // calls, raises — whatever they actually have in front of them).
+    const betAmt=(!p.eliminated&&!p.sittingOut)?(p.streetBet||0):0;
     const betTd=document.createElement('td');
     betTd.className='pt-bet';
     if(betAmt){
@@ -3753,7 +3775,7 @@ function renderPlayerList(players){
     if(p.eliminated){
       stackTd.innerHTML='<span style="background:#5c2020;color:#d9a3a3;font-size:0.85em;padding:2px 6px;border-radius:20px;font-weight:800;">BUST</span>';
     } else {
-      stackTd.textContent=fmtChips(startingChips);
+      stackTd.textContent=fmtChips(p.stack!=null?p.stack:startingChips);
     }
     row.appendChild(stackTd);
 
@@ -3784,7 +3806,7 @@ function renderPlayerList(players){
   const potEl=document.getElementById('tablePotInfo');
   if(potEl){
     // Placeholder pot — no real pot tracking wired up yet
-    potEl.textContent=(lastState&&lastState.gameLive)?`Pot: ${fmtChips(placeholderPot())}`:'';
+    potEl.textContent=(lastState&&lastState.gameLive)?`Pot: ${fmtChips(lastState.pot||0)}`:'';
   }
 }
 
