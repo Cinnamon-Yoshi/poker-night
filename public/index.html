@@ -412,7 +412,7 @@
           <button class="hbtn hbtn-C" id="hbtnC" onclick="doAct(hbtnCAction)"><span class="bl" id="hbtnCBl">C</span></button>
           <button class="hbtn hbtn-R" id="hbtnR" onclick="doAct('R')"><span class="bl">R</span></button>
           <button class="hbtn hbtn-A" id="hbtnA" onclick="doAct('A')"><span class="bl">A</span></button>
-          <button class="hbtn hbtn-undo" id="hbtnUndo" onclick="doUndo()"><span class="bl">&#8617;</span></button>
+          <button class="hbtn hbtn-undo" id="hbtnUndo" onclick="doUndo()"><span class="bl"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.5 8c-2.65 0-5.05 0.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" fill="#fff"/></svg></span></button>
           <button class="hbtn" id="hbtnN" onclick="doNext()" style="background:#d4af37;color:#111;"><span class="bl">&#9654;</span></button>
         </div>
         <div class="host-btn-row">
@@ -1438,7 +1438,7 @@ let pendingMyTurn=false;
 let allInPopupActive=false;
 const ACTION_POPUP_STYLE = {
   allin: { bg:'26,106,138', verb:'went All In' },
-  raise: { bg:'108,52,131', verb:'Raised' },
+  raise: { bg:'108,52,131', verb:'Raises to' },
   fold:  { bg:'224,16,16',  verb:'Folded' },
 };
 socket.on('playerActionPopup', data => {
@@ -1447,7 +1447,7 @@ socket.on('playerActionPopup', data => {
   const el = document.getElementById('actionNotif');
   el.style.background = `rgba(${style.bg},0.94)`;
   document.getElementById('actionNotifName').textContent = data.name;
-  document.getElementById('actionNotifVerb').textContent = (data.type === 'raise' && data.isReRaise) ? 'Re-Raises' : style.verb;
+  document.getElementById('actionNotifVerb').textContent = (data.type === 'raise' && data.isReRaise) ? 'Re-Raises to' : style.verb;
   const raiseLogLabel = {Min:'MIN','1/2 pot':'1/2 Pot',Pot:'Pot'};
   let detail = '';
   if (data.type === 'allin' || data.type === 'raise') {
@@ -1540,7 +1540,7 @@ socket.on('state',state=>{
   renderBoard(boardForRender);
   renderHoleCards();
   renderHandInfo(boardForRender);
-  renderPlayerList(state.players);
+  renderPlayerList(state.players, state.stage==='idle');
   // Eliminated observer banner — reuse meInState already declared above
   const isElim=!!(meInState&&(meInState.eliminated||meInState.spectate));
   document.getElementById('eliminatedBanner').style.display=isElim?'block':'none';
@@ -1730,7 +1730,7 @@ function buildRaisePanel(state) {
     const onclick = disabled ? '' : `onclick="raiseSelectedAmount=${p.amount};raiseSelectedLabel='${p.label}';confirmRaise(lastState);"`;
     return `<button class="pab-btn" style="${style}" ${disabled ? 'disabled' : ''} ${onclick}>${p.label}<span class="pab-amt">${fmtChips(p.amount)}</span></button>`;
   }).join('');
-  const customBtn = `<button class="pab-btn" style="flex:1;background:#1b3a29;color:#fff;" onclick="openCustomRaiseInput()">Custom</button>`;
+  const customBtn = `<button class="pab-btn" style="flex:1;background:#4a2568;color:#c9a6dd;" onclick="openCustomRaiseInput()">Custom</button>`;
   const cancelBtn = `<button class="pab-btn pab-cancel" style="flex:1;" onclick="cancelRaiseSelector(lastState)">Cancel</button>`;
 
   return `<div style="display:flex;gap:6px;width:100%;box-sizing:border-box;">${presetBtns}${customBtn}${cancelBtn}</div>`;
@@ -1872,6 +1872,16 @@ document.getElementById('logCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.65', date:'August 2026',
+    changes:[
+      'Purple action popup now says "Raises to #" / "Re-Raises to #" instead of "Raised"/"Re-Raises", matching the raise-to model',
+      'Undo button icon replaced with a plain white SVG arrow sized to match the other letters in that row — the old Unicode arrow character was rendering as a glossy color emoji icon on some phones instead of a plain glyph',
+      'Custom button in the raise panel changed from green to a dimmed/darker purple with lighter purple text, matching the same muted-color treatment as Cancel',
+      'Fixed extra dead space below the Fold/Call/Raise/All In/Undo/Deal row and below the raise-panel buttons — both were inheriting an 8px bottom margin meant for regular stacked buttons, which doubled up with the frames own padding',
+      'Current Bet amounts and action tags (Raise/Call/Fold/etc.) now clear after a hand ends too, same as the cards',
+    ]
+  },
   {
     v:'3.64', date:'August 2026',
     changes:[
@@ -3792,7 +3802,7 @@ function renderHandInfo(board){
 }
 
 // ── Player list (changes 2,3) ─────────────────────────────────────────
-function renderPlayerList(players){
+function renderPlayerList(players, handIdle){
   const list=document.getElementById('playerList');list.innerHTML='';
   const ac={F:'fold',C:'call',R:'raise',A:'allin',X:'check'};
   const al={F:'FOLD',C:'CALL',R:'RAISE',A:'ALL IN',X:'CHECK'};
@@ -3815,8 +3825,13 @@ function renderPlayerList(players){
     nameTd.textContent=p.name;
     row.appendChild(nameTd);
 
+    // Once a hand is over (stage idle), don't show the last hand's action
+    // tag (Fold/Call/Raise/etc.) sitting stale on screen — same idea as
+    // clearing the community/hole cards.
     let actionHtml='';
-    if(p.eliminated||p.sittingOut){
+    if(handIdle){
+      // nothing — between hands there's no current action to show
+    } else if(p.eliminated||p.sittingOut){
       // no action badge — observer/bust-out
     } else if(p.isCurrent){
       actionHtml='<span class="badge next">NEXT</span>';
@@ -3831,7 +3846,7 @@ function renderPlayerList(players){
 
     // Bet column — real per-player street bet from the server (blinds,
     // calls, raises — whatever they actually have in front of them).
-    const betAmt=(!p.eliminated&&!p.sittingOut)?(p.streetBet||0):0;
+    const betAmt=(!handIdle&&!p.eliminated&&!p.sittingOut)?(p.streetBet||0):0;
     const betTd=document.createElement('td');
     betTd.className='pt-bet';
     if(betAmt){
