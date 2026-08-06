@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.63';
+const VERSION = '3.64';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
@@ -71,7 +71,7 @@ let firstHandDealt=false;
 let currentGameEliminations=[];  // player names in elimination order (earliest first) — used for Stats display order
 let sessionHandsPlayed=0;        // total hands dealt this session — for Stats context/percentages, resets on New Game
 let sessionStartTime=null;       // Date.now() when New Game started — drives the session clock
-let sessionInfo={buyIn:20,playersToCash:0,payouts:[],blindsSB:1,blindsBB:2,blindsIncreaseMode:'hands',blindsIncreaseValue:3,startingChips:2000}; // host-entered placeholders, resets on New Game
+let sessionInfo={buyIn:20,playersToCash:0,payouts:[],blindsSB:10,blindsBB:20,blindsIncreaseMode:'hands',blindsIncreaseValue:3,startingChips:2000}; // host-entered placeholders, resets on New Game
 let gameSetupPhase=null; // null | 'buyIn' | 'confirming' — the pre-game flow between seating confirmation and dealer selection
 let lastGameSnapshot=null; // frozen stats shown on Stats below the live table — only updates when the NEXT game starts, not the instant a game ends
 let pendingGameSnapshot=null; // captured the moment a game ends, promoted to lastGameSnapshot once the next game starts
@@ -716,7 +716,7 @@ io.on('connection',socket=>{
     firstHandDealt=false;
     currentGameEliminations=[];
     sessionHandsPlayed=0;
-    sessionInfo={buyIn:20,playersToCash:0,payouts:[],blindsSB:1,blindsBB:2,blindsIncreaseMode:'hands',blindsIncreaseValue:3,startingChips:2000};
+    sessionInfo={buyIn:20,playersToCash:0,payouts:[],blindsSB:10,blindsBB:20,blindsIncreaseMode:'hands',blindsIncreaseValue:3,startingChips:2000};
     handsSinceBlindReminder=0;
     gameSetupPhase='buyIn'; // host fills in buy-in/blinds/payout next, then players confirm
 
