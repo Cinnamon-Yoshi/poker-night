@@ -255,7 +255,7 @@
 <!-- Shuffle overlay -->
 <div id="shuffleOverlay">
   <div class="shuffle-content">
-    <div class="shuffle-title">Dealer is shuffling…</div>
+    <div class="shuffle-title">Shuffling…</div>
     <div id="shuffleInfo"></div>
     <div id="shuffleCardStage"></div>
   </div>
@@ -969,20 +969,24 @@ function startShuffleAnim(stage) {
     });
   }, sqT + 380);
 
-  // Deal 5 cards out
-  const dealT = sqT + 1150;
-  const dealX = [sw*0.05, sw*0.24, sw*0.45, sw*0.66, sw*0.87];
-  for (let d = 0; d < 5; d++) {
-    const card = merged[merged.length - 1 - d];
-    setTimeout(() => {
-      card.style.transition = 'all 0.35s cubic-bezier(0.215,0.61,0.355,1)';
-      card.style.left = (dealX[d] - 26) + 'px';
-      card.style.top = '18px';
-      card.style.transform = 'scale(1) rotate(0deg)';
-      card.style.zIndex = 60 + d;
-      card.style.boxShadow = '0 6px 16px rgba(0,0,0,0.6)';
-    }, dealT + d * 260);
-  }
+  // Toss the dealt card toward the player — it grows and flies off the
+  // bottom of the screen, as if being thrown through it at the viewer.
+  // Only the top card of the lifted stack is used; the rest fade out.
+  const tossT = sqT + 1150;
+  setTimeout(() => {
+    const topCard = merged[merged.length - 1];
+    merged.slice(0, merged.length - 1).forEach(c => {
+      c.style.transition = 'opacity 0.2s ease-out';
+      c.style.opacity = '0';
+    });
+    topCard.style.backgroundImage = "url('/img/dealt-roatan-card.png')";
+    topCard.style.zIndex = 99;
+    requestAnimationFrame(() => {
+      topCard.style.transition = 'transform 0.65s cubic-bezier(0.55,0.06,0.9,0.4), opacity 0.65s ease-in 0.3s';
+      topCard.style.transform = 'translateY(140vh) scale(4.5) rotate(8deg)';
+      topCard.style.opacity = '0';
+    });
+  }, tossT);
 }
 
 // ── Shuffle overlay ───────────────────────────────────────────────────
@@ -1829,6 +1833,14 @@ document.getElementById('logCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.56', date:'August 2026',
+    changes:[
+      'Shuffle animation title changed from "Dealer is shuffling…" to "Shuffling…"',
+      'Removed the 5-card fan-out at the end of the shuffle animation',
+      'Replaced it with a single card that grows and flies off the bottom of the screen, using the new Dealt Roatan Card artwork, as if being tossed at the player through the screen',
+    ]
+  },
   {
     v:'3.55', date:'August 2026',
     changes:[
