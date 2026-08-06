@@ -1,5 +1,17 @@
 const CHANGELOG = [
   {
+    v:'3.68', date:'August 2026',
+    changes:[
+      'Fixed a real money bug: an all-in was uncapped, so a bigger stack could push more than a shorter stack could ever match (e.g. shoving 5,360 against an opponent with only 640 total) — the pot ended up counting chips that were never actually contested. All-in now gets the same single-pot cap as raises, so nobody can ever commit more than the shortest live stack this hand',
+      'Fixed auto-bust not firing when a player went to 0 chips via a Call rather than the All In button — a forced all-in-by-call was never being flagged as "all-in this hand," so it never showed up as bust-eligible. Both now count',
+      'Results card now shows "Busted out (Nth place)" in place of the plain showdown ordinal (2nd/3rd/etc.) when that player is also getting eliminated this hand — those are two different things and busting is the more important one to show',
+      '% gain re-added to the win log message (net stack change ÷ stack at the start of the hand), on both fold-win and showdown, including per-winner on split pots',
+      'Draw hints (flush draw / straight draw) restored under Peek — the underlying function was still there, it just wasnt being called anymore after an earlier refactor',
+      'Small Blind max validation raised from 100 to 500',
+      'Changelog: v3.50–3.59 condensed into one summary entry, same as the earlier ranges',
+    ]
+  },
+  {
     v:'3.67', date:'August 2026',
     changes:[
       'Fixed a real crash: raising with the Pot preset (or any raise where the player already had chips in for the street, e.g. the BB) threw a ReferenceError that crashed the entire server — every player got disconnected and the game ended. A variable was declared inside the wrong scope; moved it out so its still available where the raise popup needs it',
@@ -70,89 +82,13 @@ const CHANGELOG = [
     ]
   },
   {
-    v:'3.59', date:'August 2026',
+    v:'3.50–3.59', date:'August 2026',
     changes:[
-      'Wired the UI to the real chip data from v3.57 — this is the part you can actually see and test now',
-      'Call button amount now reads the real toCall minus what you have already put in this street, not a hardcoded 150',
-      'Raise presets (Min/1/2 pot/Pot) now compute from the real pot and blinds, and are capped at the shortest live stack in the hand (silently, per the side-pot stand-in) — Custom input enforces the same cap',
-      'Current Bet column now shows each players real streetBet instead of guessing from blind position',
-      'Stack shown in At the Table now reflects real chip counts, going up and down as hands are played, instead of a static Starting Chips number',
-      'Pot display now reads the real accumulated pot',
-    ]
-  },
-  {
-    v:'3.58', date:'August 2026',
-    changes:[
-      'Fixed the footer showing a stale version (3.47) while this popup showed the current one — the footer reads a separate VERSION/LAST_UPDATED constant in server.js that I had not been keeping in sync with the changelog. Both now match',
-    ]
-  },
-  {
-    v:'3.57', date:'August 2026',
-    changes:[
-      'First real chip/pot tracking: players now have an actual stack, deducted and paid out for real — blinds, calls, raises, all-ins, and showdown/fold-win payouts all move real chips server-side',
-      'Pot is now computed from actual bets, not a placeholder number',
-      'No side pots yet — every bet/raise this hand is silently capped at the shortest stack still live in the hand (recalculated as players fold), so nobody can commit more than the short stack could ever match. All-in for a smaller amount than the table is only being called for what the caller has, not what the raiser bet, may still show as a simple full call for now — side pots are a later feature',
-      'This is server-side only in this version — the UI (Current Bet column, Call amount, raise presets, chip stacks shown) is still reading placeholder numbers and has not been rewired to the new real data yet. That is the next step',
-    ]
-  },
-  {
-    v:'3.56', date:'August 2026',
-    changes:[
-      'Shuffle animation title changed from "Dealer is shuffling…" to "Shuffling…"',
-      'Removed the 5-card fan-out at the end of the shuffle animation',
-      'Replaced it with a single card that grows and flies off the bottom of the screen, using the new Dealt Roatan Card artwork, as if being tossed at the player through the screen',
-    ]
-  },
-  {
-    v:'3.55', date:'August 2026',
-    changes:[
-      'Fixed Undo button in Dealer Controls being a fixed narrow width while Fold/Call/Raise/All In/Deal were flexible — all 6 buttons in that row are now equal width with even spacing',
-    ]
-  },
-  {
-    v:'3.54', date:'August 2026',
-    changes:[
-      'Fixed Current Bet values rendering in the wrong spot (overlapping the header) — the vertical position was being read via tr.offsetTop, which per spec resolves relative to the enclosing table rather than the positioned .section ancestor for statically-positioned elements inside a table. Switched to getBoundingClientRect for an accurate position',
-      'Fixed action badges (Fold/Call/Raise/etc.) drifting right when a player wasnt also tagged OFFLINE — column was center-aligned, now left-aligned so every row lines up regardless of badge count',
-      'Who Deals First animation no longer shows the "🎉 [name] deals first!" banner after landing on the winner — the highlighted row with the D badge already answers the question, so the extra restatement was cut. Same pause length before the modal closes',
-    ]
-  },
-  {
-    v:'3.53', date:'August 2026',
-    changes:[
-      'Added a Current Bet header/column to At the Table, styled to match the "At the Table" label with the same purple used for bet amounts',
-      'Current Bet header and each row\'s bet amount are right-aligned to line up with the middle of the Action Log button below (independent of the table\'s own column widths, so it stays put regardless of name length or badge count)',
-      'Bet amounts already use comma thousand separators via the existing chip formatter, so this holds once real bet tracking goes beyond blind-sized numbers',
-    ]
-  },
-  {
-    v:'3.52', date:'August 2026',
-    changes:[
-      'Standardized button height across the top nav row, Dealer Controls action row, and Deck/GAME/Seats row to match the Deck/GAME/Seats row height',
-      'Top nav buttons now read Hand Ranks / Game Stats / Action Log on two lines, plus a new Dealer button (lock icon + label) in the 4th spot',
-      'Dealer Controls action row (Fold/Call/Raise/All In/Undo/Deal-Flop-Turn-River-Win) simplified to icon-only — also fixed the Call/Check button always showing "C" even when checking, it now correctly shows "X" for check',
-      'Deck/GAME/Seats icons removed; added a 4th Release button to exit Dealer Controls and require the PIN again',
-      'Seating Order: pencil icon removed — tap a players name directly to rename. Added spacing between the bust-out star and the reorder arrows, and between the arrows and the remove (×) button',
-    ]
-  },
-  {
-    v:'3.51', date:'August 2026',
-    changes:[
-      'Top-left session clock/blinds now aligned with the section headings below it (was flush against the page edge, headings are inset by the section padding)',
-      'Community / Your Cards / At the Table headings unified to the same size and weight — At the Table previously rendered larger',
-      '"Card Ranks" renamed to "Hand Ranks" throughout',
-      'Hand Ranks popup redesigned: card examples now right-aligned next to the hand name, kicker cards not part of the named hand are dimmed, and a centered gold divider (matching the Close button) separates each entry',
-      'Action Log converted from an inline section into a full popup modal (matching Hand Ranks and Stats) — fixes the nested scroll-within-scroll and gives more room to read entries',
-      'Button row is now 4 across: Hand Ranks / Stats / Log / Host. Icons dropped from the first three for space; Host is now icon-only',
-    ]
-  },
-  {
-    v:'3.50', date:'August 2026',
-    changes:[
-      'Standardized all 3 action-bar popups (Your Turn, Raise presets, Raise custom) to the same fixed button height, so the popup itself is now a consistent height across all three states',
-      'Min/1/2 pot/Pot buttons recolored purple to match Confirm',
-      'Chip amounts on Min/1/2 pot/Pot buttons now unbolded and smaller, matching the Call buttons style',
-      'Cancel buttons on both raise screens now styled like the EXIT/LEAVE button (dusty red pill)',
+      'First real chip/pot tracking built: player stacks, pot, and Current Bet became live numbers instead of placeholders, with blinds/calls/raises/all-ins and showdown payouts all moving real chips, plus a single-pot stand-in cap for side pots',
+      'Raise redesigned twice — first from a raise-by increment to a raise-to total, then the popup/log text and minimum-raise enforcement caught up to match',
+      'Fixed a real Undo bug: the snapshot was being saved after chips already moved, so Undo silently restored the same post-action state instead of reverting it',
+      'Dealer Controls, seating list, and the single-CTA proceed buttons (Deal Next Hand, etc.) all got their frame/spacing/icon treatment reworked, and Card Ranks became Hand Ranks with a redesigned layout',
+      'Action Log converted into its own popup modal',
     ]
   },
   {

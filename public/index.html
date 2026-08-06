@@ -364,6 +364,7 @@
         <div class="hole-cards-row" id="holeCardsWrap">
           <div class="cards-row" id="holeCardsRow"></div>
           <div id="handNameInline" class="hand-name-inline"></div>
+          <div id="handDrawHint" class="draw-item" style="display:none;"></div>
           <button class="view-btn" id="viewCardsBtn" style="display:none;"><span style="font-size:2em;display:block;line-height:1;">&#128065;</span>Peek</button>
         </div>
       </div>
@@ -1179,6 +1180,7 @@ function buildResultsData() {
           handDesc: r.folded ? 'Folded' : (r.handDesc || r.handName || ''),
           winner: r.winner,
           folded: r.folded,
+          bustedOutLabel: r.bustedOutLabel || null,
           _eval: ev
         };
       })
@@ -1258,6 +1260,7 @@ function showRunoutResults(runout) {
   let gi = 0;
   while (gi < sorted.length) {
     const p = sorted[gi];
+    if (p.bustedOutLabel) { labels.push('\u2620\uFE0F ' + p.bustedOutLabel); gi++; continue; }
     if (p.winner) { labels.push('🏆 Winner'); gi++; continue; }
     if (p.folded) { labels.push('Folded'); gi++; continue; }
     let gj = gi;
@@ -2119,7 +2122,7 @@ function validateSessionSetupForm(prefix) {
   const buyIn = document.getElementById(prefix + 'BuyIn').value;
   if (!intInRange(buyIn, 0, 999)) return 'Buy-in must be a whole number between 0 and 999.';
   const sb = document.getElementById(prefix + 'BlindsSB').value;
-  if (!intInRange(sb, 1, 100)) return 'Small Blind must be a whole number between 1 and 100.';
+  if (!intInRange(sb, 1, 500)) return 'Small Blind must be a whole number between 1 and 500.';
   const chips = document.getElementById(prefix + 'StartingChips').value;
   if (!intInRange(chips, 100, 10000)) return 'Starting Chips must be a whole number between 100 and 10000.';
   const checked = document.querySelector(`input[name="${prefix}BlindsMode"]:checked`);
@@ -2708,18 +2711,29 @@ function setupViewButton(){
 // Best hand — shown inline in Your Cards row
 function renderHandInfo(board){
   const nameEl = document.getElementById('handNameInline');
+  const drawEl = document.getElementById('handDrawHint');
   if (!nameEl) return;
-  if (!myCards.length) { nameEl.textContent = ''; return; }
+  if (!myCards.length) { nameEl.textContent = ''; if(drawEl) drawEl.style.display='none'; return; }
   if (!viewingCards) {
     nameEl.textContent = 'Hold Peek to see hand';
     nameEl.style.opacity = '0.45';
     nameEl.style.fontSize = '0.8em';
+    if(drawEl) drawEl.style.display='none';
     return;
   }
   nameEl.style.opacity = '';
   nameEl.style.fontSize = '';
   const info = describeHand(myCards, board);
   nameEl.textContent = info.label || '\u2014';
+  if(drawEl){
+    const draws = findDraws([...myCards, ...board], board.length);
+    if(draws.length){
+      drawEl.textContent = draws.join(' \u2022 ');
+      drawEl.style.display = '';
+    } else {
+      drawEl.style.display = 'none';
+    }
+  }
 }
 
 // ── Player list (changes 2,3) ─────────────────────────────────────────
