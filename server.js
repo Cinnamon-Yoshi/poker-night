@@ -21,22 +21,25 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.67';
+const VERSION = '3.68';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
-// TODO: bring back a "% increase to their stack" figure once there's a
-// natural place to show it — net gain (pot won minus what they themselves
-// put into that pot) divided by their stack at the START of the hand
-// (before blinds/betting), i.e. p.handStartStack. That field already exists
-// on each player, captured in dealHand(); it's just not used for this yet.
-function winPotSummary(potWon,numWinners){
+// % gain: net change to a winner's stack this hand (their stack right after
+// payout minus their stack at the very start of the hand, before blinds)
+// divided by that starting stack. Using the stack delta directly sidesteps
+// needing to separately track how much they themselves put into the pot —
+// chips only ever move between a player's own stack and the pot, so the
+// delta already nets that out.
+function winPotSummary(potWon,numWinners,pctList){
   numWinners = numWinners || 1;
   const share = Math.round(potWon / numWinners);
   if(numWinners > 1){
-    return ' ['+potWon+' pot, '+share+' each]';
+    const pctStr = (pctList&&pctList.length) ? ', +'+pctList.join('%/+')+'%' : '';
+    return ' ['+potWon+' pot, '+share+' each'+pctStr+']';
   }
-  return ' ['+potWon+' pot]';
+  const pctStr = (pctList&&pctList.length) ? ', +'+pctList[0]+'%' : '';
+  return ' ['+potWon+' pot'+pctStr+']';
 }
 const LAST_UPDATED = 'August 2026';
 
@@ -163,7 +166,7 @@ function normalizeSessionInfo(info){
   const rawPayouts=Array.isArray(info.payouts)?info.payouts:[];
   const payouts=[];
   for(let i=0;i<playersToCash;i++) payouts[i]=Math.max(0,Number(rawPayouts[i])||0);
-  const blindsSB=clampInt(info.blindsSB,1,100,1);
+  const blindsSB=clampInt(info.blindsSB,1,500,1);
   const mode=['minutes','hands'].includes(info.blindsIncreaseMode)?info.blindsIncreaseMode:'hands';
   return {
     buyIn: clampInt(info.buyIn,0,999,20),
@@ -236,14 +239,18 @@ function autoBustAllInLosers(winnerNames){
   const losers=players
     .filter(p=>!p.eliminated&&p.allInThisHand&&!winnerNames.includes(p.name))
     .sort((a,b)=>(a.handStartStack||0)-(b.handStartStack||0));
+  const bustLabels={};
   losers.forEach(p=>{
     p.eliminated=true; p.sittingOut=true;
     currentGameEliminations.push(p.name);
     io.to(p.id).emit('yourCards',[]);
     advanceDealerAnchorIfNeeded(p.name);
     const place=gameTotalPlayers-(currentGameEliminations.length-1);
-    addLog('\u2620\uFE0F '+p.name+' busted out ('+ordinalWord(place)+' place)');
+    const label='Busted out ('+ordinalWord(place)+' place)';
+    addLog('\u2620\uFE0F '+p.name+' '+label.charAt(0).toLowerCase()+label.slice(1));
+    bustLabels[p.name]=label;
   });
+  return bustLabels;
 }
 
 function formatClockTime(){
@@ -1020,7 +1027,7 @@ io.on('connection',socket=>{
       chipsMoved=Math.min(toCall-(p.streetBet||0), p.stack||0);
       if(chipsMoved<0) chipsMoved=0;
       p.stack-=chipsMoved; p.streetBet=(p.streetBet||0)+chipsMoved; pot+=chipsMoved;
-      if(p.stack<=0) p.allIn=true;
+      if(p.stack<=0){ p.allIn=true; p.allInThisHand=true; }
     } else if(action==='R'){
       isReRaise=raiseCountThisStreet>0;
       raiseCountThisStreet++;
@@ -1037,13 +1044,22 @@ io.on('connection',socket=>{
       if(newStreetBet<p.streetBet) newStreetBet=p.streetBet;
       chipsMoved=Math.min(newStreetBet-(p.streetBet||0), p.stack||0);
       p.stack-=chipsMoved; p.streetBet=(p.streetBet||0)+chipsMoved; pot+=chipsMoved;
-      if(p.stack<=0) p.allIn=true;
+      if(p.stack<=0){ p.allIn=true; p.allInThisHand=true; }
     } else if(action==='A'){
-      chipsMoved=p.stack||0;
-      newStreetBet=(p.streetBet||0)+chipsMoved;
+      // Cap the shove at the same single-pot cap as everything else — the
+      // smallest (stack + streetBet) among still-live players. Without this,
+      // a big stack could push more than a short stack could ever match,
+      // and the pot would count chips that were never actually contested
+      // (this used to be an uncapped push of the players full stack, which
+      // is how real poker works, but we don't have side pots to handle the
+      // uncalled excess, so the simplification is: nobody, all-in included,
+      // can ever commit more than the shortest live stack this hand).
+      newStreetBet=Math.min((p.streetBet||0)+(p.stack||0), cap);
+      if(newStreetBet<p.streetBet) newStreetBet=p.streetBet;
+      chipsMoved=Math.min(newStreetBet-(p.streetBet||0), p.stack||0);
       if(newStreetBet>toCall) raiseCountThisStreet++; // an all-in that increases the bet counts as a raise for re-raise labeling
-      p.stack=0; p.streetBet=newStreetBet; pot+=chipsMoved;
-      p.allIn=true;
+      p.stack-=chipsMoved; p.streetBet=newStreetBet; pot+=chipsMoved;
+      p.allIn=true; p.allInThisHand=true;
     }
 
     const labels={F:'Fold',C:'Call',R:isReRaise?'Re-Raise':'Raise',A:'All In',X:'Check'};
@@ -1212,13 +1228,16 @@ io.on('connection',socket=>{
     recordStreak(winner,true);
     const potWon=pot;
     winner.stack=(winner.stack||0)+pot; pot=0;
-    addLog('🏆 '+winner.name+' wins (everyone else folded)'+winPotSummary(potWon));
+    const foldWinPct = winner.handStartStack ? Math.round(((winner.stack-winner.handStartStack)/winner.handStartStack)*100) : 0;
+    addLog('🏆 '+winner.name+' wins (everyone else folded)'+winPotSummary(potWon,1,[foldWinPct]));
+    const bustLabels=autoBustAllInLosers([winner.name]);
     const resultsPlayers=players.filter(p=>!p.sittingOut&&!p.eliminated).map(p=>({
       name:p.name,
       cards:[], // hidden until Show Hand is pressed
       handDesc:p.folded?'Folded':'',
       winner:p.name===winner.name,
       folded:p.folded,
+      bustedOutLabel:bustLabels[p.name]||null,
     }));
     foldWinWinnerName=winner.name;
     foldWinRevealable=resultsPlayers.map(p=>p.name); // winner AND folded players can all choose to show their hand
@@ -1232,7 +1251,6 @@ io.on('connection',socket=>{
       single:true, isSplit:false,
       runoutResults:{players:resultsPlayers, board:[...board], foldWin:true}
     });
-    autoBustAllInLosers([winner.name]);
     broadcast();
   });
 
@@ -1408,12 +1426,25 @@ io.on('connection',socket=>{
     const wNamesStr=wNames.join(' & ');
     const wDesc=winners[0]?winners[0].handDesc||winners[0].handName:'';
     const wDescLog=compactDesc(wDesc);
+    const pctList=winners.map(w=>{
+      const pl=players.find(pp=>pp.name===w.name);
+      if(!pl||!pl.handStartStack) return 0;
+      return Math.round(((pl.stack-pl.handStartStack)/pl.handStartStack)*100);
+    });
     // If this was an all-in runout and the winner was not leading heading into
     // the river, call it out — they caught up on the last card
     const wasNotLeading=isRunoutSession&&!isSplit&&lastLeaderNames.length>0&&!lastLeaderNames.includes(wNames[0]);
     const winnerLogMsg=isSplit
-      ?'\uD83E\uDD1D Split pot \u2014 '+wNamesStr+(wDescLog?' — tied with '+wDescLog+'!':'!')+winPotSummary(potWon,winners.length)
-      :'\uD83C\uDFC6 '+wNamesStr+(wasNotLeading?' rivers the win':' wins')+(wDescLog?' with '+wDescLog+'!':'!')+winPotSummary(potWon);
+      ?'\uD83E\uDD1D Split pot \u2014 '+wNamesStr+(wDescLog?' — tied with '+wDescLog+'!':'!')+winPotSummary(potWon,winners.length,pctList)
+      :'\uD83C\uDFC6 '+wNamesStr+(wasNotLeading?' rivers the win':' wins')+(wDescLog?' with '+wDescLog+'!':'!')+winPotSummary(potWon,1,pctList);
+
+    // Bust any all-in losers now, before the results payload is built below,
+    // so their card in the Results screen can show "Busted out (Nth place)"
+    // instead of just their showdown placement (2nd/3rd/etc) — those are two
+    // different things (showdown rank this hand vs. tournament elimination),
+    // and busting is the more important one to show.
+    const bustLabels=autoBustAllInLosers(wNames);
+    results.forEach(r=>{ r.bustedOutLabel=bustLabels[r.name]||null; });
 
     // Hand summary: only players who were actually in the hand (not sitting out)
     const nonFolded=results.filter(r=>!r.folded&&!r.sittingOut)
@@ -1444,7 +1475,7 @@ io.on('connection',socket=>{
     // runoutResults: included when this hand was an all-in runout, for the Results overlay
     const runoutResultsData = isRunoutSession ? {
       players: results.filter(r=>!r.sittingOut&&!r.eliminated&&!r.folded)
-        .map(r=>({name:r.name,cards:r.cards,handDesc:r.handDesc,winner:r.winner})),
+        .map(r=>({name:r.name,cards:r.cards,handDesc:r.handDesc,winner:r.winner,bustedOutLabel:r.bustedOutLabel||null})),
       board:[...board]
     } : null;
     isRunoutSession=false;
@@ -1459,7 +1490,6 @@ io.on('connection',socket=>{
     lastHandResult={results:results.filter(r=>!r.sittingOut),board:[...board]};
     actingQueue=[]; undoState=null; stage='idle';
     checkHandsBlindsReminderDue();
-    autoBustAllInLosers(wNames);
     broadcast();
   });
 
