@@ -264,7 +264,7 @@
 <!-- New Game modal (dealer selection animation) -->
 <div id="newGameModal">
   <div class="ng-wrap">
-    <img src="/img/card-roatan.jpg" alt="Roatan Poker Club" style="display:block;width:37.5%;max-width:170px;margin:0 auto 14px;border-radius:14px;box-shadow:0 8px 20px rgba(0,0,0,0.5);">
+    <img src="/img/card-roatan.jpg" alt="Roatan Poker Club" style="display:block;width:45%;max-width:204px;margin:0 auto 14px;border-radius:14px;box-shadow:0 8px 20px rgba(0,0,0,0.5);">
     <div class="ng-title">Who Deals First?</div>
     <div id="ngPlayerList"></div>
   </div>
@@ -1447,12 +1447,16 @@ socket.on('playerActionPopup', data => {
   const el = document.getElementById('actionNotif');
   el.style.background = `rgba(${style.bg},0.94)`;
   document.getElementById('actionNotifName').textContent = data.name;
-  document.getElementById('actionNotifVerb').textContent = (data.type === 'raise' && data.isReRaise) ? 'Re-Raises to' : style.verb;
   const raiseLogLabel = {Min:'MIN','1/2 pot':'1/2 Pot',Pot:'Pot'};
+  let verb = style.verb;
+  if (data.type === 'raise') {
+    const labelPrefix = (data.label && raiseLogLabel[data.label]) ? raiseLogLabel[data.label] + ' ' : '';
+    verb = labelPrefix + (data.isReRaise ? 'Re-Raises to' : 'Raises to');
+  }
+  document.getElementById('actionNotifVerb').textContent = verb;
   let detail = '';
   if (data.type === 'allin' || data.type === 'raise') {
-    const labelPrefix = (data.label && raiseLogLabel[data.label]) ? raiseLogLabel[data.label] + ' ' : '';
-    detail = labelPrefix + fmtChips(data.amount);
+    detail = fmtChips(data.amount);
   }
   document.getElementById('actionNotifDetail').textContent = detail;
   el.classList.add('active');
@@ -1872,6 +1876,15 @@ document.getElementById('logCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.66', date:'August 2026',
+    changes:[
+      'Bust-out log lines: removed the redundant "— all-in and lost" text and colored the line red (was white)',
+      'Fixed the raise popup showing the chips-you-still-owe amount instead of the actual raise-to total — a re-raise to 50 that only cost you 30 more was showing "30", now correctly shows "50". Also restructured the popup to read as "[Name] / [PRESET] Re-Raises to / [total]" (e.g. "John / MIN Re-Raises to / 50") instead of splitting the preset label onto its own line',
+      'Who Deals First screen: background is now solid black instead of a 92%-opacity black (the green card frame is unchanged), and the card image is 20% larger',
+      'Fixed a real bug in Undo: the undo snapshot was being saved AFTER chips had already moved for the action, not before — so Undo was silently restoring the same post-action state instead of reverting it. This is why an all-in Undo looked like it did nothing. Snapshot now happens before any chip movement',
+    ]
+  },
   {
     v:'3.65', date:'August 2026',
     changes:[
@@ -3916,6 +3929,7 @@ function renderCurrentHandLog(){
 }
 
 function actionLogColorClass(entry){
+  if (entry.includes('busted out')) return ' log-bust';
   const m = entry.match(/^.+?: (Fold|Call|Raise|All In|Check)\b/);
   if (!m) return '';
   const map = {Fold:'log-fold', Call:'log-call', Check:'log-call', Raise:'log-raise', 'All In':'log-allin'};

@@ -126,6 +126,7 @@ button.gold { background:#d4af37; color:#111; }
 .log-entry.log-call { color:#5fd38d; }
 .log-entry.log-raise { color:#c58fe8; }
 .log-entry.log-allin { color:#5bb8d9; }
+.log-entry.log-bust { color:#ff6b6b; }
 
 /* ── Previous hand result ── */
 .result-row { padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.08); }
@@ -576,7 +577,7 @@ button.gold { background:#d4af37; color:#111; }
 
 /* ═══ NEW GAME MODAL ═══ */
 #newGameModal {
-  position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:1005;
+  position:fixed; inset:0; background:#000; z-index:1005;
   display:none; align-items:center; justify-content:center; flex-direction:column;
   gap:18px; padding:20px;
 }
