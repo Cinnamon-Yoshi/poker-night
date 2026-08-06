@@ -69,7 +69,7 @@ button.gold { background:#d4af37; color:#111; }
 .pt-badge { text-align:center; width:1%; white-space:nowrap; }
 .pt-name { text-align:left; font-weight:600; font-size:0.85em; width:1%; white-space:nowrap; }
 .pt-name.folded { opacity:0.35; text-decoration:line-through; }
-.pt-action { text-align:center; white-space:nowrap; width:1%; }
+.pt-action { text-align:left; white-space:nowrap; width:1%; }
 .pt-bet { text-align:left; white-space:nowrap; padding-left:10px; }
 .bet-amount-abs {
   position:absolute; right:calc(37.5% - 1px);
@@ -171,7 +171,7 @@ button.gold { background:#d4af37; color:#111; }
 .hbtn-C { background:#2a7a4a; }
 .hbtn-R { background:#6c3483; }
 .hbtn-A { background:#1a6a8a; }
-.hbtn-undo { background:#8b2222; font-size:0.85em; flex:none; width:48px; }
+.hbtn-undo { background:#8b2222; font-size:0.85em; }
 
 /* Current actor highlight in visual list */
 .player-row.current-actor { background:rgba(212,175,55,0.1); border-radius:8px; padding:7px 8px; margin:-4px; }
@@ -599,12 +599,6 @@ button.gold { background:#d4af37; color:#111; }
 }
 .ng-row.ng-active .ng-d { display:flex; }
 .ng-pname { font-weight:600; font-size:0.95em; }
-.ng-result {
-  text-align:center; font-size:1.1em; font-weight:800; color:#d4af37;
-  padding:12px; background:rgba(212,175,55,0.1); border-radius:10px;
-  margin-top:10px; display:none;
-  animation:soSlide 0.4s ease-out;
-}
 .ng-cancel { background:rgba(255,255,255,0.08); color:#fff; border:none; border-radius:8px; padding:10px 28px; font-size:0.9em; cursor:pointer; }
 
 /* ═══ RENAME INPUT ═══ */

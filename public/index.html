@@ -267,7 +267,6 @@
     <img src="/img/card-roatan.jpg" alt="Roatan Poker Club" style="display:block;width:37.5%;max-width:170px;margin:0 auto 14px;border-radius:14px;box-shadow:0 8px 20px rgba(0,0,0,0.5);">
     <div class="ng-title">Who Deals First?</div>
     <div id="ngPlayerList"></div>
-    <div id="ngResult" class="ng-result"></div>
   </div>
 </div>
 
@@ -1830,6 +1829,20 @@ document.getElementById('logCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.55', date:'August 2026',
+    changes:[
+      'Fixed Undo button in Dealer Controls being a fixed narrow width while Fold/Call/Raise/All In/Deal were flexible — all 6 buttons in that row are now equal width with even spacing',
+    ]
+  },
+  {
+    v:'3.54', date:'August 2026',
+    changes:[
+      'Fixed Current Bet values rendering in the wrong spot (overlapping the header) — the vertical position was being read via tr.offsetTop, which per spec resolves relative to the enclosing table rather than the positioned .section ancestor for statically-positioned elements inside a table. Switched to getBoundingClientRect for an accurate position',
+      'Fixed action badges (Fold/Call/Raise/etc.) drifting right when a player wasnt also tagged OFFLINE — column was center-aligned, now left-aligned so every row lines up regardless of badge count',
+      'Who Deals First animation no longer shows the "🎉 [name] deals first!" banner after landing on the winner — the highlighted row with the D badge already answers the question, so the extra restatement was cut. Same pause length before the modal closes',
+    ]
+  },
   {
     v:'3.53', date:'August 2026',
     changes:[
@@ -3556,7 +3569,6 @@ function openNewGameModalWithData(eligibleNames, winnerName, onComplete){
     row.innerHTML='<div class="ng-d">D</div><span class="ng-pname">'+name+'</span>';
     list.appendChild(row);
   });
-  document.getElementById('ngResult').style.display='none';
   document.getElementById('newGameModal').classList.add('active');
   window.scrollTo({top:0,behavior:'instant'});
   setTimeout(()=>animateDealer(eligibleNames, winnerName, onComplete), 600);
@@ -3587,9 +3599,6 @@ function animateDealer(eligibleNames, winnerName, onComplete){
     step++;
     if(step>totalSteps){
       highlightIdx(targetIdx);
-      const res=document.getElementById('ngResult');
-      res.textContent='🎉 '+winnerName+' deals first!';
-      res.style.display='block';
       setTimeout(()=>{
         document.getElementById('newGameModal').classList.remove('active');
         if(onComplete) onComplete();
@@ -3733,12 +3742,24 @@ function renderPlayerList(players){
   // right edge lines up with the Action Log button below, independent of
   // the table's own auto-sized columns. Vertically center each one against
   // its own row now that the table has actually laid out.
-  list.querySelectorAll('.bet-amount-abs').forEach(span=>{
-    const tr=span.closest('tr');
-    if(!tr) return;
-    span.style.top=(tr.offsetTop + tr.offsetHeight/2)+'px';
-    span.style.transform='translateY(-50%)';
-  });
+  //
+  // Note: tr.offsetTop can't be used here — per the offsetParent spec, a
+  // statically-positioned element inside a <table> resolves its offset
+  // parent to the nearest table/td/th ancestor, not the nearest positioned
+  // ancestor (.section), so it was measuring from the top of the table
+  // itself rather than the top of the section. getBoundingClientRect
+  // sidesteps that entirely.
+  const sectionEl = list.closest('.section');
+  if (sectionEl) {
+    const sectionTop = sectionEl.getBoundingClientRect().top;
+    list.querySelectorAll('.bet-amount-abs').forEach(span=>{
+      const tr=span.closest('tr');
+      if(!tr) return;
+      const trRect = tr.getBoundingClientRect();
+      span.style.top = (trRect.top + trRect.height/2 - sectionTop) + 'px';
+      span.style.transform = 'translateY(-50%)';
+    });
+  }
   const potEl=document.getElementById('tablePotInfo');
   if(potEl){
     // Placeholder pot — no real pot tracking wired up yet
