@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.65';
+const VERSION = '3.66';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
@@ -242,7 +242,7 @@ function autoBustAllInLosers(winnerNames){
     io.to(p.id).emit('yourCards',[]);
     advanceDealerAnchorIfNeeded(p.name);
     const place=gameTotalPlayers-(currentGameEliminations.length-1);
-    addLog('\u2620\uFE0F '+p.name+' busted out ('+ordinalWord(place)+' place) \u2014 all-in and lost');
+    addLog('\u2620\uFE0F '+p.name+' busted out ('+ordinalWord(place)+' place)');
   });
 }
 
@@ -566,7 +566,7 @@ function publicState(){
 function broadcast(){io.emit('state',publicState());}
 function sendCards(id){if(holeCards[id]) io.to(id).emit('yourCards',holeCards[id]);}
 
-function saveUndo(logEntry){
+function saveUndo(){
   undoState={
     pot,
     playerStates:players.map(p=>({
@@ -577,7 +577,7 @@ function saveUndo(logEntry){
       streakType:p.streakType,streakCount:p.streakCount,maxWinStreak:p.maxWinStreak,maxLossStreak:p.maxLossStreak,
       stack:p.stack,streetBet:p.streetBet,
     })),
-    actingQueue:[...actingQueue], hasRaiseThisStreet, logEntry
+    actingQueue:[...actingQueue], hasRaiseThisStreet, logEntry:null
   };
 }
 
@@ -999,6 +999,12 @@ io.on('connection',socket=>{
     const isBBCheck=bbCanCheck&&stage==='preflop'&&nextActor===getBB();
     if(action==='X'&&hasRaiseThisStreet&&!isBBCheck) return;
 
+    // Snapshot BEFORE any chip movement happens below — undo needs to
+    // restore to the state as it was walking into this action, not after.
+    // (This used to run after the mutations, which meant Undo silently
+    // restored the same post-action state — a no-op for real chips.)
+    saveUndo();
+
     // Real chip movement. toCall is the current street's high-water mark;
     // the cap is the smallest live (non-folded) stack — a single-pot stand-in
     // for side pots, so nobody can commit more than the shortest stack could
@@ -1050,11 +1056,11 @@ io.on('connection',socket=>{
     } else if(action==='A'){
       logEntry+=': '+chipsMoved;
     }
-    saveUndo(logEntry);
+    if(undoState) undoState.logEntry=logEntry;
     if(action==='A'){
       io.emit('playerActionPopup',{type:'allin',name:p.name,amount:chipsMoved});
     } else if(action==='R'){
-      io.emit('playerActionPopup',{type:'raise',name:p.name,amount:chipsMoved,label:extra&&extra.label,isReRaise});
+      io.emit('playerActionPopup',{type:'raise',name:p.name,amount:newStreetBet,label:extra&&extra.label,isReRaise});
     } else if(action==='F'){
       io.emit('playerActionPopup',{type:'fold',name:p.name});
     }
