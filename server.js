@@ -73,6 +73,21 @@ let lastGameSnapshot=null; // frozen stats shown on Stats below the live table �
 let pendingGameSnapshot=null; // captured the moment a game ends, promoted to lastGameSnapshot once the next game starts
 let gameLive=false; // true once play actually begins (after confirmation), false again once the host formally ends the game — blocks new (non-reconnect) joins while true
 let gameTotalPlayers=0; // fixed roster size at the moment the game started — placement math uses this, not the live (shrinking) players.length
+let pot=0; // real chips currently in the middle for the hand in progress — reset to 0 at dealHand(), paid out at showdown/fold-win
+
+// Smallest stack among still-live (not folded, not sitting out, not eliminated)
+// players in the current hand. Caps every bet/raise so nobody can put in more
+// than the shortest stack could ever match — a simple single-pot stand-in for
+// side pots. Recalculated live as players fold, not fixed at hand start.
+function liveStackCap(){
+  const live=players.filter(p=>!p.folded&&!p.sittingOut&&!p.eliminated);
+  if(live.length===0) return 0;
+  // stack + streetBet, not stack alone — chips already posted this street
+  // (e.g. a blind) still count toward that player's total reach for the
+  // street, and moving chips between the two buckets as they act doesn't
+  // change the sum.
+  return Math.min(...live.map(p=>(p.stack||0)+(p.streetBet||0)));
+}
 
 function freshDeck(){
   const d=[];
@@ -480,8 +495,11 @@ function publicState(){
   const foldWinner = stage !== 'idle'
     ? (() => { const rem=active().filter(p=>!p.eliminated); return rem.length===1?rem[0].name:null; })()
     : null;
+  const liveNonFoldedNow=players.filter(pl=>!pl.folded&&!pl.sittingOut&&!pl.eliminated);
+  const toCallNow=Math.max(0,...liveNonFoldedNow.map(pl=>pl.streetBet||0));
   return {
     stage, board, version:VERSION, lastUpdated:LAST_UPDATED, cardBackStyle,
+    pot, toCall:toCallNow, liveStackCap:liveStackCap(),
     pendingRunout:pendingRunoutStage!==null,
     willRunout:isAllInRunout(),
     canRevealNext:canRevealNext(), canRevealWinner:canRevealWinner(),
@@ -515,7 +533,8 @@ function publicState(){
       departed:!!p.departed,
       spectate:!!p.spectate,
       streakType:p.streakType||null, streakCount:p.streakCount||0,
-      maxWinStreak:p.maxWinStreak||0, maxLossStreak:p.maxLossStreak||0
+      maxWinStreak:p.maxWinStreak||0, maxLossStreak:p.maxLossStreak||0,
+      stack:p.stack||0, streetBet:p.streetBet||0
     }))
   };
 }
@@ -525,12 +544,14 @@ function sendCards(id){if(holeCards[id]) io.to(id).emit('yourCards',holeCards[id
 
 function saveUndo(logEntry){
   undoState={
+    pot,
     playerStates:players.map(p=>({
       action:p.action,folded:p.folded,allIn:p.allIn,
       statsPlayed:p.statsPlayed,statsWon:p.statsWon,statsFolded:p.statsFolded,statsDecided:p.statsDecided,
       statsRaised:p.statsRaised,statsCalled:p.statsCalled,statsAllIn:p.statsAllIn,
       hadMoneyInPot:p.hadMoneyInPot,calledThisHand:p.calledThisHand,raisedThisHand:p.raisedThisHand,allInThisHand:p.allInThisHand,
       streakType:p.streakType,streakCount:p.streakCount,maxWinStreak:p.maxWinStreak,maxLossStreak:p.maxLossStreak,
+      stack:p.stack,streetBet:p.streetBet,
     })),
     actingQueue:[...actingQueue], hasRaiseThisStreet, logEntry
   };
@@ -553,7 +574,7 @@ io.on('connection',socket=>{
         socket.emit('joinBlocked',{reason:'A game is in progress. New players cannot join until the host ends the current game.'});
         return;
       }
-      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,spectate:false,eliminated:false,departed:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,statsRaised:0,statsCalled:0,statsAllIn:0,streakType:null,streakCount:0,maxWinStreak:0,maxLossStreak:0,hadMoneyInPot:false,confirmedTerms:false});
+      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,spectate:false,eliminated:false,departed:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,statsRaised:0,statsCalled:0,statsAllIn:0,streakType:null,streakCount:0,maxWinStreak:0,maxLossStreak:0,hadMoneyInPot:false,confirmedTerms:false,stack:0,streetBet:0});
       socket.emit('joined',{id:socket.id});
       addLog(name+' joined the game');
     }
@@ -641,7 +662,8 @@ io.on('connection',socket=>{
     sessionHandsPlayed=0;
     sessionStartTime=null;
     lastBlindReminderAt=null;
-    players.forEach(p=>{p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.maxWinStreak=0;p.maxLossStreak=0;p.hadMoneyInPot=false;p.spectate=false;p.sittingOut=false;});
+    players.forEach(p=>{p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.maxWinStreak=0;p.maxLossStreak=0;p.hadMoneyInPot=false;p.spectate=false;p.sittingOut=false;p.stack=0;p.streetBet=0;});
+    pot=0;
     players.forEach(p=>io.to(p.id).emit('yourCards',[]));
     holeCards={};
     broadcast();
@@ -655,7 +677,8 @@ io.on('connection',socket=>{
     // game ends
     if(pendingGameSnapshot){ lastGameSnapshot=pendingGameSnapshot; pendingGameSnapshot=null; }
     // Reset all player states first — bringing eliminated players back in
-    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=p.spectate;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.maxWinStreak=0;p.maxLossStreak=0;p.hadMoneyInPot=false;p.confirmedTerms=false;});
+    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=p.spectate;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.maxWinStreak=0;p.maxLossStreak=0;p.hadMoneyInPot=false;p.confirmedTerms=false;p.stack=0;p.streetBet=0;});
+    pot=0;
     const eligible=players.filter(p=>!p.spectate); // only actual competitors count toward the minimum
     if(eligible.length<2) return;
     // Commit state changes
@@ -691,6 +714,8 @@ io.on('connection',socket=>{
     gameSetupPhase=null;
     gameLive=true;
     gameTotalPlayers=players.filter(p=>!p.spectate).length;
+    players.forEach(p=>{ p.stack=sessionInfo.startingChips||2000; p.streetBet=0; });
+    pot=0;
     sessionStartTime=Date.now(); // session clock starts when actual play begins, not during setup
     lastBlindReminderAt=Date.now();
     handsSinceBlindReminder=0;
@@ -901,6 +926,16 @@ io.on('connection',socket=>{
     addLog('--- New hand #'+sessionHandsPlayed+'. Dealer: '+players[dealerIdx].name+' ---');
     const sbIdx=getSB(), bbIdx=getBB();
     handSBIdx=sbIdx; handBBIdx=bbIdx;
+    // Real chips: fresh pot and street bets for the new hand, then post blinds
+    pot=0;
+    players.forEach(p=>{ p.streetBet=0; });
+    [[sbIdx,sessionInfo.blindsSB],[bbIdx,sessionInfo.blindsBB]].forEach(([idx,blindAmt])=>{
+      const p=idx>=0?players[idx]:null;
+      if(!p) return;
+      const amt=Math.min(blindAmt||0, p.stack||0); // short-stacked blind posts all-in for less
+      p.stack-=amt; p.streetBet+=amt; pot+=amt;
+      if(p.stack<=0){ p.allIn=true; }
+    });
     // Blinds are forced money in the pot — count as played immediately
     [sbIdx,bbIdx].forEach(idx=>{
       const p=idx>=0?players[idx]:null;
@@ -937,24 +972,50 @@ io.on('connection',socket=>{
     const nextActor=actingQueue.length>0?actingQueue[0]:-1;
     const isBBCheck=bbCanCheck&&stage==='preflop'&&nextActor===getBB();
     if(action==='X'&&hasRaiseThisStreet&&!isBBCheck) return;
+
+    // Real chip movement. toCall is the current street's high-water mark;
+    // the cap is the smallest live (non-folded) stack — a single-pot stand-in
+    // for side pots, so nobody can commit more than the shortest stack could
+    // ever match. Clamping is silent by design.
+    const liveNonFolded=players.filter(pl=>!pl.folded&&!pl.sittingOut&&!pl.eliminated);
+    const toCall=Math.max(0,...liveNonFolded.map(pl=>pl.streetBet||0));
+    const cap=liveStackCap();
+    let chipsMoved=0;
+
+    if(action==='C'){
+      chipsMoved=Math.min(toCall-(p.streetBet||0), p.stack||0);
+      if(chipsMoved<0) chipsMoved=0;
+      p.stack-=chipsMoved; p.streetBet=(p.streetBet||0)+chipsMoved; pot+=chipsMoved;
+      if(p.stack<=0) p.allIn=true;
+    } else if(action==='R'){
+      const raiseBy=Math.max(0,(extra&&Number.isFinite(extra.amount))?extra.amount:0);
+      let newStreetBet=Math.min(toCall+raiseBy, cap);
+      if(newStreetBet<p.streetBet) newStreetBet=p.streetBet;
+      chipsMoved=Math.min(newStreetBet-(p.streetBet||0), p.stack||0);
+      p.stack-=chipsMoved; p.streetBet=(p.streetBet||0)+chipsMoved; pot+=chipsMoved;
+      if(p.stack<=0) p.allIn=true;
+    } else if(action==='A'){
+      chipsMoved=p.stack||0;
+      p.stack=0; p.streetBet=(p.streetBet||0)+chipsMoved; pot+=chipsMoved;
+      p.allIn=true;
+    }
+
     const labels={F:'Fold',C:'Call',R:'Raise',A:'All In',X:'Check'};
     let logEntry=p.name+': '+(labels[action]||action);
     if(action==='R'){
       const raiseLogLabel={Min:'MIN','1/2 pot':'1/2 Pot',Pot:'Pot'};
-      const amt=(extra&&Number.isFinite(extra.amount))?extra.amount:150;
       const labelPrefix=(extra&&extra.label&&raiseLogLabel[extra.label])?raiseLogLabel[extra.label]+' ':'';
-      logEntry+=' '+labelPrefix+amt;
+      logEntry+=' '+labelPrefix+chipsMoved;
     } else if(action==='C'){
-      logEntry+=' '+150; // placeholder amount — no real chip tracking wired up yet
+      logEntry+=' '+chipsMoved;
     } else if(action==='A'){
-      logEntry+=': '+(sessionInfo.startingChips||2000); // placeholder — shows their full stack
+      logEntry+=': '+chipsMoved;
     }
     saveUndo(logEntry);
     if(action==='A'){
-      io.emit('playerActionPopup',{type:'allin',name:p.name,amount:sessionInfo.startingChips||2000});
+      io.emit('playerActionPopup',{type:'allin',name:p.name,amount:chipsMoved});
     } else if(action==='R'){
-      const amt=(extra&&Number.isFinite(extra.amount))?extra.amount:150;
-      io.emit('playerActionPopup',{type:'raise',name:p.name,amount:amt,label:extra&&extra.label});
+      io.emit('playerActionPopup',{type:'raise',name:p.name,amount:chipsMoved,label:extra&&extra.label});
     } else if(action==='F'){
       io.emit('playerActionPopup',{type:'fold',name:p.name});
     }
@@ -998,8 +1059,10 @@ io.on('connection',socket=>{
         p.statsRaised=s.statsRaised; p.statsCalled=s.statsCalled; p.statsAllIn=s.statsAllIn;
         p.hadMoneyInPot=s.hadMoneyInPot; p.calledThisHand=s.calledThisHand; p.raisedThisHand=s.raisedThisHand; p.allInThisHand=s.allInThisHand;
         p.streakType=s.streakType; p.streakCount=s.streakCount; p.maxWinStreak=s.maxWinStreak; p.maxLossStreak=s.maxLossStreak;
+        p.stack=s.stack; p.streetBet=s.streetBet;
       }
     });
+    pot=undoState.pot;
     actingQueue=[...undoState.actingQueue];
     hasRaiseThisStreet=undoState.hasRaiseThisStreet;
     if(actionLog.length>0&&actionLog[actionLog.length-1]===undoState.logEntry) actionLog.pop();
@@ -1062,6 +1125,7 @@ io.on('connection',socket=>{
   function doRevealNext(fromStage){
     if(fromStage==='preflop'){
       deck.pop(); board.push(deck.pop(),deck.pop(),deck.pop()); stage='flop';
+      players.forEach(p=>{ p.streetBet=0; });
       players.filter(p=>!p.folded&&!p.allIn&&!p.sittingOut).forEach(p=>p.action=null);
       actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; bbCanCheck=false; undoState=null;
       // If ≤1 player still has chips (others all-in), no betting needed — clear queue for runout
@@ -1071,6 +1135,7 @@ io.on('connection',socket=>{
       io.emit('streetReveal',{street:'flop',label:'The Flop!',cards:board.slice(0,3)});
     } else if(fromStage==='flop'){
       deck.pop(); board.push(deck.pop()); stage='turn';
+      players.forEach(p=>{ p.streetBet=0; });
       players.filter(p=>!p.folded&&!p.allIn&&!p.sittingOut).forEach(p=>p.action=null);
       actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; bbCanCheck=false; undoState=null;
       // If ≤1 player still has chips (others all-in), no betting needed — clear queue for runout
@@ -1080,6 +1145,7 @@ io.on('connection',socket=>{
       io.emit('streetReveal',{street:'turn',label:'The Turn',cards:[board[3]]});
     } else if(fromStage==='turn'){
       deck.pop(); board.push(deck.pop()); stage='river';
+      players.forEach(p=>{ p.streetBet=0; });
       players.filter(p=>!p.folded&&!p.allIn&&!p.sittingOut).forEach(p=>p.action=null);
       actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; bbCanCheck=false; undoState=null;
       // If ≤1 player still has chips (others all-in), no betting needed — clear queue for runout
@@ -1098,6 +1164,7 @@ io.on('connection',socket=>{
     winner.statsWon=(winner.statsWon||0)+1;
     winner.statsDecided=(winner.statsDecided||0)+1;
     recordStreak(winner,true);
+    winner.stack=(winner.stack||0)+pot; pot=0;
     addLog('🏆 '+winner.name+' wins (everyone else folded)'+winPotSummary());
     const resultsPlayers=players.filter(p=>!p.sittingOut&&!p.eliminated).map(p=>({
       name:p.name,
@@ -1272,6 +1339,21 @@ io.on('connection',socket=>{
       const pl=players.find(pp=>pp.name===r.name);
       if(pl&&pl.hadMoneyInPot){ pl.statsDecided=(pl.statsDecided||0)+1; recordStreak(pl,false); }
     });
+    // Split the pot evenly among winners; any odd remainder (not evenly
+    // divisible) goes to the first winner in seat order — same convention
+    // most home games use for an odd chip.
+    if(winners.length>0){
+      const share=Math.floor(pot/winners.length);
+      let remainder=pot-share*winners.length;
+      winners.forEach(w=>{
+        const pl=players.find(pp=>pp.name===w.name);
+        if(!pl) return;
+        let amt=share;
+        if(remainder>0){ amt+=1; remainder-=1; }
+        pl.stack=(pl.stack||0)+amt;
+      });
+      pot=0;
+    }
     const isSplit=winners.length>1;
     const wNames=winners.map(r=>r.name);
     const wNamesStr=wNames.join(' & ');
