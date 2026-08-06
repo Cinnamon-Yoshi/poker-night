@@ -21,19 +21,22 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.59';
+const VERSION = '3.60';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
-const PLACEHOLDER_POT = 2500;
-function winPotSummary(numWinners){
+// TODO: bring back a "% increase to their stack" figure once there's a
+// natural place to show it — net gain (pot won minus what they themselves
+// put into that pot) divided by their stack at the START of the hand
+// (before blinds/betting), i.e. p.handStartStack. That field already exists
+// on each player, captured in dealHand(); it's just not used for this yet.
+function winPotSummary(potWon,numWinners){
   numWinners = numWinners || 1;
-  const share = Math.round(PLACEHOLDER_POT / numWinners);
-  const pct = Math.round((share / (sessionInfo.startingChips||2000)) * 100);
+  const share = Math.round(potWon / numWinners);
   if(numWinners > 1){
-    return ' ['+PLACEHOLDER_POT+' pot, '+share+' each, +'+pct+'%]';
+    return ' ['+potWon+' pot, '+share+' each]';
   }
-  return ' ['+PLACEHOLDER_POT+' pot, +'+pct+'%]';
+  return ' ['+potWon+' pot]';
 }
 const LAST_UPDATED = 'August 2026';
 
@@ -46,6 +49,7 @@ let deck=[], board=[], holeCards={};
 let stage='idle', dealerIdx=-1;
 let actionLog=[], lastHandResult=null;
 let actingQueue=[], hasRaiseThisStreet=false, undoState=null;
+let raiseCountThisStreet=0; // resets each street — used to label a raise as "Re-Raises" once a prior raise already happened this street
 let bbCanCheck=false; // true pre-flop when no one has raised — gives BB the option to Check
 let cardBackStyle='roatan';
 let skipDealerAdvance=false;
@@ -220,6 +224,26 @@ function advanceDealerAnchorIfNeeded(name){
   const before=players.slice(0,idx).find(p=>!p.sittingOut);
   const next=after||before||rest[0]||null;
   initialDealerName=next?next.name:null;
+}
+
+// Any player who went all-in this hand and did not win (or split) the pot
+// gets busted automatically — reuses the same elimination path as a manual
+// host bust-out, so placement/stats stay consistent. When more than one
+// all-in loser busts from the same hand, they're eliminated smallest
+// original stack (at the start of THIS hand) first, so the shorter stack
+// gets the worse placement — largest goes last.
+function autoBustAllInLosers(winnerNames){
+  const losers=players
+    .filter(p=>!p.eliminated&&p.allInThisHand&&!winnerNames.includes(p.name))
+    .sort((a,b)=>(a.handStartStack||0)-(b.handStartStack||0));
+  losers.forEach(p=>{
+    p.eliminated=true; p.sittingOut=true;
+    currentGameEliminations.push(p.name);
+    io.to(p.id).emit('yourCards',[]);
+    advanceDealerAnchorIfNeeded(p.name);
+    const place=gameTotalPlayers-(currentGameEliminations.length-1);
+    addLog('\u2620\uFE0F '+p.name+' busted out ('+ordinalWord(place)+' place) \u2014 all-in and lost');
+  });
 }
 
 function formatClockTime(){
@@ -893,6 +917,7 @@ io.on('connection',socket=>{
       p.raisedThisHand=false;
       p.calledThisHand=false;
       p.allInThisHand=false;
+      p.handStartStack=p.stack||0; // for the deferred %-of-stack-won figure — see winPotSummary
     });
 
     // Advance dealer (skip on first hand after New Game — dealer already set)
@@ -906,6 +931,7 @@ io.on('connection',socket=>{
 
     stage='preflop';
     hasRaiseThisStreet=false;
+    raiseCountThisStreet=0;
     undoState=null;
 
     // Deal only to non-sitting-out players
@@ -981,6 +1007,7 @@ io.on('connection',socket=>{
     const toCall=Math.max(0,...liveNonFolded.map(pl=>pl.streetBet||0));
     const cap=liveStackCap();
     let chipsMoved=0;
+    let isReRaise=false;
 
     if(action==='C'){
       chipsMoved=Math.min(toCall-(p.streetBet||0), p.stack||0);
@@ -988,6 +1015,8 @@ io.on('connection',socket=>{
       p.stack-=chipsMoved; p.streetBet=(p.streetBet||0)+chipsMoved; pot+=chipsMoved;
       if(p.stack<=0) p.allIn=true;
     } else if(action==='R'){
+      isReRaise=raiseCountThisStreet>0;
+      raiseCountThisStreet++;
       const raiseBy=Math.max(0,(extra&&Number.isFinite(extra.amount))?extra.amount:0);
       let newStreetBet=Math.min(toCall+raiseBy, cap);
       if(newStreetBet<p.streetBet) newStreetBet=p.streetBet;
@@ -996,11 +1025,13 @@ io.on('connection',socket=>{
       if(p.stack<=0) p.allIn=true;
     } else if(action==='A'){
       chipsMoved=p.stack||0;
-      p.stack=0; p.streetBet=(p.streetBet||0)+chipsMoved; pot+=chipsMoved;
+      const newStreetBet=(p.streetBet||0)+chipsMoved;
+      if(newStreetBet>toCall) raiseCountThisStreet++; // an all-in that increases the bet counts as a raise for re-raise labeling
+      p.stack=0; p.streetBet=newStreetBet; pot+=chipsMoved;
       p.allIn=true;
     }
 
-    const labels={F:'Fold',C:'Call',R:'Raise',A:'All In',X:'Check'};
+    const labels={F:'Fold',C:'Call',R:isReRaise?'Re-Raise':'Raise',A:'All In',X:'Check'};
     let logEntry=p.name+': '+(labels[action]||action);
     if(action==='R'){
       const raiseLogLabel={Min:'MIN','1/2 pot':'1/2 Pot',Pot:'Pot'};
@@ -1015,7 +1046,7 @@ io.on('connection',socket=>{
     if(action==='A'){
       io.emit('playerActionPopup',{type:'allin',name:p.name,amount:chipsMoved});
     } else if(action==='R'){
-      io.emit('playerActionPopup',{type:'raise',name:p.name,amount:chipsMoved,label:extra&&extra.label});
+      io.emit('playerActionPopup',{type:'raise',name:p.name,amount:chipsMoved,label:extra&&extra.label,isReRaise});
     } else if(action==='F'){
       io.emit('playerActionPopup',{type:'fold',name:p.name});
     }
@@ -1127,7 +1158,7 @@ io.on('connection',socket=>{
       deck.pop(); board.push(deck.pop(),deck.pop(),deck.pop()); stage='flop';
       players.forEach(p=>{ p.streetBet=0; });
       players.filter(p=>!p.folded&&!p.allIn&&!p.sittingOut).forEach(p=>p.action=null);
-      actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; bbCanCheck=false; undoState=null;
+      actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; raiseCountThisStreet=0; bbCanCheck=false; undoState=null;
       // If ≤1 player still has chips (others all-in), no betting needed — clear queue for runout
       {const wc=active().filter(p=>!p.allIn&&!p.sittingOut&&!p.eliminated).length;
        if(wc<=1&&active().filter(p=>!p.sittingOut&&!p.eliminated).some(p=>p.allIn)) actingQueue=[];}
@@ -1137,7 +1168,7 @@ io.on('connection',socket=>{
       deck.pop(); board.push(deck.pop()); stage='turn';
       players.forEach(p=>{ p.streetBet=0; });
       players.filter(p=>!p.folded&&!p.allIn&&!p.sittingOut).forEach(p=>p.action=null);
-      actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; bbCanCheck=false; undoState=null;
+      actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; raiseCountThisStreet=0; bbCanCheck=false; undoState=null;
       // If ≤1 player still has chips (others all-in), no betting needed — clear queue for runout
       {const wc=active().filter(p=>!p.allIn&&!p.sittingOut&&!p.eliminated).length;
        if(wc<=1&&active().filter(p=>!p.sittingOut&&!p.eliminated).some(p=>p.allIn)) actingQueue=[];}
@@ -1147,7 +1178,7 @@ io.on('connection',socket=>{
       deck.pop(); board.push(deck.pop()); stage='river';
       players.forEach(p=>{ p.streetBet=0; });
       players.filter(p=>!p.folded&&!p.allIn&&!p.sittingOut).forEach(p=>p.action=null);
-      actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; bbCanCheck=false; undoState=null;
+      actingQueue=buildQueue(dealerIdx); hasRaiseThisStreet=false; raiseCountThisStreet=0; bbCanCheck=false; undoState=null;
       // If ≤1 player still has chips (others all-in), no betting needed — clear queue for runout
       {const wc=active().filter(p=>!p.allIn&&!p.sittingOut&&!p.eliminated).length;
        if(wc<=1&&active().filter(p=>!p.sittingOut&&!p.eliminated).some(p=>p.allIn)) actingQueue=[];}
@@ -1164,8 +1195,9 @@ io.on('connection',socket=>{
     winner.statsWon=(winner.statsWon||0)+1;
     winner.statsDecided=(winner.statsDecided||0)+1;
     recordStreak(winner,true);
+    const potWon=pot;
     winner.stack=(winner.stack||0)+pot; pot=0;
-    addLog('🏆 '+winner.name+' wins (everyone else folded)'+winPotSummary());
+    addLog('🏆 '+winner.name+' wins (everyone else folded)'+winPotSummary(potWon));
     const resultsPlayers=players.filter(p=>!p.sittingOut&&!p.eliminated).map(p=>({
       name:p.name,
       cards:[], // hidden until Show Hand is pressed
@@ -1185,6 +1217,7 @@ io.on('connection',socket=>{
       single:true, isSplit:false,
       runoutResults:{players:resultsPlayers, board:[...board], foldWin:true}
     });
+    autoBustAllInLosers([winner.name]);
     broadcast();
   });
 
@@ -1342,6 +1375,7 @@ io.on('connection',socket=>{
     // Split the pot evenly among winners; any odd remainder (not evenly
     // divisible) goes to the first winner in seat order — same convention
     // most home games use for an odd chip.
+    const potWon=pot;
     if(winners.length>0){
       const share=Math.floor(pot/winners.length);
       let remainder=pot-share*winners.length;
@@ -1363,8 +1397,8 @@ io.on('connection',socket=>{
     // the river, call it out — they caught up on the last card
     const wasNotLeading=isRunoutSession&&!isSplit&&lastLeaderNames.length>0&&!lastLeaderNames.includes(wNames[0]);
     const winnerLogMsg=isSplit
-      ?'\uD83E\uDD1D Split pot \u2014 '+wNamesStr+(wDescLog?' — tied with '+wDescLog+'!':'!')+winPotSummary(winners.length)
-      :'\uD83C\uDFC6 '+wNamesStr+(wasNotLeading?' rivers the win':' wins')+(wDescLog?' with '+wDescLog+'!':'!')+winPotSummary();
+      ?'\uD83E\uDD1D Split pot \u2014 '+wNamesStr+(wDescLog?' — tied with '+wDescLog+'!':'!')+winPotSummary(potWon,winners.length)
+      :'\uD83C\uDFC6 '+wNamesStr+(wasNotLeading?' rivers the win':' wins')+(wDescLog?' with '+wDescLog+'!':'!')+winPotSummary(potWon);
 
     // Hand summary: only players who were actually in the hand (not sitting out)
     const nonFolded=results.filter(r=>!r.folded&&!r.sittingOut)
@@ -1410,6 +1444,7 @@ io.on('connection',socket=>{
     lastHandResult={results:results.filter(r=>!r.sittingOut),board:[...board]};
     actingQueue=[]; undoState=null; stage='idle';
     checkHandsBlindsReminderDue();
+    autoBustAllInLosers(wNames);
     broadcast();
   });
 
