@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.66';
+const VERSION = '3.67';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
@@ -1014,6 +1014,7 @@ io.on('connection',socket=>{
     const cap=liveStackCap();
     let chipsMoved=0;
     let isReRaise=false;
+    let newStreetBet=null; // only meaningful for R/A — declared here so it's still in scope for the popup emit below
 
     if(action==='C'){
       chipsMoved=Math.min(toCall-(p.streetBet||0), p.stack||0);
@@ -1030,7 +1031,7 @@ io.on('connection',socket=>{
       // BB / double BB / largest raise so far this street).
       const minRaiseIncrement=sessionInfo.blindsSB||0;
       const minRaiseTo=toCall+minRaiseIncrement;
-      let newStreetBet=Number.isFinite(extra&&extra.amount)?extra.amount:minRaiseTo;
+      newStreetBet=Number.isFinite(extra&&extra.amount)?extra.amount:minRaiseTo;
       newStreetBet=Math.max(newStreetBet,minRaiseTo);
       newStreetBet=Math.min(newStreetBet,cap);
       if(newStreetBet<p.streetBet) newStreetBet=p.streetBet;
@@ -1039,7 +1040,7 @@ io.on('connection',socket=>{
       if(p.stack<=0) p.allIn=true;
     } else if(action==='A'){
       chipsMoved=p.stack||0;
-      const newStreetBet=(p.streetBet||0)+chipsMoved;
+      newStreetBet=(p.streetBet||0)+chipsMoved;
       if(newStreetBet>toCall) raiseCountThisStreet++; // an all-in that increases the bet counts as a raise for re-raise labeling
       p.stack=0; p.streetBet=newStreetBet; pot+=chipsMoved;
       p.allIn=true;
