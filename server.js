@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.60';
+const VERSION = '3.62';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
@@ -1017,8 +1017,16 @@ io.on('connection',socket=>{
     } else if(action==='R'){
       isReRaise=raiseCountThisStreet>0;
       raiseCountThisStreet++;
-      const raiseBy=Math.max(0,(extra&&Number.isFinite(extra.amount))?extra.amount:0);
-      let newStreetBet=Math.min(toCall+raiseBy, cap);
+      // extra.amount is a "raise TO" total (the player's new streetBet),
+      // not an increment on top of the call. Minimum legal raise size is
+      // hardcoded to the current SB for now — meant to become a
+      // host-configurable "min raise strategy" later (current SB / current
+      // BB / double BB / largest raise so far this street).
+      const minRaiseIncrement=sessionInfo.blindsSB||0;
+      const minRaiseTo=toCall+minRaiseIncrement;
+      let newStreetBet=Number.isFinite(extra&&extra.amount)?extra.amount:minRaiseTo;
+      newStreetBet=Math.max(newStreetBet,minRaiseTo);
+      newStreetBet=Math.min(newStreetBet,cap);
       if(newStreetBet<p.streetBet) newStreetBet=p.streetBet;
       chipsMoved=Math.min(newStreetBet-(p.streetBet||0), p.stack||0);
       p.stack-=chipsMoved; p.streetBet=(p.streetBet||0)+chipsMoved; pot+=chipsMoved;
