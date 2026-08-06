@@ -359,7 +359,7 @@
       <div>
         <div class="sublabel">Your Cards</div>
         <div id="eliminatedBanner" style="display:none;" class="elim-banner">
-          ☠ You've been busted out — enjoy watching!
+          You've been busted out — enjoy watching!
         </div>
         <div class="hole-cards-row" id="holeCardsWrap">
           <div class="cards-row" id="holeCardsRow"></div>
@@ -1871,6 +1871,16 @@ document.getElementById('logCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.63', date:'August 2026',
+    changes:[
+      'POT text checked — no actual font-family mismatch in the CSS; it already inherits the same sans-serif as the other headings, just larger/bolder/gold. Left as-is',
+      'Current Bet amounts right-align edge shifted further right (Current Bet header stays where it was)',
+      'D/SB/BB position badges switched from min-width to a shared fixed width so all three are exactly equal, not just D',
+      'Removed the strikethrough on folded/busted player names — dimming plus the FOLD/BUST tag is enough',
+      'Removed the skull icon from the "you have been busted out" banner',
+    ]
+  },
   {
     v:'3.62', date:'August 2026',
     changes:[

@@ -59,7 +59,7 @@ button.gold { background:#d4af37; color:#111; }
 .player-row { display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid rgba(255,255,255,0.08); gap:6px; }
 .player-row:last-child { border-bottom:none; }
 .player-name { font-weight:600; font-size:0.95em; flex:1; }
-.player-name.folded { opacity:0.35; text-decoration:line-through; }
+.player-name.folded { opacity:0.35; }
 
 /* At the Table specifically — real table for reliable column alignment */
 #playerList { width:100%; border-collapse:collapse; }
@@ -68,11 +68,11 @@ button.gold { background:#d4af37; color:#111; }
 #playerList td { padding:7px 4px; vertical-align:middle; }
 .pt-badge { text-align:center; width:1%; white-space:nowrap; }
 .pt-name { text-align:left; font-weight:600; font-size:0.85em; width:1%; white-space:nowrap; }
-.pt-name.folded { opacity:0.35; text-decoration:line-through; }
+.pt-name.folded { opacity:0.35; }
 .pt-action { text-align:left; white-space:nowrap; width:1%; }
 .pt-bet { text-align:left; white-space:nowrap; padding-left:10px; }
 .bet-amount-abs {
-  position:absolute; right:calc(37.5% - 1px);
+  position:absolute; right:calc(20% - 1px);
   color:#c9a6dd; font-size:0.85em; font-weight:600; white-space:nowrap;
 }
 .current-bet-header {
@@ -89,7 +89,7 @@ button.gold { background:#d4af37; color:#111; }
 
 /* ── Badges ── */
 .badge { font-size:0.65em; padding:2px 6px; border-radius:20px; margin-left:3px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; line-height:1; }
-.badge.dealer,.badge.sb,.badge.bb { min-width:24px; }
+.badge.dealer,.badge.sb,.badge.bb { width:28px; }
 .badge.dealer { background:#fff; color:#111; }
 .badge.sb { background:#4a90d9; }
 .badge.bb { background:#d9534f; }
