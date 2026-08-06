@@ -72,12 +72,11 @@ button.gold { background:#d4af37; color:#111; }
 .pt-action { text-align:left; white-space:nowrap; width:1%; }
 .pt-bet { text-align:left; white-space:nowrap; padding-left:10px; }
 .bet-amount-abs {
-  position:absolute; right:calc(20% - 1px);
+  position:absolute; right:calc(25% + 2px);
   color:#c9a6dd; font-size:0.85em; font-weight:600; white-space:nowrap;
 }
 .current-bet-header {
-  position:absolute; top:12px; right:calc(37.5% - 1px);
-  transform:translateX(50%); /* recenters on the same x that the amounts right-align to, instead of right-aligning to it */
+  position:absolute; top:12px; right:calc(25% + 2px);
   font-size:0.7em; text-transform:uppercase; letter-spacing:0.5px;
   color:#c9a6dd; white-space:nowrap;
 }

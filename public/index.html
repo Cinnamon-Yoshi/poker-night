@@ -1700,8 +1700,8 @@ function buildRaisePanel(state) {
   const minRaiseTo = toCall + minRaiseIncrement;
   const presets = [
     { label: 'Min', amount: minRaiseTo },
-    { label: '1/2 pot', amount: toCall + Math.round(pot / 2) },
-    { label: 'Pot', amount: toCall + pot },
+    { label: '1/2 pot', amount: Math.round(pot / 2) },
+    { label: 'Pot', amount: pot },
   ];
 
   // Custom screen: single row — Confirm / amount input / Cancel.
@@ -1716,12 +1716,14 @@ function buildRaisePanel(state) {
 
   // Preset screen: single row of 5 — tapping a preset acts immediately,
   // no separate confirm step. Custom opens the screen above; Cancel
-  // returns straight to the Fold/Call/Raise/All In buttons. The preset
-  // amounts themselves are never shrunk to fit what this player can
-  // afford — All In already covers "everything I have left". Instead, a
-  // preset that's unaffordable is just dimmed and disabled.
+  // returns straight to the Fold/Call/Raise/All In buttons. Presets show
+  // the true, un-shrunk number always — a preset gets dimmed/disabled
+  // instead, either because it's below the legal minimum raise-to (e.g.
+  // 1/2 pot can come out smaller than min raise early in a hand) or above
+  // what this player can afford (All In already covers "everything I have
+  // left").
   const presetBtns = presets.map(p => {
-    const disabled = p.amount > maxRaiseTo;
+    const disabled = p.amount < minRaiseTo || p.amount > maxRaiseTo;
     const style = disabled
       ? 'flex:1;background:#1b3a29;color:rgba(255,255,255,0.35);'
       : 'flex:1;background:#6c3483;color:#fff;';
@@ -1780,19 +1782,18 @@ function renderPlayerActionBar(state){
   // Show action bar when it's this player's turn
   const show = me && me.isCurrent && state.stage !== 'idle' && !state.foldWinner;
   if (!show) { bar.classList.add('player-action-hidden'); bar.classList.remove('raise-panel-open'); raiseSelectorOpen = false; return; }
-  document.getElementById('playerActionLabel').style.display = '';
+  // Titled label removed for the Fold/Call/Raise/All In row and the raise
+  // panel (frame stays, per the approved mockup — just no "YOUR TURN"/
+  // "RAISE" heading anymore, so top/bottom padding matches left/right).
+  document.getElementById('playerActionLabel').style.display = 'none';
 
   if (raiseSelectorOpen) {
-    const label = document.getElementById('playerActionLabel');
-    label.textContent = 'Raise';
-    label.style.color = '#c9a6dd';
     btns.innerHTML = buildRaisePanel(state);
     bar.classList.remove('player-action-hidden');
     bar.classList.add('raise-panel-open');
     return;
   }
   bar.classList.remove('raise-panel-open');
-  { const label = document.getElementById('playerActionLabel'); label.textContent = 'Your Turn'; label.style.color = ''; }
 
   const canCheck = !state.hasRaiseThisStreet || (state.bbCanCheck && state.nextActorIsBB);
   const myStartingChips = (state.sessionInfo && state.sessionInfo.startingChips) || 2000;
@@ -1871,6 +1872,15 @@ document.getElementById('logCloseBtn').onclick=()=>{
 
 // ── Changelog ────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    v:'3.64', date:'August 2026',
+    changes:[
+      'Default SB changed from 1 to 10 (BB from 2 to 20 to match)',
+      'Current Bet header and amounts now both right-align to the actual right edge of the Action Log button, instead of the header being centered over a different point than the amounts',
+      '1/2 pot and Pot raise presets fixed — they were computing toCall + pot instead of just the raw pot fraction, so they read high. Pot now equals the actual pot, 1/2 pot is half of it, and either dims/disables if it comes out below the legal minimum raise (can happen early) or above what you can afford',
+      'Removed the "Your Turn"/"Raise" title text from inside the Fold/Call/Raise/All In row and the raise panel — this was already approved as a mockup earlier but never actually shipped. Frame/border stays since these hold multiple buttons; padding is now symmetric top/bottom to left/right since the title is gone',
+    ]
+  },
   {
     v:'3.63', date:'August 2026',
     changes:[
