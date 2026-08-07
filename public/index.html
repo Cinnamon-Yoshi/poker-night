@@ -1203,7 +1203,8 @@ function buildResultsData() {
         };
       })
       .sort(sortPlayers),
-    board
+    board,
+    layers: lr.layers || []
   };
 }
 
@@ -1933,7 +1934,10 @@ document.getElementById('cardRanksCloseBtn').onclick=()=>{
   document.getElementById('cardRanksModal').style.display='none';
 };
 document.getElementById('logBtn').onclick=()=>{
-  document.getElementById('logModal').style.display='flex';
+  socket.emit('getFullActionLog', fullLog=>{
+    renderLog(fullLog||[]);
+    document.getElementById('logModal').style.display='flex';
+  });
 };
 document.getElementById('logCloseBtn').onclick=()=>{
   document.getElementById('logModal').style.display='none';
