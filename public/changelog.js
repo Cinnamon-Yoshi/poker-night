@@ -1,5 +1,11 @@
 const CHANGELOG = [
   {
+    v:'3.76', date:'August 2026',
+    changes:[
+      'Fixed a real bug: a Raise for more than the player could actually afford (typed a custom amount above their stack) was still treated as reopening action based on the amount they TYPED, not what they actually ended up putting in once it got capped to their real stack. So a raise that landed at, say, 500 against a standing bet of 700 (an effective all-in for less) incorrectly forced the original raiser to act again, same as the all-in-button bug fixed a few versions back — this was the same issue on the Raise path instead of the All In path',
+    ]
+  },
+  {
     v:'3.75', date:'August 2026',
     changes:[
       'A Call or Raise that empties a players stack now displays as All In everywhere — the At the Table badge, the purple popup, and the action log — instead of showing whatever action they actually pressed. The badge fix re-evaluates on every render, so it stays correct through the flop/turn/river too, not just the street it happened on',
