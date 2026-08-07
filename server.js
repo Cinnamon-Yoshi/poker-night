@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.78';
+const VERSION = '3.80';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
@@ -582,11 +582,17 @@ function publicState(){
   // continuously during betting so the client can show a "tap the pot"
   // breakdown before the hand is over. No cards involved here, just chip
   // amounts and who's eligible for which layer, so it's safe to expose
-  // while hands are still hidden.
+  // while hands are still hidden. A layer with only one eligible player
+  // isn't a real contested pot (nobody left who could match that portion
+  // of a bet) — filtered out here too, same as the final Results screen.
   const livePotEntries=players.filter(pl=>!pl.sittingOut&&!pl.eliminated).map(pl=>({
     name:pl.name, folded:pl.folded, contributed:pl.handContributed||0, allInThisHand:!!pl.allInThisHand
   }));
-  const livePotLayers=stage!=='idle'?computePotLayers(livePotEntries):[];
+  const livePotLayersRaw=(stage!=='idle'?computePotLayers(livePotEntries):[]).filter(l=>l.eligibleNames.length>1);
+  const livePotLayers=livePotLayersRaw.map((l,i)=>({
+    ...l,
+    label: livePotLayersRaw.length===1?'Pot':(i===0?'Main Pot':(livePotLayersRaw.length===2?'Side Pot':'Side Pot '+i))
+  }));
   return {
     stage, board, version:VERSION, lastUpdated:LAST_UPDATED, cardBackStyle,
     pot, toCall:toCallNow, liveStackCap:liveStackCap(),
@@ -1339,7 +1345,7 @@ io.on('connection',socket=>{
     io.emit('winnerAnnounce',{
       names:winner.name, nameList:[winner.name], hand:'',
       single:true, isSplit:false,
-      runoutResults:{players:resultsPlayers, board:[...board], foldWin:true}
+      runoutResults:{players:resultsPlayers, board:[...board], foldWin:true, layers:[{label:'Pot',amount:potWon,winnerNames:[winner.name],eligibleNames:resultsPlayers.map(p=>p.name),isSplit:false}]}
     });
     broadcast();
   });
@@ -1496,7 +1502,12 @@ io.on('connection',socket=>{
         if(remainder>0){ amt+=1; remainder-=1; }
         pl.stack=(pl.stack||0)+amt;
       });
-      return {amount:layer.amount, cap:layer.cap, winners:layerWinners, isSplit:layerWinners.length>1};
+      // A layer with exactly one eligible player isn't a real contested pot
+      // — it's the portion of someone's bet/raise that nobody else could
+      // ever have matched (same idea as "uncalled bet returned" in real
+      // poker). The chips still land in the same place either way; this
+      // just controls how it's described/displayed.
+      return {amount:layer.amount, cap:layer.cap, winners:layerWinners, isSplit:layerWinners.length>1, isReturn:layer.eligibleNames.length===1, eligibleNames:layer.eligibleNames};
     });
     results.forEach(r=>{ r.winner=winnerNamesSet.has(r.name); });
 
@@ -1524,7 +1535,12 @@ io.on('connection',socket=>{
       const pl=players.find(pp=>pp.name===r.name);
       if(pl&&pl.hadMoneyInPot){ pl.statsDecided=(pl.statsDecided||0)+1; recordStreak(pl,false); }
     });
-    const isSplit=layerResults.some(l=>l.isSplit);
+    // Split layerResults into real contested pots vs. simple returns (a
+    // layer with only one eligible player — nobody left who could ever
+    // have matched that portion of the bet).
+    const realLayers=layerResults.filter(l=>!l.isReturn);
+    const returnLayers=layerResults.filter(l=>l.isReturn);
+    const isSplit=realLayers.some(l=>l.isSplit);
     const wNames=winners.map(r=>r.name);
     const wNamesStr=wNames.join(' & ');
     const wDesc=winners[0]?winners[0].handDesc||winners[0].handName:'';
@@ -1538,21 +1554,31 @@ io.on('connection',socket=>{
     // the river, call it out — they caught up on the last card
     const wasNotLeading=isRunoutSession&&!isSplit&&lastLeaderNames.length>0&&!lastLeaderNames.includes(wNames[0]);
     let winnerLogMsg;
-    if(layerResults.length<=1){
-      // Single pot — identical wording to before side pots existed.
-      winnerLogMsg=isSplit
-        ?'\uD83E\uDD1D Split pot \u2014 '+wNamesStr+(wDescLog?' — tied with '+wDescLog+'!':'!')+winPotSummary(potWon,winners.length,pctList)
-        :'\uD83C\uDFC6 '+wNamesStr+(wasNotLeading?' rivers the win':' wins')+(wDescLog?' with '+wDescLog+'!':'!')+winPotSummary(potWon,1,pctList);
+    if(realLayers.length<=1){
+      // One real pot (the common case) — identical wording to before side
+      // pots existed. potWon still reflects the WHOLE amount at the table,
+      // so use the single real layer's amount here if one exists.
+      const potForMsg=realLayers.length===1?realLayers[0].amount:potWon;
+      const msgWinners=realLayers.length===1?realLayers[0].winners:winners;
+      const msgIsSplit=realLayers.length===1?realLayers[0].isSplit:isSplit;
+      const msgNames=msgWinners.map(w=>w.name).join(' & ');
+      winnerLogMsg=msgIsSplit
+        ?'\uD83E\uDD1D Split pot \u2014 '+msgNames+(wDescLog?' — tied with '+wDescLog+'!':'!')+winPotSummary(potForMsg,msgWinners.length,pctList)
+        :'\uD83C\uDFC6 '+msgNames+(wasNotLeading?' rivers the win':' wins')+(wDescLog?' with '+wDescLog+'!':'!')+winPotSummary(potForMsg,1,pctList);
     } else {
-      // Multiple pots — one line per layer, main pot first
-      const lines=layerResults.map((lr,i)=>{
-        const label=i===0?'Main Pot':(layerResults.length===2?'Side Pot':'Side Pot '+i);
+      // Multiple real pots — one line per layer, main pot first
+      const lines=realLayers.map((lr,i)=>{
+        const label=i===0?'Main Pot':(realLayers.length===2?'Side Pot':'Side Pot '+i);
         const names=lr.winners.map(w=>w.name).join(' & ');
         const desc=compactDesc(lr.winners[0]?(lr.winners[0].handDesc||lr.winners[0].handName):'');
         return (lr.isSplit?'\uD83E\uDD1D ':'\uD83C\uDFC6 ')+label+': '+names+(lr.isSplit?' split':' wins')+(desc?' with '+desc:'')+' ['+lr.amount+']';
       });
       winnerLogMsg=lines.join(' \u2014 ');
     }
+    // Any uncalled excess gets its own plain line — not framed as a "win"
+    returnLayers.forEach(lr=>{
+      if(lr.winners[0]) addLog(lr.winners[0].name+"'s uncalled bet of "+Math.round(lr.amount).toLocaleString('en-US')+' returned');
+    });
 
     // Bust any all-in losers now, before the results payload is built below,
     // so their card in the Results screen can show "Busted out (Nth place)"
@@ -1587,12 +1613,26 @@ io.on('connection',socket=>{
     [...placedLogMsgs].reverse().forEach(msg=>addLog(msg));
     addLog(winnerLogMsg);
 
+    // Simplified per-layer summary for the client — used to build plural
+    // Results screens when a hand has more than one pot. Only REAL
+    // (contested) pots are included; a layer with a single eligible player
+    // is an uncalled-bet return, already logged separately above, not shown
+    // as its own pot screen.
+    const layersForClient = realLayers.map((lr,i)=>({
+      label: realLayers.length===1?'Pot':(i===0?'Main Pot':(realLayers.length===2?'Side Pot':'Side Pot '+i)),
+      amount: lr.amount,
+      winnerNames: lr.winners.map(w=>w.name),
+      eligibleNames: lr.eligibleNames,
+      isSplit: lr.isSplit
+    }));
+
     // Emit to all clients — includes split flag and full winner name array
     // runoutResults: included when this hand was an all-in runout, for the Results overlay
     const runoutResultsData = isRunoutSession ? {
       players: results.filter(r=>!r.sittingOut&&!r.eliminated&&!r.folded)
         .map(r=>({name:r.name,cards:r.cards,handDesc:r.handDesc,winner:r.winner,bustedOutLabel:r.bustedOutLabel||null})),
-      board:[...board]
+      board:[...board],
+      layers: layersForClient
     } : null;
     isRunoutSession=false;
     io.emit('winnerAnnounce',{
@@ -1603,7 +1643,7 @@ io.on('connection',socket=>{
 
     // Clean up
     results.forEach(r=>delete r._eval);
-    lastHandResult={results:results.filter(r=>!r.sittingOut),board:[...board]};
+    lastHandResult={results:results.filter(r=>!r.sittingOut),board:[...board],layers:layersForClient};
     actingQueue=[]; undoState=null; stage='idle';
     checkHandsBlindsReminderDue();
     broadcast();
