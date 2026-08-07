@@ -1,5 +1,11 @@
 const CHANGELOG = [
   {
+    v:'3.81', date:'August 2026',
+    changes:[
+      'Changelog: v3.60–3.69 condensed into one summary entry, same treatment as the earlier ranges. Full detail now starts at v3.70',
+    ]
+  },
+  {
     v:'3.80', date:'August 2026',
     changes:[
       'Fixed: a pot layer with only one eligible player (nobody left who could ever have matched that portion of a bet) is no longer shown or awarded as its own "pot" that persons hand happens to win — its now just returned to them directly, logged as an uncalled bet return. Applies everywhere pot layers show up: the live pot-breakdown modal, the Results screen pagination, and the hand log. The chips end up in the same place either way; this just stops a case where only one player was ever eligible from being presented as if it were a contested pot',
@@ -75,91 +81,12 @@ const CHANGELOG = [
     ]
   },
   {
-    v:'3.69', date:'August 2026',
+    v:'3.60–3.69', date:'August 2026',
     changes:[
-      'Side pots — Phase 1 (foundation, no visible change yet): each player now has a handContributed field tracking total chips put into the pot across the whole hand, not just the current street. This is the data side pots will be built on top of — pot layering, per-pot eligibility, and the Results/UI work all come in later phases',
-    ]
-  },
-  {
-    v:'3.68', date:'August 2026',
-    changes:[
-      'Fixed a real money bug: an all-in was uncapped, so a bigger stack could push more than a shorter stack could ever match (e.g. shoving 5,360 against an opponent with only 640 total) — the pot ended up counting chips that were never actually contested. All-in now gets the same single-pot cap as raises, so nobody can ever commit more than the shortest live stack this hand',
-      'Fixed auto-bust not firing when a player went to 0 chips via a Call rather than the All In button — a forced all-in-by-call was never being flagged as "all-in this hand," so it never showed up as bust-eligible. Both now count',
-      'Results card now shows "Busted out (Nth place)" in place of the plain showdown ordinal (2nd/3rd/etc.) when that player is also getting eliminated this hand — those are two different things and busting is the more important one to show',
-      '% gain re-added to the win log message (net stack change ÷ stack at the start of the hand), on both fold-win and showdown, including per-winner on split pots',
-      'Draw hints (flush draw / straight draw) restored under Peek — the underlying function was still there, it just wasnt being called anymore after an earlier refactor',
-      'Small Blind max validation raised from 100 to 500',
-      'Changelog: v3.50–3.59 condensed into one summary entry, same as the earlier ranges',
-    ]
-  },
-  {
-    v:'3.67', date:'August 2026',
-    changes:[
-      'Fixed a real crash: raising with the Pot preset (or any raise where the player already had chips in for the street, e.g. the BB) threw a ReferenceError that crashed the entire server — every player got disconnected and the game ended. A variable was declared inside the wrong scope; moved it out so its still available where the raise popup needs it',
-      'Changelog consolidated: versions before 3.50 condensed into a handful of summarized ranges instead of a full entry per version, and the whole changelog moved out of index.html into its own file (changelog.js), loaded only when you actually tap the version footer instead of on every page load',
-    ]
-  },
-  {
-    v:'3.66', date:'August 2026',
-    changes:[
-      'Bust-out log lines: removed the redundant "— all-in and lost" text and colored the line red (was white)',
-      'Fixed the raise popup showing the chips-you-still-owe amount instead of the actual raise-to total — a re-raise to 50 that only cost you 30 more was showing "30", now correctly shows "50". Also restructured the popup to read as "[Name] / [PRESET] Re-Raises to / [total]" (e.g. "John / MIN Re-Raises to / 50") instead of splitting the preset label onto its own line',
-      'Who Deals First screen: background is now solid black instead of a 92%-opacity black (the green card frame is unchanged), and the card image is 20% larger',
-      'Fixed a real bug in Undo: the undo snapshot was being saved AFTER chips had already moved for the action, not before — so Undo was silently restoring the same post-action state instead of reverting it. This is why an all-in Undo looked like it did nothing. Snapshot now happens before any chip movement',
-    ]
-  },
-  {
-    v:'3.65', date:'August 2026',
-    changes:[
-      'Purple action popup now says "Raises to #" / "Re-Raises to #" instead of "Raised"/"Re-Raises", matching the raise-to model',
-      'Undo button icon replaced with a plain white SVG arrow sized to match the other letters in that row — the old Unicode arrow character was rendering as a glossy color emoji icon on some phones instead of a plain glyph',
-      'Custom button in the raise panel changed from green to a dimmed/darker purple with lighter purple text, matching the same muted-color treatment as Cancel',
-      'Fixed extra dead space below the Fold/Call/Raise/All In/Undo/Deal row and below the raise-panel buttons — both were inheriting an 8px bottom margin meant for regular stacked buttons, which doubled up with the frames own padding',
-      'Current Bet amounts and action tags (Raise/Call/Fold/etc.) now clear after a hand ends too, same as the cards',
-    ]
-  },
-  {
-    v:'3.64', date:'August 2026',
-    changes:[
-      'Default SB changed from 1 to 10 (BB from 2 to 20 to match)',
-      'Current Bet header and amounts now both right-align to the actual right edge of the Action Log button, instead of the header being centered over a different point than the amounts',
-      '1/2 pot and Pot raise presets fixed — they were computing toCall + pot instead of just the raw pot fraction, so they read high. Pot now equals the actual pot, 1/2 pot is half of it, and either dims/disables if it comes out below the legal minimum raise (can happen early) or above what you can afford',
-      'Removed the "Your Turn"/"Raise" title text from inside the Fold/Call/Raise/All In row and the raise panel — this was already approved as a mockup earlier but never actually shipped. Frame/border stays since these hold multiple buttons; padding is now symmetric top/bottom to left/right since the title is gone',
-    ]
-  },
-  {
-    v:'3.63', date:'August 2026',
-    changes:[
-      'POT text checked — no actual font-family mismatch in the CSS; it already inherits the same sans-serif as the other headings, just larger/bolder/gold. Left as-is',
-      'Current Bet amounts right-align edge shifted further right (Current Bet header stays where it was)',
-      'D/SB/BB position badges switched from min-width to a shared fixed width so all three are exactly equal, not just D',
-      'Removed the strikethrough on folded/busted player names — dimming plus the FOLD/BUST tag is enough',
-      'Removed the skull icon from the "you have been busted out" banner',
-    ]
-  },
-  {
-    v:'3.62', date:'August 2026',
-    changes:[
-      'Raise changed from "raise-by" to "raise to" — Min/1/2 pot/Pot presets and the Custom input now represent the total you are raising to, not an increment on top of the call, and thats what gets sent to the server',
-      'Minimum legal raise size is now enforced (silently clamped up if you try to raise below it, matching how the shortest-stack cap already works) — hardcoded to the current SB amount for now. This is meant to become a host setting in Game Info later (options: current SB / current BB / double BB / largest raise so far this street) but SB is the fixed choice until that setting exists',
-    ]
-  },
-  {
-    v:'3.61', date:'August 2026',
-    changes:[
-      'Removed the dark/gold frame from the single wide proceed buttons (Deal Next Hand, Deal the Flop/Turn/River, All-In -- Reveal Hands, Reveal Winner, Winner) — just the yellow button now, same height, full width matching the other popups. The framed Fold/Call/Raise/All In row and both raise-panel screens keep their frame since those hold multiple buttons',
-      "\"Let's Show the Cards\" renamed to \"All-In -- Reveal Hands\"",
-    ]
-  },
-  {
-    v:'3.60', date:'August 2026',
-    changes:[
-      'Community/hole cards no longer sit stale on screen after a hand ends — cleared the moment stage goes idle (covers closing Results, auto-close, joining fresh, and after a game ends, since all four share that same idle state)',
-      'Re-raises now say "Re-Raises" on the purple popup instead of "Raised", tracked per street',
-      'Action log / hand log now show the real pot amount instead of a placeholder — % stack gain removed for now rather than showing a wrong number; the pieces to bring it back later (handStartStack per player) are already in place',
-      'Raise presets (Min/1/2 pot/Pot) no longer shrink their amount to fit your stack — they show the true number and just dim/disable if you cant afford it. All In still covers "everything I have left"',
-      'Current Bet header is now centered on the same edge the amounts right-align to, instead of also right-aligning to it',
-      'Any player who goes all-in and does not win or split the pot is now busted out automatically. When more than one all-in loser busts from the same hand, the smallest original stack (at the start of that hand) busts first',
+      'Raise changed from raise-by to raise-to across the board, with minimum-legal-raise enforcement (silently clamped, hardcoded to SB for now — a host-configurable strategy is planned)',
+      'A real crash fixed (a raise from a player already holding chips on the street threw a server-crashing ReferenceError) plus several UI/UX passes: single wide proceed buttons de-framed, raise popup phrasing and math corrected (raise-to total instead of the remaining cost), Current Bet alignment and D/SB/BB badge-width fixes, stale cards/bet-amounts/action-tags now clear when a hand ends, Undo fixed to snapshot before chip movement instead of after, auto-bust for any all-in loser (smallest original stack busts first), and % gain restored to the win log',
+      'Foundational work for side pots started here — Phase 1 (per-hand contribution tracking) and Phase 2 (the actual pot-layering payout engine) both shipped in this range, though invisible until the live betting cap was relaxed in a later version',
+      'Changelog consolidation began: versions before 3.50 condensed into summarized ranges and moved out of index.html into its own lazily-loaded file',
     ]
   },
   {
