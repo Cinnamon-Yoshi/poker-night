@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.77';
+const VERSION = '3.78';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
@@ -578,9 +578,19 @@ function publicState(){
     : null;
   const liveNonFoldedNow=players.filter(pl=>!pl.folded&&!pl.sittingOut&&!pl.eliminated);
   const toCallNow=Math.max(0,...liveNonFoldedNow.map(pl=>pl.streetBet||0));
+  // Live pot layers — same computePotLayers() used at showdown, but run
+  // continuously during betting so the client can show a "tap the pot"
+  // breakdown before the hand is over. No cards involved here, just chip
+  // amounts and who's eligible for which layer, so it's safe to expose
+  // while hands are still hidden.
+  const livePotEntries=players.filter(pl=>!pl.sittingOut&&!pl.eliminated).map(pl=>({
+    name:pl.name, folded:pl.folded, contributed:pl.handContributed||0, allInThisHand:!!pl.allInThisHand
+  }));
+  const livePotLayers=stage!=='idle'?computePotLayers(livePotEntries):[];
   return {
     stage, board, version:VERSION, lastUpdated:LAST_UPDATED, cardBackStyle,
     pot, toCall:toCallNow, liveStackCap:liveStackCap(),
+    potLayers:livePotLayers,
     pendingRunout:pendingRunoutStage!==null,
     willRunout:isAllInRunout(),
     canRevealNext:canRevealNext(), canRevealWinner:canRevealWinner(),
