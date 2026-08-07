@@ -76,6 +76,16 @@
   </div>
 </div>
 
+<div id="potBreakdownModal" class="full-modal" style="display:none;">
+  <div class="full-modal-inner">
+    <button id="potBreakdownCloseBtn" style="width:100%;margin-bottom:12px;">Close</button>
+    <div class="full-modal-hdr">
+      <span class="full-modal-title">Pot Breakdown</span>
+    </div>
+    <div id="potBreakdownList" style="margin-top:10px;"></div>
+  </div>
+</div>
+
 <div id="logModal" class="full-modal" style="display:none;">
   <div class="full-modal-inner">
     <button id="logCloseBtn" style="width:100%;margin-bottom:12px;">Close</button>
@@ -380,7 +390,7 @@
     <div class="section">
       <div class="label" style="display:flex;justify-content:space-between;align-items:baseline;">
         <span class="at-table-title">At the Table</span>
-        <span id="tablePotInfo" class="at-table-pot"></span>
+        <span id="tablePotInfo" class="at-table-pot" style="cursor:pointer;"></span>
       </div>
       <span class="current-bet-header">Current Bet</span>
       <table id="playerList"></table>
@@ -2833,10 +2843,45 @@ function renderPlayerList(players, handIdle){
   }
   const potEl=document.getElementById('tablePotInfo');
   if(potEl){
-    // Placeholder pot — no real pot tracking wired up yet
     potEl.textContent=(lastState&&lastState.gameLive)?`Pot: ${fmtChips(lastState.pot||0)}`:'';
+    potEl.onclick=(lastState&&lastState.gameLive&&lastState.stage!=='idle')?openPotBreakdown:null;
   }
 }
+
+// ── Pot breakdown modal — tap the pot during a hand to see the current
+// layers (main pot + any side pots) and who's eligible for each. Uses
+// state.potLayers, computed live on the server the same way showdown
+// payouts are, so this always matches what would actually be awarded if
+// the hand ended right now. No cards involved, so it's safe to show
+// during betting.
+function openPotBreakdown(){
+  if(!lastState) return;
+  const list=document.getElementById('potBreakdownList');
+  list.innerHTML='';
+  const layers=lastState.potLayers||[];
+  if(layers.length===0){
+    list.innerHTML='<div style="opacity:0.6;text-align:center;padding:20px 0;">No pot yet this hand.</div>';
+  } else {
+    layers.forEach((layer,i)=>{
+      const label=layers.length===1?'Pot':(i===0?'Main Pot':(layers.length===2?'Side Pot':'Side Pot '+i));
+      const row=document.createElement('div');
+      row.style.cssText='padding:14px 0;'+(i<layers.length-1?'border-bottom:1px solid rgba(255,255,255,0.1);':'');
+      row.innerHTML=`
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+          <span style="font-weight:800;font-size:1.05em;">${label}</span>
+          <span style="color:#d4af37;font-weight:800;font-size:1.05em;">${fmtChips(layer.amount)}</span>
+        </div>
+        <div style="font-size:0.8em;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Eligible</div>
+        <div style="font-size:0.9em;">${layer.eligibleNames.join(', ')}</div>
+      `;
+      list.appendChild(row);
+    });
+  }
+  document.getElementById('potBreakdownModal').style.display='flex';
+}
+document.getElementById('potBreakdownCloseBtn').onclick=()=>{
+  document.getElementById('potBreakdownModal').style.display='none';
+};
 
 // ── Log ───────────────────────────────────────────────────────────────
 function renderLog(log){

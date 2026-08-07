@@ -1,5 +1,12 @@
 const CHANGELOG = [
   {
+    v:'3.78', date:'August 2026',
+    changes:[
+      'Side pots — Phase 4a (live pot breakdown): the POT amount is now tappable during a hand, opening a full-screen list of every current pot layer (Main Pot + any Side Pots) and who is eligible to win each one. Uses the same live calculation the server already runs for showdown payouts, so it always matches what would actually be awarded if the hand ended right now. No cards involved, so its safe to check mid-hand',
+      'This is the first half of the visible side-pots UI work — plural Results screens for multi-pot hands are next',
+    ]
+  },
+  {
     v:'3.77', date:'August 2026',
     changes:[
       'Game Info approval: the host can now approve the terms on behalf of the whole table with one tap ("Approve for Everyone") instead of every player individually agreeing. The per-player "I Agree" flow still exists too — if the host doesnt use the shortcut, each player still confirms for themselves the way it worked before',
