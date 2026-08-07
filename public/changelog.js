@@ -1,5 +1,28 @@
 const CHANGELOG = [
   {
+    v:'3.71', date:'August 2026',
+    changes:[
+      'Side pots — Phase 3 (this is the one that actually changes behavior at the table): removed the live betting cap. Raise is limited only by the raisers own stack again, and All-In always pushes 100% of a players stack regardless of what anyone else has — a bigger stack can now bet past a shorter stack thats already all-in, and the pot correctly splits into a main pot and side pot at showdown (Phase 2)',
+      'Raise panels Min/1/2 pot/Pot/Custom ceiling is back to just the acting players own stack, not the shortest stack at the table',
+      'liveStackCap itself is unchanged and still used by the pot-splitting math — it just stopped being used to restrict betting',
+      'This is the build to actually test the real scenario: a short stack all-in, a bigger stack betting past it, and confirming the side pot pays out correctly to the right players',
+    ]
+  },
+  {
+    v:'3.70', date:'August 2026',
+    changes:[
+      'Side pots — Phase 2 (the actual pot-splitting engine): showdown payouts are now computed per pot layer instead of one flat pot. A short all-in creates a main pot everyone eligible for, and further betting above that forms its own side pot only the bigger stacks can contest. Folded players contributions still count toward whichever layer they reached, they just cant win it back',
+      'Unit-tested the layering math directly (three scenarios including the exact short-stack-all-in case from the earlier bug report) and ran a full hand through showdown to confirm ordinary single-pot hands pay out identically to before',
+      'No visible change yet in normal play — the live betting cap from the earlier all-in fix is still active, so only one pot layer can actually form until that cap is relaxed in the next phase',
+    ]
+  },
+  {
+    v:'3.69', date:'August 2026',
+    changes:[
+      'Side pots — Phase 1 (foundation, no visible change yet): each player now has a handContributed field tracking total chips put into the pot across the whole hand, not just the current street. This is the data side pots will be built on top of — pot layering, per-pot eligibility, and the Results/UI work all come in later phases',
+    ]
+  },
+  {
     v:'3.68', date:'August 2026',
     changes:[
       'Fixed a real money bug: an all-in was uncapped, so a bigger stack could push more than a shorter stack could ever match (e.g. shoving 5,360 against an opponent with only 640 total) — the pot ended up counting chips that were never actually contested. All-in now gets the same single-pot cap as raises, so nobody can ever commit more than the shortest live stack this hand',
