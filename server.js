@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.71';
+const VERSION = '3.73';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
@@ -1129,7 +1129,12 @@ io.on('connection',socket=>{
       if(action==='A'&&!p.allInThisHand){ p.allInThisHand=true; p.statsAllIn=(p.statsAllIn||0)+1; }
     }
     if(action==='A') p.allIn=true;
-    if(action==='R'||action==='A'){
+    // An all-in only reopens action if it genuinely exceeds the standing
+    // bet (a real raise). An all-in for LESS than what's already out there
+    // is just a call for whatever the player has left — it doesn't require
+    // anyone who's already matched or exceeded it to act again.
+    const reopensAction = action==='R' || (action==='A' && newStreetBet>toCall);
+    if(reopensAction){
       bbCanCheck=false; // someone raised — BB loses free check option
       hasRaiseThisStreet=true;
       // All-in clears C, X and previous R (it's a re-raise); regular raise only clears C and X
