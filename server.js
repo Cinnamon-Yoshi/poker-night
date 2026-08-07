@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.83';
+const VERSION = '3.86';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
@@ -190,6 +190,7 @@ let blindsReminderMsg='';
 function markBlindsReminderDue(msg){
   blindsReminderPending=true;
   blindsReminderMsg=msg;
+  addLog('\uD83D\uDD14 Blinds increase reminder \u2014 '+msg);
 }
 function checkTimedBlindReminder(){
   if(!gameLive) return;
@@ -659,6 +660,12 @@ io.on('connection',socket=>{
 
   socket.on('checkPin',(pin,cb)=>{if(typeof cb==='function') cb(pin===HOST_PIN);});
 
+  // Full action log on demand — the state broadcast only carries the last
+  // 40 entries (kept light since it goes out on every action), but the
+  // server actually retains up to 8000. The Action Log modal fetches the
+  // real thing here instead of only ever seeing the trailing slice.
+  socket.on('getFullActionLog',cb=>{ if(typeof cb==='function') cb(actionLog); });
+
   socket.on('join',name=>{
     name=String(name||'Player').trim().slice(0,20)||'Player';
     const ex=players.find(p=>p.name===name);
@@ -817,6 +824,7 @@ io.on('connection',socket=>{
     lastBlindReminderAt=Date.now();
     handsSinceBlindReminder=0;
     addLog('=== GAME BEGINS ({{TS:'+Date.now()+'}}) ===');
+    addLog('\u2699\uFE0F Game Info: Buy-In '+sessionInfo.buyIn+', Starting Chips '+sessionInfo.startingChips+', Blinds SB '+sessionInfo.blindsSB+'/BB '+sessionInfo.blindsBB+', Increase every '+sessionInfo.blindsIncreaseValue+' '+(sessionInfo.blindsIncreaseMode==='hands'?'hand'+(sessionInfo.blindsIncreaseValue===1?'':'s'):'minute'+(sessionInfo.blindsIncreaseValue===1?'':'s'))+', Payouts ['+(sessionInfo.payouts||[]).join(', ')+']');
     dealHand();
   }
 
@@ -968,6 +976,22 @@ io.on('connection',socket=>{
       if(oldInfo[k]!==sessionInfo[k]) changedFields.push(k);
     });
     if(JSON.stringify(oldInfo.payouts)!==JSON.stringify(sessionInfo.payouts)) changedFields.push('payouts');
+    // Log what actually changed, not just that something did — same spirit
+    // as everything else in the log being a real record of what happened,
+    // not just game events. Only fields the host actually touched.
+    const fieldLabels={buyIn:'Buy-In',startingChips:'Starting Chips',blindsSB:'Blinds SB',blindsIncreaseMode:'Blinds Increase Mode',blindsIncreaseValue:'Blinds Increase Value',playersToCash:'Players Paid'};
+    changedFields.forEach(k=>{
+      if(k==='payouts'){
+        addLog('\u2699\uFE0F Host changed Payouts: ['+(oldInfo.payouts||[]).join(', ')+'] \u2192 ['+(sessionInfo.payouts||[]).join(', ')+']');
+      } else if(fieldLabels[k]){
+        addLog('\u2699\uFE0F Host changed '+fieldLabels[k]+': '+oldInfo[k]+' \u2192 '+sessionInfo[k]);
+      }
+    });
+    if(changedFields.includes('blindsSB')){
+      // BB is always shown/derived alongside SB — log it too so the pair
+      // reads together instead of BB silently changing with no record
+      addLog('\u2699\uFE0F Host changed Blinds BB: '+oldInfo.blindsBB+' \u2192 '+sessionInfo.blindsBB);
+    }
     broadcast();
     if(changedFields.length) io.emit('sessionInfoChanged',{changedFields});
   });
