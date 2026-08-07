@@ -149,7 +149,7 @@ function describeEvalKicker(ev, decidingPos) {
   const S = RANK_SINGULAR, P = RANK_PLURAL;
   const dk = S[tb[decidingPos]] || '?';
   switch (ev.rank) {
-    case 0: return 'High Card \u2014 ' + dk;
+    case 0: return 'High Card \u2014 ' + S[tb[0]]; // always the true high card — a High Card hand has no separate "primary rank" the way a pair does, so the deciding position isn't the right thing to show here
     case 1: return decidingPos >= 1 ? 'Pair of ' + P[tb[0]] + ' \u2014 ' + dk + ' kicker' : 'Pair of ' + P[tb[0]];
     case 2:
       if (decidingPos <= 1) return 'Two Pair \u2014 ' + P[tb[0]] + ' & ' + P[tb[1]];

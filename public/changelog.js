@@ -1,5 +1,17 @@
 const CHANGELOG = [
   {
+    v:'3.73', date:'August 2026',
+    changes:[
+      'Fixed a real bug: an all-in for LESS than the current bet was incorrectly reopening the action for everyone, including players who already had more in the pot than the all-in amount — e.g. a raiser bet 1900, an opponent went all-in for only 800, and the raiser was wrongly asked to "call" 0 chips. An all-in only reopens action now if it actually exceeds the standing bet (a real raise); an all-in for less is treated like a call, same as real poker rules',
+    ]
+  },
+  {
+    v:'3.72', date:'August 2026',
+    changes:[
+      'Fixed a real bug in High Card hand descriptions: "High Card — X" was showing whichever card happened to separate you from the closest peer hand (a genuine kicker position), not the hands actual highest card. A hand of A-K-Q-J-9 could read as "High Card — J" if J was the deciding card against an opponent, when it should always read "High Card — Ace". The winner determination itself was already correct — this was a display-only bug. Verified against the exact hand from the bug report',
+    ]
+  },
+  {
     v:'3.71', date:'August 2026',
     changes:[
       'Side pots — Phase 3 (this is the one that actually changes behavior at the table): removed the live betting cap. Raise is limited only by the raisers own stack again, and All-In always pushes 100% of a players stack regardless of what anyone else has — a bigger stack can now bet past a shorter stack thats already all-in, and the pot correctly splits into a main pot and side pot at showdown (Phase 2)',
