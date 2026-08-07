@@ -1,5 +1,11 @@
 const CHANGELOG = [
   {
+    v:'3.74', date:'August 2026',
+    changes:[
+      'Fixed the Call button showing an amount bigger than the players actual stack (e.g. "Call 590" when they only had 490 left) — it now clamps to whatever the player can actually put in, matching All In in that situation. This was diagnosed a few builds back but never actually shipped',
+    ]
+  },
+  {
     v:'3.73', date:'August 2026',
     changes:[
       'Fixed a real bug: an all-in for LESS than the current bet was incorrectly reopening the action for everyone, including players who already had more in the pot than the all-in amount — e.g. a raiser bet 1900, an opponent went all-in for only 800, and the raiser was wrongly asked to "call" 0 chips. An all-in only reopens action now if it actually exceeds the standing bet (a real raise); an all-in for less is treated like a call, same as real poker rules',

@@ -1804,7 +1804,7 @@ function renderPlayerActionBar(state){
   const myStartingChips = (state.sessionInfo && state.sessionInfo.startingChips) || 2000;
   const myStack = (me && me.stack != null) ? me.stack : myStartingChips;
   const myStreetBet = (me && me.streetBet) || 0;
-  const callAmt = Math.max(0, (state.toCall || 0) - myStreetBet);
+  const callAmt = Math.min(Math.max(0, (state.toCall || 0) - myStreetBet), myStack);
   const allInBtn = `<button class="pab-btn allin" onclick="playerAct('A')">All In<span class="pab-amt">${fmtChips(myStack)}</span></button>`;
   if (canCheck) {
     btns.innerHTML = [
