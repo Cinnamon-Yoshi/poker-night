@@ -1,5 +1,12 @@
 const CHANGELOG = [
   {
+    v:'3.75', date:'August 2026',
+    changes:[
+      'A Call or Raise that empties a players stack now displays as All In everywhere — the At the Table badge, the purple popup, and the action log — instead of showing whatever action they actually pressed. The badge fix re-evaluates on every render, so it stays correct through the flop/turn/river too, not just the street it happened on',
+      'Fixed the blinds-increase reminder (both hands-based and minutes-based) firing after a hand that left only one player remaining — the game is effectively over at that point even before the host presses End Game, so theres no reason to prompt for a blind increase',
+    ]
+  },
+  {
     v:'3.74', date:'August 2026',
     changes:[
       'Fixed the Call button showing an amount bigger than the players actual stack (e.g. "Call 590" when they only had 490 left) — it now clamps to whatever the player can actually put in, matching All In in that situation. This was diagnosed a few builds back but never actually shipped',

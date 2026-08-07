@@ -2769,7 +2769,13 @@ function renderPlayerList(players, handIdle){
     } else if(p.isCurrent){
       actionHtml='<span class="badge next">NEXT</span>';
     } else if(p.action){
-      actionHtml=`<span class="badge ${ac[p.action]||''}">${al[p.action]||p.action}</span>`;
+      // A Call or Raise that emptied this player's stack shows as All In
+      // instead of whatever the original action was — re-evaluated on every
+      // render, not just the street it happened on, so it stays correct
+      // through the flop/turn/river even though the action itself only
+      // gets recorded once.
+      const effectiveAction = (p.allIn && p.action!=='F') ? 'A' : p.action;
+      actionHtml=`<span class="badge ${ac[effectiveAction]||''}">${al[effectiveAction]||effectiveAction}</span>`;
     }
     if(!p.connected) actionHtml+=' <span class="badge discon">OFFLINE</span>';
     const actionTd=document.createElement('td');
