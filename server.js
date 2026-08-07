@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.75';
+const VERSION = '3.76';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
@@ -1097,6 +1097,13 @@ io.on('connection',socket=>{
       chipsMoved=Math.min(newStreetBet-(p.streetBet||0), p.stack||0);
       p.stack-=chipsMoved; p.streetBet=(p.streetBet||0)+chipsMoved; pot+=chipsMoved; p.handContributed=(p.handContributed||0)+chipsMoved;
       if(p.stack<=0){ p.allIn=true; p.allInThisHand=true; }
+      // newStreetBet above may still be holding the INTENDED total the
+      // player asked for, not what they could actually afford — if their
+      // stack ran out, p.streetBet (just set from the real, stack-capped
+      // chipsMoved) is the true resulting value. Everything downstream
+      // (the reopens-action check, the popup amount) needs to use what
+      // actually happened, not what was typed in.
+      newStreetBet=p.streetBet;
     } else if(action==='A'){
       // Push the players entire remaining stack — no cap (Phase 3). A
       // shove that exceeds what anyone else can match is exactly what side
@@ -1149,7 +1156,13 @@ io.on('connection',socket=>{
     // bet (a real raise). An all-in for LESS than what's already out there
     // is just a call for whatever the player has left — it doesn't require
     // anyone who's already matched or exceeded it to act again.
-    const reopensAction = action==='R' || (action==='A' && newStreetBet>toCall);
+    // Reopens action only if the player's REAL resulting bet exceeds the
+    // standing bet — not just "was this a Raise or All In button press".
+    // A Raise (or All In) that ends up capped below the standing bet
+    // because the player didn't have enough chips is functionally just a
+    // call for whatever they had left, and shouldn't require anyone who's
+    // already matched or exceeded it to act again.
+    const reopensAction = (action==='R'||action==='A') && newStreetBet>toCall;
     if(reopensAction){
       bbCanCheck=false; // someone raised — BB loses free check option
       hasRaiseThisStreet=true;
