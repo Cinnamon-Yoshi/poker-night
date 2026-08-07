@@ -1,5 +1,11 @@
 const CHANGELOG = [
   {
+    v:'3.77', date:'August 2026',
+    changes:[
+      'Game Info approval: the host can now approve the terms on behalf of the whole table with one tap ("Approve for Everyone") instead of every player individually agreeing. The per-player "I Agree" flow still exists too — if the host doesnt use the shortcut, each player still confirms for themselves the way it worked before',
+    ]
+  },
+  {
     v:'3.76', date:'August 2026',
     changes:[
       'Fixed a real bug: a Raise for more than the player could actually afford (typed a custom amount above their stack) was still treated as reopening action based on the amount they TYPED, not what they actually ended up putting in once it got capped to their real stack. So a raise that landed at, say, 500 against a standing bet of 700 (an effective all-in for less) incorrectly forced the original raiser to act again, same as the all-in-button bug fixed a few versions back — this was the same issue on the Raise path instead of the All In path',

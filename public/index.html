@@ -2432,6 +2432,7 @@ function renderTermsConfirmScreen(state) {
 
   const me = (state.players || []).find(p => p.name === myName);
   const iConfirmed = me ? !!me.confirmedTerms : false;
+  document.getElementById('agreeTermsBtn').textContent = isHost ? '✓ Approve for Everyone — Let\'s Play' : '✓ I Agree — Let\'s Play';
   document.getElementById('agreeTermsBtn').style.display = iConfirmed ? 'none' : 'block';
   document.getElementById('agreedFlag').style.display = iConfirmed ? 'block' : 'none';
 
@@ -2604,7 +2605,8 @@ document.getElementById('gsCancelBtn').onclick = () => {
   showSeatingConfirmation();
 };
 document.getElementById('agreeTermsBtn').onclick = () => {
-  socket.emit('confirmSessionTerms');
+  if (isHost) socket.emit('hostConfirmAllTerms');
+  else socket.emit('confirmSessionTerms');
 };
 document.getElementById('hostBackToSetupBtn').onclick = () => {
   socket.emit('backToGameSetup');
