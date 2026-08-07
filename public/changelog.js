@@ -1,5 +1,19 @@
 const CHANGELOG = [
   {
+    v:'3.80', date:'August 2026',
+    changes:[
+      'Fixed: a pot layer with only one eligible player (nobody left who could ever have matched that portion of a bet) is no longer shown or awarded as its own "pot" that persons hand happens to win — its now just returned to them directly, logged as an uncalled bet return. Applies everywhere pot layers show up: the live pot-breakdown modal, the Results screen pagination, and the hand log. The chips end up in the same place either way; this just stops a case where only one player was ever eligible from being presented as if it were a contested pot',
+    ]
+  },
+  {
+    v:'3.79', date:'August 2026',
+    changes:[
+      'Side pots — Phase 4b (plural Results screens): when a hand produces more than one pot, the Results screen is now paginated — each pot gets its own screen showing only the players eligible for it, with that pots own winner highlighted (a player can win one pot and not another). Prev/next arrows and a "Pot X of Y" indicator appear only when there is more than one pot; an ordinary single-pot hand looks exactly like it always has, no extra chrome',
+      'Server now sends a compact per-layer summary (amount, winners, eligible players) alongside the existing results data, reusing the same computePotLayers() used for live payouts and the pot-breakdown modal — one source of truth for all three views',
+      'This completes the planned side-pots visibility work: live tap-the-pot breakdown (4a) plus plural Results screens (4b)',
+    ]
+  },
+  {
     v:'3.78', date:'August 2026',
     changes:[
       'Side pots — Phase 4a (live pot breakdown): the POT amount is now tappable during a hand, opening a full-screen list of every current pot layer (Main Pot + any Side Pots) and who is eligible to win each one. Uses the same live calculation the server already runs for showdown payouts, so it always matches what would actually be awarded if the hand ended right now. No cards involved, so its safe to check mid-hand',

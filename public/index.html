@@ -58,6 +58,14 @@
     <div class="aio-community-label">Community Cards</div>
     <div class="aio-community" id="aioCommunity"></div>
   </div>
+  <div id="aioPotNav" style="display:none;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;padding:10px 12px;background:rgba(212,175,55,0.1);border-radius:10px;">
+    <button id="aioPotPrev" style="width:auto;flex:0 0 auto;padding:8px 14px;margin:0;background:rgba(255,255,255,0.1);color:#fff;">&#9664;</button>
+    <div style="flex:1;text-align:center;">
+      <div id="aioPotNavLabel" style="font-weight:800;"></div>
+      <div id="aioPotNavIndicator" style="font-size:0.75em;opacity:0.6;margin-top:2px;"></div>
+    </div>
+    <button id="aioPotNext" style="width:auto;flex:0 0 auto;padding:8px 14px;margin:0;background:rgba(255,255,255,0.1);color:#fff;">&#9654;</button>
+  </div>
   <div class="aio-players" id="aioPlayers"></div>
   <div class="aio-hand-log-wrap">
     <div class="aio-hand-log-label">This Hand</div>
@@ -1201,9 +1209,12 @@ function buildResultsData() {
 
 let currentRunoutResults = null;
 
+let currentResultsPotIndex = 0;
+
 function showRunoutResults(runout) {
   inAllInRunout = false;
   currentRunoutResults = runout;
+  currentResultsPotIndex = 0;
   const ov = document.getElementById('allInOverlay');
   const titleEl = ov.querySelector('.aio-title');
   if (titleEl) titleEl.textContent = 'Results';
@@ -1245,16 +1256,62 @@ function showRunoutResults(runout) {
     comm.appendChild(cardEl);
   }
 
-  // Sort: winners → non-folded by hand strength → folded
+  // Pot navigation — only shown when a hand actually produced more than
+  // one pot layer (a short stack all-in with further betting above them).
+  // The vast majority of hands have exactly one pot, in which case this
+  // stays hidden and the screen looks exactly like it always has.
+  const layers = runout.layers || [];
+  const nav = document.getElementById('aioPotNav');
+  if (layers.length > 1) {
+    nav.style.display = 'flex';
+    document.getElementById('aioPotPrev').onclick = () => {
+      currentResultsPotIndex = (currentResultsPotIndex - 1 + layers.length) % layers.length;
+      renderAioPlayerList(runout);
+    };
+    document.getElementById('aioPotNext').onclick = () => {
+      currentResultsPotIndex = (currentResultsPotIndex + 1) % layers.length;
+      renderAioPlayerList(runout);
+    };
+  } else {
+    nav.style.display = 'none';
+  }
+
+  renderAioPlayerList(runout);
+
+  ov.classList.add('active');
+  window.scrollTo({top:0, behavior:'instant'});
+  renderCurrentHandLog();
+}
+
+// Renders the player list for the CURRENT pot (currentResultsPotIndex) when
+// a hand has multiple layers, or all non-folded players when it has just
+// one — same rendering either way, just a different input set and a
+// layer-local winner flag instead of the whole-hand one.
+function renderAioPlayerList(runout) {
+  const layers = runout.layers || [];
+  const multiPot = layers.length > 1;
+  const layer = multiPot ? layers[currentResultsPotIndex] : null;
+
+  if (multiPot) {
+    document.getElementById('aioPotNavLabel').textContent = layer.label + ': ' + fmtChips(layer.amount);
+    document.getElementById('aioPotNavIndicator').textContent = 'Pot ' + (currentResultsPotIndex + 1) + ' of ' + layers.length;
+  }
+
   const pl = document.getElementById('aioPlayers');
   pl.innerHTML = '';
   // Folded players are already documented in the log — no need to list them
   // here too, except on a fold-win screen where the whole point is showing
   // who folded below the winner
-  const visiblePlayers = runout.foldWin
+  let visiblePlayers = runout.foldWin
     ? (runout.players||[])
     : (runout.players||[]).filter(p => !p.folded);
-  const sorted = [...visiblePlayers].sort(sortPlayers);
+  if (multiPot) {
+    // Only players actually eligible for THIS pot appear on THIS screen
+    visiblePlayers = visiblePlayers.filter(p => layer.eligibleNames.includes(p.name));
+  }
+  // Winner flag is layer-local when paginated — a player can win one pot
+  // and not another, so the whole-hand p.winner flag isn't right here
+  const sorted = [...visiblePlayers].map(p => multiPot ? {...p, winner: layer.winnerNames.includes(p.name)} : p).sort(sortPlayers);
 
   // Assign placements with tie detection
   function handsEqual(p1, p2) {
@@ -1377,11 +1434,8 @@ function showRunoutResults(runout) {
     }
     row.appendChild(top); pl.appendChild(row);
   });
-
-  ov.classList.add('active');
-  window.scrollTo({top:0, behavior:'instant'});
-  renderCurrentHandLog();
 }
+
 
 // ── Auto-rejoin ──────────────────────────────────────────────────────
 let hasJoinedThisPageLoad=false; // true once we've successfully joined at least once this page load
