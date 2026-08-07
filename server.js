@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.68';
+const VERSION = '3.71';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
@@ -235,6 +235,47 @@ function advanceDealerAnchorIfNeeded(name){
 // all-in loser busts from the same hand, they're eliminated smallest
 // original stack (at the start of THIS hand) first, so the shorter stack
 // gets the worse placement — largest goes last.
+// Pure function — takes each showdown-relevant player's total contribution
+// to the pot THIS HAND (not just this street) and returns the pot broken
+// into layers: one "main pot" layer capped at the shortest all-in total,
+// then one "side pot" layer per additional all-in total above that,
+// ascending. Contributions above the highest all-in total (from players
+// who were never all-in) form a final uncapped layer.
+//
+// entries: [{name, folded, contributed, allInThisHand}]
+// returns: [{amount, eligibleNames, cap}], ascending by cap (main pot first)
+//
+// With the live betting cap in place (removed in a later phase), only one
+// layer can ever actually form in practice — once anyone is all-in, nobody
+// else can bet past that total, so there's only ever one all-in threshold.
+// This collapses to a single layer covering the whole pot, identical to
+// pre-side-pot behavior. Multiple layers only start appearing once that
+// live cap is relaxed.
+function computePotLayers(entries){
+  const thresholds=[...new Set(
+    entries.filter(e=>e.allInThisHand&&!e.folded).map(e=>e.contributed)
+  )].sort((a,b)=>a-b);
+  const layers=[];
+  let prev=0;
+  thresholds.forEach(t=>{
+    let amount=0;
+    const eligibleNames=[];
+    entries.forEach(e=>{
+      amount+=Math.max(0,Math.min(e.contributed,t)-prev);
+      if(!e.folded&&e.contributed>=t) eligibleNames.push(e.name);
+    });
+    if(amount>0) layers.push({amount,eligibleNames,cap:t});
+    prev=t;
+  });
+  let topAmount=0; const topEligible=[];
+  entries.forEach(e=>{
+    topAmount+=Math.max(0,e.contributed-prev);
+    if(!e.folded&&e.contributed>prev) topEligible.push(e.name);
+  });
+  if(topAmount>0) layers.push({amount:topAmount,eligibleNames:topEligible,cap:null});
+  return layers;
+}
+
 function autoBustAllInLosers(winnerNames){
   const losers=players
     .filter(p=>!p.eliminated&&p.allInThisHand&&!winnerNames.includes(p.name))
@@ -582,7 +623,7 @@ function saveUndo(){
       statsRaised:p.statsRaised,statsCalled:p.statsCalled,statsAllIn:p.statsAllIn,
       hadMoneyInPot:p.hadMoneyInPot,calledThisHand:p.calledThisHand,raisedThisHand:p.raisedThisHand,allInThisHand:p.allInThisHand,
       streakType:p.streakType,streakCount:p.streakCount,maxWinStreak:p.maxWinStreak,maxLossStreak:p.maxLossStreak,
-      stack:p.stack,streetBet:p.streetBet,
+      stack:p.stack,streetBet:p.streetBet,handContributed:p.handContributed,
     })),
     actingQueue:[...actingQueue], hasRaiseThisStreet, logEntry:null
   };
@@ -605,7 +646,7 @@ io.on('connection',socket=>{
         socket.emit('joinBlocked',{reason:'A game is in progress. New players cannot join until the host ends the current game.'});
         return;
       }
-      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,spectate:false,eliminated:false,departed:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,statsRaised:0,statsCalled:0,statsAllIn:0,streakType:null,streakCount:0,maxWinStreak:0,maxLossStreak:0,hadMoneyInPot:false,confirmedTerms:false,stack:0,streetBet:0});
+      players.push({id:socket.id,name,folded:false,allIn:false,sittingOut:false,spectate:false,eliminated:false,departed:false,connected:true,action:null,statsPlayed:0,statsWon:0,statsFolded:0,statsDecided:0,statsRaised:0,statsCalled:0,statsAllIn:0,streakType:null,streakCount:0,maxWinStreak:0,maxLossStreak:0,hadMoneyInPot:false,confirmedTerms:false,stack:0,streetBet:0,handContributed:0});
       socket.emit('joined',{id:socket.id});
       addLog(name+' joined the game');
     }
@@ -693,7 +734,7 @@ io.on('connection',socket=>{
     sessionHandsPlayed=0;
     sessionStartTime=null;
     lastBlindReminderAt=null;
-    players.forEach(p=>{p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.maxWinStreak=0;p.maxLossStreak=0;p.hadMoneyInPot=false;p.spectate=false;p.sittingOut=false;p.stack=0;p.streetBet=0;});
+    players.forEach(p=>{p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.maxWinStreak=0;p.maxLossStreak=0;p.hadMoneyInPot=false;p.spectate=false;p.sittingOut=false;p.stack=0;p.streetBet=0;p.handContributed=0;});
     pot=0;
     players.forEach(p=>io.to(p.id).emit('yourCards',[]));
     holeCards={};
@@ -708,7 +749,7 @@ io.on('connection',socket=>{
     // game ends
     if(pendingGameSnapshot){ lastGameSnapshot=pendingGameSnapshot; pendingGameSnapshot=null; }
     // Reset all player states first — bringing eliminated players back in
-    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=p.spectate;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.maxWinStreak=0;p.maxLossStreak=0;p.hadMoneyInPot=false;p.confirmedTerms=false;p.stack=0;p.streetBet=0;});
+    players.forEach(p=>{p.folded=false;p.allIn=false;p.action=null;p.eliminated=false;p.sittingOut=p.spectate;p.statsPlayed=0;p.statsWon=0;p.statsFolded=0;p.statsDecided=0;p.statsRaised=0;p.statsCalled=0;p.statsAllIn=0;p.streakType=null;p.streakCount=0;p.maxWinStreak=0;p.maxLossStreak=0;p.hadMoneyInPot=false;p.confirmedTerms=false;p.stack=0;p.streetBet=0;p.handContributed=0;});
     pot=0;
     const eligible=players.filter(p=>!p.spectate); // only actual competitors count toward the minimum
     if(eligible.length<2) return;
@@ -925,6 +966,7 @@ io.on('connection',socket=>{
       p.calledThisHand=false;
       p.allInThisHand=false;
       p.handStartStack=p.stack||0; // for the deferred %-of-stack-won figure — see winPotSummary
+      p.handContributed=0; // total chips put into the pot across the WHOLE hand (not just this street) — foundation for side pots
     });
 
     // Advance dealer (skip on first hand after New Game — dealer already set)
@@ -966,7 +1008,7 @@ io.on('connection',socket=>{
       const p=idx>=0?players[idx]:null;
       if(!p) return;
       const amt=Math.min(blindAmt||0, p.stack||0); // short-stacked blind posts all-in for less
-      p.stack-=amt; p.streetBet+=amt; pot+=amt;
+      p.stack-=amt; p.streetBet+=amt; pot+=amt; p.handContributed=(p.handContributed||0)+amt;
       if(p.stack<=0){ p.allIn=true; }
     });
     // Blinds are forced money in the pot — count as played immediately
@@ -1012,13 +1054,12 @@ io.on('connection',socket=>{
     // restored the same post-action state — a no-op for real chips.)
     saveUndo();
 
-    // Real chip movement. toCall is the current street's high-water mark;
-    // the cap is the smallest live (non-folded) stack — a single-pot stand-in
-    // for side pots, so nobody can commit more than the shortest stack could
-    // ever match. Clamping is silent by design.
+    // Real chip movement. toCall is the current street's high-water mark.
+    // No live betting cap anymore (Phase 3) — Raise/All-In are limited only
+    // by the actor's own stack; side pots (Phase 2) correctly handle a bet
+    // exceeding what a shorter stack can match.
     const liveNonFolded=players.filter(pl=>!pl.folded&&!pl.sittingOut&&!pl.eliminated);
     const toCall=Math.max(0,...liveNonFolded.map(pl=>pl.streetBet||0));
-    const cap=liveStackCap();
     let chipsMoved=0;
     let isReRaise=false;
     let newStreetBet=null; // only meaningful for R/A — declared here so it's still in scope for the popup emit below
@@ -1026,7 +1067,7 @@ io.on('connection',socket=>{
     if(action==='C'){
       chipsMoved=Math.min(toCall-(p.streetBet||0), p.stack||0);
       if(chipsMoved<0) chipsMoved=0;
-      p.stack-=chipsMoved; p.streetBet=(p.streetBet||0)+chipsMoved; pot+=chipsMoved;
+      p.stack-=chipsMoved; p.streetBet=(p.streetBet||0)+chipsMoved; pot+=chipsMoved; p.handContributed=(p.handContributed||0)+chipsMoved;
       if(p.stack<=0){ p.allIn=true; p.allInThisHand=true; }
     } else if(action==='R'){
       isReRaise=raiseCountThisStreet>0;
@@ -1040,25 +1081,21 @@ io.on('connection',socket=>{
       const minRaiseTo=toCall+minRaiseIncrement;
       newStreetBet=Number.isFinite(extra&&extra.amount)?extra.amount:minRaiseTo;
       newStreetBet=Math.max(newStreetBet,minRaiseTo);
-      newStreetBet=Math.min(newStreetBet,cap);
+      // No cap here anymore (Phase 3) — a raise is limited only by the
+      // raiser's own stack. Side pots (Phase 2) handle the case where this
+      // exceeds what a shorter stack can match.
       if(newStreetBet<p.streetBet) newStreetBet=p.streetBet;
       chipsMoved=Math.min(newStreetBet-(p.streetBet||0), p.stack||0);
-      p.stack-=chipsMoved; p.streetBet=(p.streetBet||0)+chipsMoved; pot+=chipsMoved;
+      p.stack-=chipsMoved; p.streetBet=(p.streetBet||0)+chipsMoved; pot+=chipsMoved; p.handContributed=(p.handContributed||0)+chipsMoved;
       if(p.stack<=0){ p.allIn=true; p.allInThisHand=true; }
     } else if(action==='A'){
-      // Cap the shove at the same single-pot cap as everything else — the
-      // smallest (stack + streetBet) among still-live players. Without this,
-      // a big stack could push more than a short stack could ever match,
-      // and the pot would count chips that were never actually contested
-      // (this used to be an uncapped push of the players full stack, which
-      // is how real poker works, but we don't have side pots to handle the
-      // uncalled excess, so the simplification is: nobody, all-in included,
-      // can ever commit more than the shortest live stack this hand).
-      newStreetBet=Math.min((p.streetBet||0)+(p.stack||0), cap);
-      if(newStreetBet<p.streetBet) newStreetBet=p.streetBet;
-      chipsMoved=Math.min(newStreetBet-(p.streetBet||0), p.stack||0);
+      // Push the players entire remaining stack — no cap (Phase 3). A
+      // shove that exceeds what anyone else can match is exactly what side
+      // pots (Phase 2) exist to handle correctly.
+      chipsMoved=p.stack||0;
+      newStreetBet=(p.streetBet||0)+chipsMoved;
       if(newStreetBet>toCall) raiseCountThisStreet++; // an all-in that increases the bet counts as a raise for re-raise labeling
-      p.stack-=chipsMoved; p.streetBet=newStreetBet; pot+=chipsMoved;
+      p.stack=0; p.streetBet=newStreetBet; pot+=chipsMoved; p.handContributed=(p.handContributed||0)+chipsMoved;
       p.allIn=true; p.allInThisHand=true;
     }
 
@@ -1121,7 +1158,7 @@ io.on('connection',socket=>{
         p.statsRaised=s.statsRaised; p.statsCalled=s.statsCalled; p.statsAllIn=s.statsAllIn;
         p.hadMoneyInPot=s.hadMoneyInPot; p.calledThisHand=s.calledThisHand; p.raisedThisHand=s.raisedThisHand; p.allInThisHand=s.allInThisHand;
         p.streakType=s.streakType; p.streakCount=s.streakCount; p.maxWinStreak=s.maxWinStreak; p.maxLossStreak=s.maxLossStreak;
-        p.stack=s.stack; p.streetBet=s.streetBet;
+        p.stack=s.stack; p.streetBet=s.streetBet; p.handContributed=s.handContributed;
       }
     });
     pot=undoState.pot;
@@ -1372,14 +1409,43 @@ io.on('connection',socket=>{
       return{name:p.name,cards,handName:best?best.name:null,handDesc:null,_eval:best,folded:p.folded,sittingOut:p.sittingOut,winner:false};
     });
 
-    // Determine winner among non-folded, non-sittingout
-    const act=results.filter(r=>!r.folded&&!r.sittingOut&&r._eval);
-    if(act.length===1){act[0].winner=true;}
-    else if(act.length>1){
-      let bev=null;
-      act.forEach(r=>{if(!bev||compareEval(r._eval,bev)>0) bev=r._eval;});
-      act.filter(r=>compareEval(r._eval,bev)===0).forEach(r=>r.winner=true);
-    }
+    // Determine winner(s) per pot layer (side pots), not one overall
+    // winner. With the live betting cap still in place (removed in a later
+    // phase), this will almost always collapse to exactly one layer —
+    // identical behavior to before. Multiple layers only start actually
+    // forming once that cap is relaxed.
+    const potEntries=results.map(r=>{
+      const pl=players.find(pp=>pp.name===r.name);
+      return {name:r.name, folded:r.folded, contributed:(pl&&pl.handContributed)||0, allInThisHand:!!(pl&&pl.allInThisHand)};
+    });
+    const layers=computePotLayers(potEntries);
+    const potWon=pot;
+    pot=0;
+    const winnerNamesSet=new Set();
+    const layerResults=layers.map(layer=>{
+      const eligible=results.filter(r=>layer.eligibleNames.includes(r.name)&&r._eval);
+      let layerWinners=[];
+      if(eligible.length===1){ layerWinners=[eligible[0]]; }
+      else if(eligible.length>1){
+        let bev=null;
+        eligible.forEach(r=>{ if(!bev||compareEval(r._eval,bev)>0) bev=r._eval; });
+        layerWinners=eligible.filter(r=>compareEval(r._eval,bev)===0);
+      }
+      layerWinners.forEach(w=>winnerNamesSet.add(w.name));
+      // Split this layer evenly; odd remainder goes to the first winner in
+      // seat order — same convention as a single pot, applied per layer.
+      const share=Math.floor(layer.amount/(layerWinners.length||1));
+      let remainder=layer.amount-share*layerWinners.length;
+      layerWinners.forEach(w=>{
+        const pl=players.find(pp=>pp.name===w.name);
+        if(!pl) return;
+        let amt=share;
+        if(remainder>0){ amt+=1; remainder-=1; }
+        pl.stack=(pl.stack||0)+amt;
+      });
+      return {amount:layer.amount, cap:layer.cap, winners:layerWinners, isSplit:layerWinners.length>1};
+    });
+    results.forEach(r=>{ r.winner=winnerNamesSet.has(r.name); });
 
     // Generate descriptions — each player only gets kicker text when a
     // same-hand-rank peer actually requires one to distinguish them
@@ -1405,23 +1471,7 @@ io.on('connection',socket=>{
       const pl=players.find(pp=>pp.name===r.name);
       if(pl&&pl.hadMoneyInPot){ pl.statsDecided=(pl.statsDecided||0)+1; recordStreak(pl,false); }
     });
-    // Split the pot evenly among winners; any odd remainder (not evenly
-    // divisible) goes to the first winner in seat order — same convention
-    // most home games use for an odd chip.
-    const potWon=pot;
-    if(winners.length>0){
-      const share=Math.floor(pot/winners.length);
-      let remainder=pot-share*winners.length;
-      winners.forEach(w=>{
-        const pl=players.find(pp=>pp.name===w.name);
-        if(!pl) return;
-        let amt=share;
-        if(remainder>0){ amt+=1; remainder-=1; }
-        pl.stack=(pl.stack||0)+amt;
-      });
-      pot=0;
-    }
-    const isSplit=winners.length>1;
+    const isSplit=layerResults.some(l=>l.isSplit);
     const wNames=winners.map(r=>r.name);
     const wNamesStr=wNames.join(' & ');
     const wDesc=winners[0]?winners[0].handDesc||winners[0].handName:'';
@@ -1434,9 +1484,22 @@ io.on('connection',socket=>{
     // If this was an all-in runout and the winner was not leading heading into
     // the river, call it out — they caught up on the last card
     const wasNotLeading=isRunoutSession&&!isSplit&&lastLeaderNames.length>0&&!lastLeaderNames.includes(wNames[0]);
-    const winnerLogMsg=isSplit
-      ?'\uD83E\uDD1D Split pot \u2014 '+wNamesStr+(wDescLog?' — tied with '+wDescLog+'!':'!')+winPotSummary(potWon,winners.length,pctList)
-      :'\uD83C\uDFC6 '+wNamesStr+(wasNotLeading?' rivers the win':' wins')+(wDescLog?' with '+wDescLog+'!':'!')+winPotSummary(potWon,1,pctList);
+    let winnerLogMsg;
+    if(layerResults.length<=1){
+      // Single pot — identical wording to before side pots existed.
+      winnerLogMsg=isSplit
+        ?'\uD83E\uDD1D Split pot \u2014 '+wNamesStr+(wDescLog?' — tied with '+wDescLog+'!':'!')+winPotSummary(potWon,winners.length,pctList)
+        :'\uD83C\uDFC6 '+wNamesStr+(wasNotLeading?' rivers the win':' wins')+(wDescLog?' with '+wDescLog+'!':'!')+winPotSummary(potWon,1,pctList);
+    } else {
+      // Multiple pots — one line per layer, main pot first
+      const lines=layerResults.map((lr,i)=>{
+        const label=i===0?'Main Pot':(layerResults.length===2?'Side Pot':'Side Pot '+i);
+        const names=lr.winners.map(w=>w.name).join(' & ');
+        const desc=compactDesc(lr.winners[0]?(lr.winners[0].handDesc||lr.winners[0].handName):'');
+        return (lr.isSplit?'\uD83E\uDD1D ':'\uD83C\uDFC6 ')+label+': '+names+(lr.isSplit?' split':' wins')+(desc?' with '+desc:'')+' ['+lr.amount+']';
+      });
+      winnerLogMsg=lines.join(' \u2014 ');
+    }
 
     // Bust any all-in losers now, before the results payload is built below,
     // so their card in the Results screen can show "Busted out (Nth place)"
