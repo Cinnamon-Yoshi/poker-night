@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.76';
+const VERSION = '3.77';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
@@ -814,6 +814,15 @@ io.on('connection',socket=>{
     } else {
       broadcast();
     }
+  });
+
+  // Host agrees on behalf of the whole table — same trust model as every
+  // other host-only action in this app (the client only shows this button
+  // to whoever entered the host PIN; the server doesn't separately verify).
+  socket.on('hostConfirmAllTerms',()=>{
+    if(gameSetupPhase!=='confirming') return;
+    players.forEach(p=>{ p.confirmedTerms=true; });
+    beginLiveGameAfterConfirmation();
   });
 
   // Host taps Continue once everyone has confirmed — go straight into dealer
