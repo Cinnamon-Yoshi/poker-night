@@ -21,7 +21,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const HOST_PIN = process.env.HOST_PIN || '8888';
-const VERSION = '3.74';
+const VERSION = '3.75';
 
 // Shared placeholder pot value — matches the client's placeholderPot(). No
 // real pot tracking wired up yet, so this is purely for shell consistency.
@@ -196,6 +196,10 @@ function checkTimedBlindReminder(){
   if(sessionInfo.blindsIncreaseMode!=='minutes'||sessionInfo.blindsIncreaseValue<=0) return;
   if(!lastBlindReminderAt) return;
   if(blindsReminderPending) return; // already due, waiting on host to close results
+  // Same guard as the hands-based reminder — a game with one (or zero)
+  // non-eliminated players left is effectively over, even if the host
+  // hasn't pressed End Game yet.
+  if(players.filter(p=>!p.eliminated&&!p.spectate).length<=1) return;
   const dueMs=sessionInfo.blindsIncreaseValue*60000;
   if(Date.now()-lastBlindReminderAt>=dueMs){
     markBlindsReminderDue(sessionInfo.blindsIncreaseValue+' minute'+(sessionInfo.blindsIncreaseValue===1?'':'s')+' elapsed.');
@@ -209,6 +213,11 @@ setInterval(checkTimedBlindReminder,15000);
 function checkHandsBlindsReminderDue(){
   if(sessionInfo.blindsIncreaseMode!=='hands'||sessionInfo.blindsIncreaseValue<=0) return;
   if(blindsReminderPending) return;
+  // If the hand that just finished left one or zero non-eliminated players,
+  // the game is effectively over (there's a winner) — no point reminding
+  // the host to raise blinds for a game that's already finished.
+  const remaining=players.filter(p=>!p.eliminated&&!p.spectate).length;
+  if(remaining<=1) return;
   handsSinceBlindReminder++;
   if(handsSinceBlindReminder>=sessionInfo.blindsIncreaseValue){
     markBlindsReminderDue(sessionInfo.blindsIncreaseValue+' hand'+(sessionInfo.blindsIncreaseValue===1?'':'s')+' played.');
@@ -1099,23 +1108,30 @@ io.on('connection',socket=>{
       p.allIn=true; p.allInThisHand=true;
     }
 
+    // A Call or Raise that empties the player's stack displays as All In —
+    // same treatment as the At the Table badge, and for the same reason:
+    // what matters to everyone watching is that they have no chips left,
+    // not which button they happened to press to get there.
+    const effectivelyAllIn=(action==='C'||action==='R')&&p.allIn;
+    const displayAction=effectivelyAllIn?'A':action;
+
     const labels={F:'Fold',C:'Call',R:isReRaise?'Re-Raise':'Raise',A:'All In',X:'Check'};
-    let logEntry=p.name+': '+(labels[action]||action);
-    if(action==='R'){
+    let logEntry=p.name+': '+(labels[displayAction]||displayAction);
+    if(displayAction==='R'){
       const raiseLogLabel={Min:'MIN','1/2 pot':'1/2 Pot',Pot:'Pot'};
       const labelPrefix=(extra&&extra.label&&raiseLogLabel[extra.label])?raiseLogLabel[extra.label]+' ':'';
       logEntry+=' '+labelPrefix+chipsMoved;
-    } else if(action==='C'){
+    } else if(displayAction==='C'){
       logEntry+=' '+chipsMoved;
-    } else if(action==='A'){
+    } else if(displayAction==='A'){
       logEntry+=': '+chipsMoved;
     }
     if(undoState) undoState.logEntry=logEntry;
-    if(action==='A'){
+    if(displayAction==='A'){
       io.emit('playerActionPopup',{type:'allin',name:p.name,amount:chipsMoved});
-    } else if(action==='R'){
+    } else if(displayAction==='R'){
       io.emit('playerActionPopup',{type:'raise',name:p.name,amount:newStreetBet,label:extra&&extra.label,isReRaise});
-    } else if(action==='F'){
+    } else if(displayAction==='F'){
       io.emit('playerActionPopup',{type:'fold',name:p.name});
     }
     p.action=action;
