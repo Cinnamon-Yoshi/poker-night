@@ -1,5 +1,18 @@
 const CHANGELOG = [
   {
+    v:'3.83', date:'August 2026',
+    changes:[
+      'POT display: when a hand actually has more than one pot, the "Pot: X" text is replaced entirely with a pulsing gold "Side Pots" button instead of showing a combined total that implies one contestable pot. Ordinary single-pot hands still show the plain "Pot: X" as before',
+      'Pot Breakdown modal now has a second section, "By Player", shown whenever there is more than one pot — each eligible players total potential winnings across everything they could still win, with a small white line-item breakdown underneath showing which specific pots make up that total',
+    ]
+  },
+  {
+    v:'3.82', date:'August 2026',
+    changes:[
+      'Changelog: v3.70–3.79 condensed into one summary entry, same treatment as the earlier ranges. Full detail now starts at v3.80',
+    ]
+  },
+  {
     v:'3.81', date:'August 2026',
     changes:[
       'Changelog: v3.60–3.69 condensed into one summary entry, same treatment as the earlier ranges. Full detail now starts at v3.70',
@@ -78,6 +91,14 @@ const CHANGELOG = [
       'Side pots — Phase 2 (the actual pot-splitting engine): showdown payouts are now computed per pot layer instead of one flat pot. A short all-in creates a main pot everyone eligible for, and further betting above that forms its own side pot only the bigger stacks can contest. Folded players contributions still count toward whichever layer they reached, they just cant win it back',
       'Unit-tested the layering math directly (three scenarios including the exact short-stack-all-in case from the earlier bug report) and ran a full hand through showdown to confirm ordinary single-pot hands pay out identically to before',
       'No visible change yet in normal play — the live betting cap from the earlier all-in fix is still active, so only one pot layer can actually form until that cap is relaxed in the next phase',
+    ]
+  },
+  {
+    v:'3.70–3.79', date:'August 2026',
+    changes:[
+      'The full side-pots feature landed across this range: Phase 2 (the real pot-splitting payout engine) and Phase 3 (relaxing the live betting cap so a bigger stack can actually bet past a shorter stacks all-in) made the money math work correctly, then Phase 4a/4b built the visible pieces — a tappable live pot breakdown mid-hand, and paginated Results screens (Main Pot / Side Pot 1 / Side Pot 2...) once a hand actually produces more than one pot',
+      'Several real bugs found and fixed via live testing along the way: an all-in for less than the standing bet was wrongly reopening action (both via the All In button and via an underfunded custom Raise), the Call button could show more than a players actual stack, a stack-emptying Call/Raise didnt always display as All In, High Card hand descriptions could show the wrong kicker as the "high card", and Undo was found to be silently a no-op for chips (fixed a few versions earlier in this same range)',
+      'Also added: host can approve Game Info terms for the whole table with one tap instead of everyone confirming individually',
     ]
   },
   {

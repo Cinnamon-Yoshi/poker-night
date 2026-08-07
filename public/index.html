@@ -2897,7 +2897,16 @@ function renderPlayerList(players, handIdle){
   }
   const potEl=document.getElementById('tablePotInfo');
   if(potEl){
-    potEl.textContent=(lastState&&lastState.gameLive)?`Pot: ${fmtChips(lastState.pot||0)}`:'';
+    const layers=(lastState&&lastState.potLayers)||[];
+    const isMulti=!!(lastState&&lastState.gameLive&&lastState.stage!=='idle'&&layers.length>1);
+    if(isMulti){
+      potEl.textContent='Side Pots';
+      potEl.className='pot-multi-btn';
+    } else {
+      potEl.textContent=(lastState&&lastState.gameLive)?`Pot: ${fmtChips(lastState.pot||0)}`:'';
+      potEl.className='at-table-pot';
+    }
+    potEl.style.cursor='pointer';
     potEl.onclick=(lastState&&lastState.gameLive&&lastState.stage!=='idle')?openPotBreakdown:null;
   }
 }
@@ -2930,6 +2939,41 @@ function openPotBreakdown(){
       `;
       list.appendChild(row);
     });
+
+    // "By Player" — only worth showing once there's actually more than one
+    // pot to break down. For each player still eligible for anything, their
+    // total potential winnings (sum of every pot they could still win),
+    // plus which specific pots make up that total.
+    if(layers.length>1){
+      const byPlayer={};
+      layers.forEach((layer,i)=>{
+        const label=i===0?'Main Pot':(layers.length===2?'Side Pot':'Side Pot '+i);
+        layer.eligibleNames.forEach(name=>{
+          if(!byPlayer[name]) byPlayer[name]=[];
+          byPlayer[name].push({label, amount:layer.amount});
+        });
+      });
+      const sectionHeader=document.createElement('div');
+      sectionHeader.style.cssText='margin-top:18px;padding-top:14px;border-top:2px solid rgba(212,175,55,0.3);font-weight:800;font-size:1.05em;color:#d4af37;margin-bottom:6px;';
+      sectionHeader.textContent='By Player';
+      list.appendChild(sectionHeader);
+      const names=Object.keys(byPlayer);
+      names.forEach((name,idx)=>{
+        const entries=byPlayer[name];
+        const total=entries.reduce((s,e)=>s+e.amount,0);
+        const row=document.createElement('div');
+        row.style.cssText='padding:10px 0;'+(idx<names.length-1?'border-bottom:1px solid rgba(255,255,255,0.08);':'');
+        const lineItems=entries.map(e=>`${e.label}: ${fmtChips(e.amount)}`).join('<br>');
+        row.innerHTML=`
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+            <span style="font-weight:800;">${name}</span>
+            <span style="color:#d4af37;font-weight:800;">${fmtChips(total)}</span>
+          </div>
+          <div style="font-size:0.78em;color:#fff;line-height:1.5;">${lineItems}</div>
+        `;
+        list.appendChild(row);
+      });
+    }
   }
   document.getElementById('potBreakdownModal').style.display='flex';
 }

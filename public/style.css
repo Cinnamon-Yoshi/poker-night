@@ -85,6 +85,16 @@ button.gold { background:#d4af37; color:#111; }
 .pt-action .badge { min-width:52px; font-weight:400; }
 .at-table-title { font-size:1em; }
 .at-table-pot { font-size:1.15em; color:#d4af37; font-weight:800; }
+.pot-multi-btn {
+  display:inline-block; background:#d4af37; color:#111; font-weight:800;
+  font-size:0.85em; padding:4px 14px; border-radius:20px; cursor:pointer;
+  animation:potMultiPulse 1.4s ease-in-out infinite;
+  text-transform:uppercase; letter-spacing:0.5px;
+}
+@keyframes potMultiPulse {
+  0%,100% { box-shadow:0 0 0 0 rgba(212,175,55,0.55); }
+  50% { box-shadow:0 0 0 7px rgba(212,175,55,0); }
+}
 
 /* ── Badges ── */
 .badge { font-size:0.65em; padding:2px 6px; border-radius:20px; margin-left:3px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; line-height:1; }
